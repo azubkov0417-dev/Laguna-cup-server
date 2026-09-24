@@ -2,10 +2,12 @@ const express = require('express');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// === НАСТРОЙКИ JSONBIN ===
 const JSONBIN_BIN_ID = '6ab45dceac6210605aeee08c';
-const JSONBIN_API_KEY = '$2a$10$DDtWUAe7Bub0eZy.GdxkUeAFK1EjZSW7v7.o8oPwh8y4wDZhdj.RS.';
+const JSONBIN_API_KEY = '$2a$10$1ebBxDj5FRXFDtjsc1GVne44FSKBOaTV4GVhLTNs7fQe62sSPE3Om';
 const JSONBIN_URL = `https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`;
 
+// Разрешаем CORS
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -17,6 +19,9 @@ app.use((req, res, next) => {
 
 app.use(express.json({ limit: '5mb' }));
 
+// ============================================================
+//  ЗАГРУЗКА ДАННЫХ ИЗ JSONBIN
+// ============================================================
 async function loadData() {
   try {
     const res = await fetch(JSONBIN_URL + '/latest', {
@@ -25,11 +30,14 @@ async function loadData() {
     const json = await res.json();
     return json.record || { version: 0, tournaments: [], data: {}, playersDb: [] };
   } catch (e) {
-    console.error('Ошибка загрузки:', e.message);
+    console.error('Ошибка загрузки из JSONbin:', e.message);
     return { version: 0, tournaments: [], data: {}, playersDb: [] };
   }
 }
 
+// ============================================================
+//  СОХРАНЕНИЕ ДАННЫХ В JSONBIN
+// ============================================================
 async function saveData(data) {
   const res = await fetch(JSONBIN_URL, {
     method: 'PUT',
@@ -45,11 +53,17 @@ async function saveData(data) {
   }
 }
 
+// ============================================================
+//  GET /api/data — отдаём текущее состояние
+// ============================================================
 app.get('/api/data', async (req, res) => {
   const data = await loadData();
   res.json(data);
 });
 
+// ============================================================
+//  POST /api/data — принимаем и сохраняем данные
+// ============================================================
 app.post('/api/data', async (req, res) => {
   try {
     const incoming = req.body || {};
@@ -67,6 +81,16 @@ app.post('/api/data', async (req, res) => {
   }
 });
 
-app.get('/', (req, res) => res.send('ЛАГУНА CUP API работает.'));
+// ============================================================
+//  Корневой маршрут — проверка
+// ============================================================
+app.get('/', (req, res) => {
+  res.send('ЛАГУНА CUP API работает. Используйте /api/data.');
+});
 
-app.listen(PORT, () => console.log(`Сервер запущен на порту ${PORT}`));
+// ============================================================
+//  Запуск сервера
+// ============================================================
+app.listen(PORT, () => {
+  console.log(`Сервер запущен на порту ${PORT}`);
+});
