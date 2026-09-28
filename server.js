@@ -24,9 +24,7 @@ function httpsReq(method, url, headers, body) {
 
 async function loadData() {
   try {
-    const r = await httpsReq('GET', 'https://api.jsonbin.io/v3/b/' + JSONBIN_BIN_ID + '/latest', {
-      'X-Master-Key': JSONBIN_API_KEY
-    });
+    const r = await httpsReq('GET', 'https://api.jsonbin.io/v3/b/' + JSONBIN_BIN_ID + '/latest', { 'X-Master-Key': JSONBIN_API_KEY });
     if (r.status !== 200) return { version: 0, tournaments: [], data: {}, playersDb: [] };
     const json = JSON.parse(r.body);
     const rec = json.record || {};
@@ -58,10 +56,9 @@ function enqueue(fn) {
 
 function readIndexHtml() {
   try {
-    const p = path.join(__dirname, 'public', 'index.html');
-    return fs.readFileSync(p, 'utf8');
+    return fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8');
   } catch (e) {
-    return '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body><h1>HTML не найден</h1><p>Проверьте, что файл public/index.html есть в репозитории.</p></body></html>';
+    return '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body><h1>HTML не найден</h1></body></html>';
   }
 }
 
@@ -110,9 +107,8 @@ const server = http.createServer(async function(req, res) {
   }
 
   if (req.method === 'GET') {
-    const html = readIndexHtml();
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-    res.end(html);
+    res.end(readIndexHtml());
     return;
   }
 
