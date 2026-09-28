@@ -1,5 +1,7 @@
 const http = require('http');
 const https = require('https');
+const fs = require('fs');
+const path = require('path');
 
 const PORT = process.env.PORT || 3000;
 const JSONBIN_BIN_ID = '6ab45dceac6210605aeee08c';
@@ -8,12 +10,7 @@ const JSONBIN_API_KEY = '$2a$10$1ebBxDj5FRXFDtjsc1GVne44FSKBOaTV4GVhLTNs7fQe62sS
 function httpsReq(method, url, headers, body) {
   return new Promise(function(resolve, reject) {
     const u = new URL(url);
-    const opts = {
-      method: method,
-      hostname: u.hostname,
-      path: u.pathname + u.search,
-      headers: headers || {}
-    };
+    const opts = { method: method, hostname: u.hostname, path: u.pathname + u.search, headers: headers || {} };
     const req = https.request(opts, function(res) {
       let data = '';
       res.on('data', function(c) { data += c; });
@@ -57,6 +54,15 @@ function enqueue(fn) {
   const r = queue.then(fn);
   queue = r.catch(function(){});
   return r;
+}
+
+function readIndexHtml() {
+  try {
+    const p = path.join(__dirname, 'public', 'index.html');
+    return fs.readFileSync(p, 'utf8');
+  } catch (e) {
+    return '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body><h1>HTML не найден</h1><p>Проверьте, что файл public/index.html есть в репозитории.</p></body></html>';
+  }
 }
 
 const server = http.createServer(async function(req, res) {
@@ -103,9 +109,10 @@ const server = http.createServer(async function(req, res) {
     return;
   }
 
-  if (req.method === 'GET' && (req.url === '/' || req.url.indexOf('/?') === 0)) {
-    res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
-    res.end('ЛАГУНА CUP API работает.');
+  if (req.method === 'GET') {
+    const html = readIndexHtml();
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.end(html);
     return;
   }
 
