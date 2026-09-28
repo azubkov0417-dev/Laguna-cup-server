@@ -1,112 +1,118 @@
-const express = require('express');
-const app = express();
-const PORT = process.env.PORT || 3000;
+const http = require('http');
+const https = require('https');
 
-// === НАСТРОЙКИ JSONBIN ===
+const PORT = process.env.PORT || 3000;
 const JSONBIN_BIN_ID = '6ab45dceac6210605aeee08c';
 const JSONBIN_API_KEY = '$2a$10$1ebBxDj5FRXFDtjsc1GVne44FSKBOaTV4GVhLTNs7fQe62sSPE3Om';
-const JSONBIN_URL = `https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`;
 
-// Разрешаем CORS
-app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type');
-  res.header('Access-Control-Max-Age', '86400');
-  if (req.method === 'OPTIONS') return res.status(204).end();
-  next();
-});
+function httpsReq(method, url, headers, body) {
+  return new Promise(function(resolve, reject) {
+    const u = new URL(url);
+    const opts = {
+      method: method,
+      hostname: u.hostname,
+      path: u.pathname + u.search,
+      headers: headers || {}
+    };
+    const req = https.request(opts, function(res) {
+      let data = '';
+      res.on('data', function(c) { data += c; });
+      res.on('end', function() { resolve({ status: res.statusCode, body: data }); });
+    });
+    req.on('error', reject);
+    if (body) req.write(body);
+    req.end();
+  });
+}
 
-app.use(express.json({ limit: '5mb' }));
-
-// ============================================================
-//  ЗАГРУЗКА ДАННЫХ ИЗ JSONBIN
-// ============================================================
 async function loadData() {
   try {
-    const res = await fetch(JSONBIN_URL + '/latest', {
-      headers: { 'X-Master-Key': JSONBIN_API_KEY }
+    const r = await httpsReq('GET', 'https://api.jsonbin.io/v3/b/' + JSONBIN_BIN_ID + '/latest', {
+      'X-Master-Key': JSONBIN_API_KEY
     });
-    if (!res.ok) {
-      console.error('JSONbin load failed:', res.status);
-      return { version: 0, tournaments: [], data: {}, playersDb: [] };
-    }
-    const json = await res.json();
-    const record = json.record || {};
+    if (r.status !== 200) return { version: 0, tournaments: [], data: {}, playersDb: [] };
+    const json = JSON.parse(r.body);
+    const rec = json.record || {};
     return {
-      version: typeof record.version === 'number' ? record.version : 0,
-      tournaments: record.tournaments || [],
-      data: record.data || {},
-      playersDb: record.playersDb || []
+      version: typeof rec.version === 'number' ? rec.version : 0,
+      tournaments: rec.tournaments || [],
+      data: rec.data || {},
+      playersDb: rec.playersDb || []
     };
   } catch (e) {
-    console.error('Ошибка загрузки из JSONbin:', e.message);
     return { version: 0, tournaments: [], data: {}, playersDb: [] };
   }
 }
 
-// ============================================================
-//  СОХРАНЕНИЕ ДАННЫХ В JSONBIN
-// ============================================================
-async function saveData(data) {
-  const res = await fetch(JSONBIN_URL, {
-    method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Master-Key': JSONBIN_API_KEY
-    },
-    body: JSON.stringify(data)
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error('JSONbin save failed: ' + res.status + ' ' + text);
-  }
-  return true;
+async function saveData(d) {
+  const r = await httpsReq('PUT', 'https://api.jsonbin.io/v3/b/' + JSONBIN_BIN_ID, {
+    'Content-Type': 'application/json',
+    'X-Master-Key': JSONBIN_API_KEY
+  }, JSON.stringify(d));
+  if (r.status >= 300) throw new Error('save failed: ' + r.status);
 }
 
-// ============================================================
-//  ЗАЩИТА ОТ ГОНКИ ЗАПИСЕЙ
-//  Пока идёт запись — следующая ждёт (простая очередь)
-// ============================================================
-let writeQueue = Promise.resolve();
-function queueWrite(fn) {
-  const result = writeQueue.then(() => fn());
-  // Чтобы очередь не сломалась при ошибке — обрабатываем её внутри
-  writeQueue = result.catch(() => {});
-  return result;
+let queue = Promise.resolve();
+function enqueue(fn) {
+  const r = queue.then(fn);
+  queue = r.catch(function(){});
+  return r;
 }
 
-// ============================================================
-//  GET /api/data — отдаём текущее состояние
-// ============================================================
-app.get('/api/data', async (req, res) => {
-  try {
+const server = http.createServer(async function(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
+
+  if (req.method === 'GET' && req.url.indexOf('/api/data') === 0) {
     const data = await loadData();
-    res.json(data);
-  } catch (e) {
-    console.error('GET /api/data error:', e.message);
-    res.status(500).json({ error: e.message });
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(data));
+    return;
   }
+
+  if (req.method === 'POST' && req.url.indexOf('/api/data') === 0) {
+    let body = '';
+    req.on('data', function(c) { body += c; });
+    req.on('end', async function() {
+      try {
+        const inc = JSON.parse(body || '{}');
+        const bv = typeof inc.baseVersion === 'number' ? inc.baseVersion : 0;
+        const out = await enqueue(async function() {
+          const cur = await loadData();
+          if (bv < cur.version) {
+            return { status: 409, body: { error: 'stale', currentVersion: cur.version, data: cur } };
+          }
+          const nd = {
+            version: cur.version + 1,
+            tournaments: inc.tournaments || [],
+            data: inc.data || {},
+            playersDb: inc.playersDb || []
+          };
+          await saveData(nd);
+          return { status: 200, body: { version: nd.version } };
+        });
+        res.writeHead(out.status, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(out.body));
+      } catch (e) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: e.message }));
+      }
+    });
+    return;
+  }
+
+  if (req.method === 'GET' && (req.url === '/' || req.url.indexOf('/?') === 0)) {
+    res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end('ЛАГУНА CUP API работает.');
+    return;
+  }
+
+  res.writeHead(404);
+  res.end('Not found');
 });
 
-// ============================================================
-//  POST /api/data — принимаем и сохраняем данные
-//  ⚠️ Проверяем baseVersion, чтобы не перезаписать свежие данные старыми
-// ============================================================
-app.post('/api/data', async (req, res) => {
-  try {
-    const incoming = req.body || {};
-    const baseVersion = typeof incoming.baseVersion === 'number' ? incoming.baseVersion : 0;
-
-    // Всё, что связано с проверкой версии и записью — в очередь,
-    // чтобы два одновременных запроса не прочитали одну и ту же версию
-    const result = await queueWrite(async () => {
-      const current = await loadData();
-
-      // 🛡️ Если клиент прислал устаревшую baseVersion — отклоняем
-      if (baseVersion < current.version) {
-        console.warn(`[STALE] Клиент прислал baseVersion=${baseVersion}, на сервере version=${current.version}. Отклонено.`);
-        return {
-          status: 409,
-          body: {
-            error: 'st
+server.listen(PORT, function() {
+  console.log('Server started on port ' + PORT);
+});
