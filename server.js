@@ -27,8 +27,18 @@ async function loadData() {
     const res = await fetch(JSONBIN_URL + '/latest', {
       headers: { 'X-Master-Key': JSONBIN_API_KEY }
     });
+    if (!res.ok) {
+      console.error('JSONbin load failed:', res.status);
+      return { version: 0, tournaments: [], data: {}, playersDb: [] };
+    }
     const json = await res.json();
-    return json.record || { version: 0, tournaments: [], data: {}, playersDb: [] };
+    const record = json.record || {};
+    return {
+      version: typeof record.version === 'number' ? record.version : 0,
+      tournaments: record.tournaments || [],
+      data: record.data || {},
+      playersDb: record.playersDb || []
+    };
   } catch (e) {
     console.error('Ошибка загрузки из JSONbin:', e.message);
     return { version: 0, tournaments: [], data: {}, playersDb: [] };
@@ -51,46 +61,52 @@ async function saveData(data) {
     const text = await res.text();
     throw new Error('JSONbin save failed: ' + res.status + ' ' + text);
   }
+  return true;
+}
+
+// ============================================================
+//  ЗАЩИТА ОТ ГОНКИ ЗАПИСЕЙ
+//  Пока идёт запись — следующая ждёт (простая очередь)
+// ============================================================
+let writeQueue = Promise.resolve();
+function queueWrite(fn) {
+  const result = writeQueue.then(() => fn());
+  // Чтобы очередь не сломалась при ошибке — обрабатываем её внутри
+  writeQueue = result.catch(() => {});
+  return result;
 }
 
 // ============================================================
 //  GET /api/data — отдаём текущее состояние
 // ============================================================
 app.get('/api/data', async (req, res) => {
-  const data = await loadData();
-  res.json(data);
-});
-
-// ============================================================
-//  POST /api/data — принимаем и сохраняем данные
-// ============================================================
-app.post('/api/data', async (req, res) => {
   try {
-    const incoming = req.body || {};
-    const newData = {
-      version: ((incoming.baseVersion || 0) + 1),
-      tournaments: incoming.tournaments || [],
-      data: incoming.data || {},
-      playersDb: incoming.playersDb || []
-    };
-    await saveData(newData);
-    res.json({ version: newData.version });
+    const data = await loadData();
+    res.json(data);
   } catch (e) {
-    console.error('Ошибка сохранения:', e.message);
+    console.error('GET /api/data error:', e.message);
     res.status(500).json({ error: e.message });
   }
 });
 
 // ============================================================
-//  Корневой маршрут — проверка
+//  POST /api/data — принимаем и сохраняем данные
+//  ⚠️ Проверяем baseVersion, чтобы не перезаписать свежие данные старыми
 // ============================================================
-app.get('/', (req, res) => {
-  res.send('ЛАГУНА CUP API работает. Используйте /api/data.');
-});
+app.post('/api/data', async (req, res) => {
+  try {
+    const incoming = req.body || {};
+    const baseVersion = typeof incoming.baseVersion === 'number' ? incoming.baseVersion : 0;
 
-// ============================================================
-//  Запуск сервера
-// ============================================================
-app.listen(PORT, () => {
-  console.log(`Сервер запущен на порту ${PORT}`);
-});
+    // Всё, что связано с проверкой версии и записью — в очередь,
+    // чтобы два одновременных запроса не прочитали одну и ту же версию
+    const result = await queueWrite(async () => {
+      const current = await loadData();
+
+      // 🛡️ Если клиент прислал устаревшую baseVersion — отклоняем
+      if (baseVersion < current.version) {
+        console.warn(`[STALE] Клиент прислал baseVersion=${baseVersion}, на сервере version=${current.version}. Отклонено.`);
+        return {
+          status: 409,
+          body: {
+            error: 'st
