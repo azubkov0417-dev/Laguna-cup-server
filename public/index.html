@@ -309,6 +309,7 @@
             let statsSubTab = 'rating';
             let historySubTab = 'games';
             let overallSubTab = 'rating';
+            let tournamentsSubTab = 'rating';
             let adminSubTab = 'pending';
             let pendingPlayerToAdd = null;
             let currentTab = 'home';
@@ -1302,29 +1303,62 @@
                         });
                     }
                 } else if (historySubTab === 'tournaments') {
-                    if (!tournamentsList.length) html += `<p>Нет турниров.</p>`;
-                    else tournamentsList.forEach(t => {
-                        const data = getTournamentData(t.id);
-                        const bestScorer = getBestScorer(data); const bestAssister = getBestAssister(data);
-                        const bestGK = getBestGoalkeeper(data); const mvp = getMVPTournament(data); const bestVoted = getBestVoted(data);
-                        let metaHtml = '';
-                        if (t.createdAt) metaHtml += `🕒 ${fmtDate(t.createdAt)}`;
-                        if (t.createdBy) metaHtml += `${metaHtml ? ' · ' : ''}<span class="author-tag">👤 ${escapeHtml(t.createdBy)}</span>`;
-                        html += `<div class="history-card">
-                            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
-                                <h3>${escapeHtml(t.name)}</h3>
-                                <button class="btn btn-sm btn-danger delete-tournament-btn" data-id="${t.id}">🗑️</button>
-                            </div>
-                            ${metaHtml ? `<div style="font-size:0.82rem; color:#7a8a7a; margin-bottom:10px;">${metaHtml}</div>` : ''}
-                            <div class="tournament-stats-grid">
-                                <div class="tournament-stat-box"><div class="label">⚽ Бомбардир</div><div class="value${bestScorer ? '' : ' muted'}">${bestScorer ? escapeHtml(bestScorer.name) : '—'}</div>${bestScorer ? `<div class="sub">${bestScorer.goals} гол.</div>` : ''}</div>
-                                <div class="tournament-stat-box"><div class="label">🎯 Ассистент</div><div class="value${bestAssister ? '' : ' muted'}">${bestAssister ? escapeHtml(bestAssister.name) : '—'}</div>${bestAssister ? `<div class="sub">${bestAssister.assists} пас.</div>` : ''}</div>
-                                <div class="tournament-stat-box"><div class="label">🧤 Вратарь</div><div class="value${bestGK ? '' : ' muted'}">${bestGK ? escapeHtml(bestGK.name) : '—'}</div>${bestGK ? `<div class="sub">${bestGK.goalsConceded} проп.</div>` : ''}</div>
-                                <div class="tournament-stat-box"><div class="label">🏅 MVP</div><div class="value${mvp ? '' : ' muted'}">${mvp ? escapeHtml(mvp.name) : '—'}</div>${mvp ? `<div class="sub">${mvp.goals + mvp.assists} очков</div>` : ''}</div>
-                                <div class="tournament-stat-box"><div class="label">🗳️ Лучший по голосованию</div><div class="value${bestVoted ? '' : ' muted'}">${bestVoted ? escapeHtml(bestVoted.name) : '—'}</div>${bestVoted ? `<div class="sub">${bestVoted.votes} ${pluralVotes(bestVoted.votes)}</div>` : ''}</div>
-                            </div>
-                        </div>`;
-                    });
+                    html += `<div class="sub-tabs">
+                        <button class="sub-tab ${tournamentsSubTab === 'rating' ? 'active' : ''}" data-tournaments="rating">⭐ Рейтинг LAGUNA</button>
+                        <button class="sub-tab ${tournamentsSubTab === 'mvp' ? 'active' : ''}" data-tournaments="mvp">🏅 MVP</button>
+                        <button class="sub-tab ${tournamentsSubTab === 'bombardiers' ? 'active' : ''}" data-tournaments="bombardiers">⚽ Бомбардиры</button>
+                        <button class="sub-tab ${tournamentsSubTab === 'assists' ? 'active' : ''}" data-tournaments="assists">🎯 Ассистенты</button>
+                        <button class="sub-tab ${tournamentsSubTab === 'goalkeepers' ? 'active' : ''}" data-tournaments="goalkeepers">🧤 Вратари</button>
+                        <button class="sub-tab ${tournamentsSubTab === 'votes' ? 'active' : ''}" data-tournaments="votes">🗳️ Голосование</button>
+                    </div>`;
+
+                    if (!tournamentsList.length) {
+                        html += `<p>Нет турниров.</p>`;
+                    } else {
+                        const isAdminUser = isCurrentUserAdmin();
+                        html += `<div class="table-container"><table><thead><tr><th style="text-align:left;">Турнир</th><th>Победитель</th><th>Показатель</th>${isAdminUser ? '<th></th>' : ''}</tr></thead><tbody>`;
+
+                        tournamentsList.forEach(t => {
+                            const data = getTournamentData(t.id);
+                            let winnerName = '—';
+                            let winnerValue = '—';
+
+                            if (tournamentsSubTab === 'rating') {
+                                const rated = (data.players || [])
+                                    .filter(p => p.matchesPlayed > 0)
+                                    .map(p => ({ name: p.name, rating: calcRatingForPlayerInTournament(p.name, data) }))
+                                    .sort((a, b) => b.rating - a.rating);
+                                if (rated[0]) { winnerName = rated[0].name; winnerValue = rated[0].rating + ' очк.'; }
+                            } else if (tournamentsSubTab === 'mvp') {
+                                const mvp = getMVPTournament(data);
+                                if (mvp) { winnerName = mvp.name; winnerValue = (mvp.goals + mvp.assists) + ' очков'; }
+                            } else if (tournamentsSubTab === 'bombardiers') {
+                                const b = getBestScorer(data);
+                                if (b) { winnerName = b.name; winnerValue = b.goals + ' гол.'; }
+                            } else if (tournamentsSubTab === 'assists') {
+                                const a = getBestAssister(data);
+                                if (a) { winnerName = a.name; winnerValue = a.assists + ' пас.'; }
+                            } else if (tournamentsSubTab === 'goalkeepers') {
+                                const gk = getBestGoalkeeper(data);
+                                if (gk) { winnerName = gk.name; winnerValue = gk.goalsConceded + ' проп.'; }
+                            } else if (tournamentsSubTab === 'votes') {
+                                const v = getBestVoted(data);
+                                if (v) { winnerName = v.name; winnerValue = v.votes + ' ' + pluralVotes(v.votes); }
+                            }
+
+                            let metaInfo = '';
+                            if (t.createdAt) metaInfo += `<div style="font-size:0.78rem; color:#7a8a7a; font-weight:400; margin-top:3px;">🕒 ${fmtDate(t.createdAt)}${t.createdBy ? ' · 👤 ' + escapeHtml(t.createdBy) : ''}</div>`;
+
+                            html += `<tr>
+                                <td style="text-align:left;"><strong>${escapeHtml(t.name)}</strong>${metaInfo}</td>
+                                <td>${winnerName === '—' ? '<span style="color:#9aab9a;">—</span>' : escapeHtml(winnerName)}</td>
+                                <td>${winnerValue === '—' ? '<span style="color:#9aab9a;">—</span>' : '<strong>' + escapeHtml(winnerValue) + '</strong>'}</td>
+                                ${isAdminUser ? `<td><button class="btn btn-sm btn-danger delete-tournament-btn" data-id="${t.id}">🗑️</button></td>` : ''}
+                            </tr>`;
+                        });
+
+                        html += `</tbody></table></div>`;
+                    }
                 } else {
                     if (!currentTournamentId) html += `<p>Выберите турнир.</p>`;
                     else if (!appData.changeLog || !appData.changeLog.length) html += `<div class="empty-state"><span class="emoji">📝</span><p>Изменений не было.</p></div>`;
@@ -1639,8 +1673,9 @@
                 }
                 if (target.dataset.admin) { adminSubTab = target.dataset.admin; render(); return; }
                 if (target.classList.contains('sub-tab')) {
-                    const s = target.dataset.subtab || target.dataset.history || target.dataset.overall;
-                    if (target.dataset.overall) overallSubTab = s;
+                    const s = target.dataset.subtab || target.dataset.history || target.dataset.overall || target.dataset.tournaments;
+                    if (target.dataset.tournaments) tournamentsSubTab = s;
+                    else if (target.dataset.overall) overallSubTab = s;
                     else if (['bombardiers','assists','goalkeepers','mvp','votes','rating'].includes(s)) statsSubTab = s;
                     else if (['games','tournaments','changes'].includes(s)) historySubTab = s;
                     render(); return;
@@ -1962,4 +1997,4 @@
         })();
     </script>
 </body>
-      </html>
+                                                                         </html>
