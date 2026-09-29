@@ -1,121 +1,1880 @@
-const http = require('http');
-const https = require('https');
-const fs = require('fs');
-const path = require('path');
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🏆 ЛАГУНА CUP — турнирный менеджер</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', 'Roboto', system-ui, sans-serif; }
+        :root {
+            --grass-dark: #1a7a2e; --grass-light: #2e9e44; --pitch-line: rgba(255,255,255,0.65);
+            --card-bg: #ffffff; --text-main: #1e2a1e; --text-light: #5a6b5a;
+            --accent-orange: #f5a623; --accent-blue: #4a90d9; --accent-red: #e74c3c;
+            --shadow: 0 8px 24px rgba(0,0,0,0.12); --radius: 20px;
+        }
+        body { background: linear-gradient(145deg, #0f4d1a 0%, #1a7a2e 40%, #2e9e44 100%); min-height: 100vh; padding: 20px; display: flex; justify-content: center; align-items: flex-start; position: relative; overflow-x: hidden; }
+        body::before { content: ''; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 80vw; height: 70vh; border: 3px solid var(--pitch-line); border-radius: 20px; pointer-events: none; opacity: 0.3; z-index: 0; }
+        body::after { content: ''; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 120px; height: 120px; border: 3px solid var(--pitch-line); border-radius: 50%; pointer-events: none; opacity: 0.3; z-index: 0; }
+        .app-wrapper { display: flex; width: 100%; max-width: 1200px; gap: 20px; position: relative; z-index: 10; margin-top: 20px; }
+        .sidebar { flex: 0 0 220px; background: rgba(0,0,0,0.25); border-radius: 24px; padding: 20px; backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.25); box-shadow: 0 20px 60px rgba(0,0,0,0.25); height: fit-content; }
+        .nav-tabs { display: flex; flex-direction: column; gap: 10px; }
+        .nav-tab { padding: 14px 22px; border-radius: 20px; background: rgba(255,255,255,0.18); color: #fff; border: none; font-size: 1rem; font-weight: 700; cursor: pointer; transition: 0.25s; display: flex; align-items: center; gap: 10px; backdrop-filter: blur(6px); border: 1px solid rgba(255,255,255,0.2); letter-spacing: 0.5px; width: 100%; text-align: left; position: relative; }
+        .nav-tab:hover { background: rgba(255,255,255,0.3); transform: translateX(4px); }
+        .nav-tab.active { background: #ffffff; color: #1a7a2e; box-shadow: 0 6px 18px rgba(0,0,0,0.25); border-color: #ffffff; }
+        .nav-tab.has-unread { background: #e74c3c !important; color: #fff !important; border-color: #e74c3c !important; animation: chatPulse 1.6s ease-in-out infinite; }
+        .nav-tab.has-unread:hover { background: #c0392b !important; transform: translateX(4px); }
+        .nav-tab.has-unread .unread-dot { position: absolute; top: 10px; right: 12px; width: 10px; height: 10px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 3px #e74c3c; }
+        .nav-tab.admin-tab { background: linear-gradient(135deg, #f5a623 0%, #e67e22 100%); color: #fff; }
+        .nav-tab.admin-tab:hover { background: linear-gradient(135deg, #ffc860 0%, #f5a623 100%); }
+        .nav-tab.admin-tab .admin-badge { position: absolute; top: 8px; right: 10px; background: #e74c3c; color: #fff; font-size: 0.7rem; padding: 2px 7px; border-radius: 10px; font-weight: 700; }
+        @keyframes chatPulse { 0%, 100% { box-shadow: 0 6px 18px rgba(231,76,60,0.4); } 50% { box-shadow: 0 6px 30px rgba(231,76,60,0.75); } }
+        .main-content { flex: 1; min-width: 0; }
+        .content-panel { background: var(--card-bg); border-radius: var(--radius); padding: 30px; box-shadow: var(--shadow); min-height: 550px; animation: fadeIn 0.35s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+        .panel-title { font-size: 1.8rem; font-weight: 700; color: var(--text-main); margin-bottom: 25px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+        .panel-title .icon { font-size: 2.2rem; }
+        .btn { padding: 12px 26px; border-radius: 40px; border: none; font-weight: 700; font-size: 1rem; cursor: pointer; transition: 0.25s; display: inline-flex; align-items: center; gap: 8px; margin: 5px; }
+        .btn-primary { background: #2e9e44; color: #fff; }
+        .btn-primary:hover { background: #1a7a2e; transform: translateY(-2px); box-shadow: 0 8px 20px rgba(46, 158, 68, 0.35); }
+        .btn-secondary { background: #eef3ee; color: #1e2a1e; }
+        .btn-secondary:hover { background: #dde5dd; transform: translateY(-2px); }
+        .btn-danger { background: #fee2e2; color: #b91c1c; }
+        .btn-danger:hover { background: #fecaca; transform: translateY(-2px); }
+        .btn-warning { background: #f5a623; color: #fff; }
+        .btn-warning:hover { background: #e67e22; transform: translateY(-2px); }
+        .btn-sm { padding: 6px 12px; font-size: 0.85rem; border-radius: 20px; gap: 4px; }
+        .table-container { overflow-x: auto; border-radius: 16px; background: #f8faf8; padding: 5px; margin: 20px 0; }
+        table { width: 100%; border-collapse: collapse; min-width: 500px; }
+        th, td { padding: 14px 16px; text-align: center; border-bottom: 1px solid #e0e8e0; font-size: 0.95rem; }
+        th { background: #2e9e44; color: #fff; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; position: sticky; top: 0; }
+        tr:last-child td { border-bottom: none; }
+        tr:hover td { background: #f0f7f0; }
+        .team-name { font-weight: 700; color: var(--text-main); }
+        .highlight-row { background: #fffde7; }
+        .record-card { background: #f8faf8; border-radius: 18px; padding: 16px 20px; margin-bottom: 12px; border-left: 6px solid #2e9e44; transition: 0.2s; position: relative; box-shadow: 0 3px 10px rgba(0,0,0,0.04); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+        .record-card:hover { transform: translateX(4px); box-shadow: 0 6px 18px rgba(0,0,0,0.08); }
+        .record-card .info { flex: 1; }
+        .record-card .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+        .empty-state { text-align: center; padding: 60px 20px; color: #9aab9a; }
+        .empty-state .emoji { font-size: 5rem; margin-bottom: 15px; display: block; }
+        .empty-state p { font-size: 1.1rem; font-weight: 500; }
+        .scorer-list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+        .match-detail { font-size: 0.85rem; color: #6b7a6b; margin-top: 4px; }
+        .stats-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin: 25px 0; }
+        .stat-card { background: #f8faf8; border-radius: 16px; padding: 20px; border: 1px solid #e0e8e0; }
+        .stat-card h4 { margin-bottom: 15px; font-size: 1.2rem; }
+        .stat-card .best { color: #1a7a2e; font-weight: 700; }
+        .stat-card .mvp { color: #f5a623; font-weight: 700; }
+        .tournament-selector { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .tournament-selector select { padding: 8px 16px; border-radius: 20px; border: none; font-weight: 600; }
+        .history-card { background: #f8faf8; border-radius: 16px; padding: 20px; margin-bottom: 15px; border: 1px solid #e0e8e0; }
+        .history-card h3 { margin-bottom: 10px; }
+        .overall-section { margin-bottom: 30px; }
+        .overall-section h3 { margin-bottom: 15px; }
+        .goal-row { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; flex-wrap: wrap; }
+        .goal-row select, .goal-row button { padding: 8px 12px; border-radius: 8px; border: 1px solid #ccc; }
+        .goal-row select { flex: 1; min-width: 100px; }
+        .player-link { font-weight: 700; cursor: pointer; text-decoration: underline; color: #2e9e44; }
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 1000; backdrop-filter: blur(4px); }
+        .modal { background: #fff; border-radius: 20px; padding: 30px; max-width: 800px; width: 95%; box-shadow: 0 20px 60px rgba(0,0,0,0.3); position: relative; max-height: 85vh; overflow-y: auto; }
+        .modal h2 { margin-bottom: 20px; }
+        .modal .close-btn { position: absolute; top: 15px; right: 20px; font-size: 1.5rem; background: none; border: none; cursor: pointer; }
+        .modal table { width: 100%; border-collapse: collapse; margin-top: 15px; min-width: 0; }
+        .modal th, .modal td { padding: 10px 15px; border-bottom: 1px solid #eee; text-align: left; font-size: 0.95rem; }
+        .modal th { background: #f0f7f0; }
+        .modal td:last-child { text-align: right; font-weight: 700; white-space: nowrap; }
+        .sub-tabs { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+        .sub-tab { padding: 10px 18px; border-radius: 30px; background: #eef3ee; color: #1e2a1e; border: none; font-weight: 700; cursor: pointer; transition: 0.2s; font-size: 0.9rem; }
+        .sub-tab.active { background: #2e9e44; color: #fff; }
+        .add-player-btn { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; background: #2e9e44; color: #fff; border: none; border-radius: 20px; padding: 8px 16px; cursor: pointer; }
+        .player-stats-list { display: flex; flex-direction: column; gap: 2px; margin-top: 6px; }
+        .player-stats-list div { font-size: 0.85rem; color: #5a6b5a; }
+        #syncStatus { margin-top: 14px; font-size: 0.8rem; color: #fff; font-weight: 600; text-align: center; opacity: 0.9; }
+        .user-box { background: rgba(255,255,255,0.15); border-radius: 16px; padding: 12px; margin-bottom: 10px; border: 1px solid rgba(255,255,255,0.2); }
+        .user-box .user-name { color: #fff; font-weight: 700; font-size: 0.9rem; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+        .user-box .user-avatar { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 50%; background: #fff; color: #1a7a2e; font-weight: 700; font-size: 0.85rem; }
+        .user-box .admin-crown { color: #f5a623; font-size: 1rem; }
+        #notifyBtn { margin-bottom: 10px; width: 100%; justify-content: center; font-size: 0.82rem; padding: 8px 10px; }
+        .guest-banner { background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 14px; padding: 12px 16px; margin-bottom: 18px; color: #7a5a1a; font-size: 0.9rem; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .guest-banner .g-emoji { font-size: 1.4rem; }
+        .guest-banner .g-text { flex: 1; min-width: 180px; line-height: 1.4; }
+        .guest-banner .btn { margin: 0; }
+        .vote-locked { text-align: center; font-size: 0.85rem; color: #9aab9a; padding: 12px; background: #f8faf8; border-radius: 12px; font-weight: 600; }
+        .admin-section { background: #fff8e1; border: 1px solid #ffe0a3; border-radius: 16px; padding: 18px; margin-bottom: 20px; }
+        .admin-section h3 { margin-bottom: 12px; color: #b87333; }
+        .pending-item { background: #fff; border-radius: 12px; padding: 12px 16px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; border-left: 4px solid #f5a623; }
+        .pending-item .pending-info { flex: 1; }
+        .pending-item .pending-name { font-weight: 700; color: #1e2a1e; }
+        .pending-item .pending-time { font-size: 0.8rem; color: #7a8a7a; margin-top: 2px; }
+        .admin-list-item { background: #fff; border-radius: 12px; padding: 10px 14px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; gap: 10px; border-left: 4px solid #f5a623; }
+        .admin-list-item .admin-name { font-weight: 700; }
+        .match-form-grid { display: grid; grid-template-columns: minmax(0,1fr) 55px 55px minmax(0,1fr); gap: 6px; margin-top: 15px; align-items: center; }
+        .match-form-grid select { width: 100%; min-width: 0; padding: 10px 8px; border-radius: 12px; border: 2px solid #e0e8e0; font-size: 0.9rem; background: #fff; }
+        .match-form-grid input { width: 100%; padding: 10px 4px; text-align: center; border-radius: 12px; border: 2px solid #e0e8e0; font-size: 0.95rem; font-weight: 700; }
+        @media (max-width: 400px) {
+            .match-form-grid { grid-template-columns: 1fr 1fr; grid-template-areas: "a a" "s1 s2" "b b"; }
+            .match-form-grid #matchTeamA { grid-area: a; }
+            .match-form-grid #matchScoreA { grid-area: s1; }
+            .match-form-grid #matchScoreB { grid-area: s2; }
+            .match-form-grid #matchTeamB { grid-area: b; }
+        }
+        .match-history-card { background:#f8faf8; border-radius:18px; padding:16px 20px; margin-bottom:12px; border-left:6px solid #2e9e44; box-shadow:0 3px 10px rgba(0,0,0,0.04); }
+        .match-history-score { font-size:1.05rem; font-weight:700; color:#1e2a1e; margin-bottom:10px; }
+        .match-time { font-size:0.8rem; color:#7a8a7a; margin-bottom:8px; line-height:1.5; }
+        .match-time .author-tag { color:#4a90d9; font-weight:600; }
+        .match-time .editor-tag { color:#f5a623; font-weight:600; }
+        .match-scorers-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+        .match-scorers-col { background:#fff; border-radius:12px; padding:10px 12px; border:1px solid #e0e8e0; }
+        .match-scorers-col .col-team-name { font-weight:700; color:#1a7a2e; font-size:0.9rem; margin-bottom:6px; padding-bottom:6px; border-bottom:1px dashed #dce8dc; }
+        .match-scorers-col .col-goal { font-size:0.85rem; color:#3a4a3a; padding:3px 0; }
+        .match-scorers-col .col-goal .assist-name { color:#7a8a7a; font-style:italic; }
+        .match-scorers-col .col-empty { font-size:0.82rem; color:#9aab9a; font-style:italic; }
+        .match-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:10px; flex-wrap:wrap; }
+        .voting-section { background: linear-gradient(160deg, #f8faf8 0%, #eef7ef 100%); border-radius: 20px; padding: 24px; margin-top: 30px; border: 1px solid #dbe9db; }
+        .voting-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 18px; }
+        .voting-header h3 { font-size: 1.3rem; color: var(--text-main); }
+        .votes-total { font-size: 0.85rem; color: var(--text-light); font-weight: 600; background: #fff; padding: 7px 16px; border-radius: 30px; border: 1px solid #dbe9db; }
+        .vote-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(215px, 1fr)); gap: 12px; }
+        .vote-card { background: #fff; border: 2px solid #e0e8e0; border-radius: 16px; padding: 14px 16px; display: flex; flex-direction: column; gap: 9px; transition: 0.22s; }
+        .vote-card.my-vote { border-color: #2e9e44; background: #f2fbf3; box-shadow: 0 0 0 3px rgba(46,158,68,.13); }
+        .vote-card.leader { border-color: #f5a623; }
+        .vote-player-name { font-weight: 700; color: var(--text-main); font-size: 1rem; }
+        .vote-team { font-size: 0.78rem; color: var(--text-light); margin-top: 2px; }
+        .vote-bar-track { height: 8px; background: #eef3ee; border-radius: 6px; overflow: hidden; }
+        .vote-bar-fill { height: 100%; background: linear-gradient(90deg, #2e9e44, #63c97e); border-radius: 6px; transition: width 0.45s ease; }
+        .vote-card.leader .vote-bar-fill { background: linear-gradient(90deg, #f5a623, #ffc860); }
+        .vote-meta { display: flex; justify-content: space-between; font-size: 0.78rem; color: var(--text-light); font-weight: 700; }
+        .voted-badge { text-align: center; font-weight: 700; color: #2e9e44; font-size: 0.85rem; background: #eaf7ec; border-radius: 20px; padding: 7px 0; }
+        .vote-footer { margin-top: 16px; font-size: 0.88rem; color: var(--text-light); text-align: center; }
+        .vote-main-btn { width: 100%; justify-content: center; padding: 14px 26px; font-size: 1.05rem; margin: 0 0 16px 0; }
+        .vote-modal-list { display: flex; flex-direction: column; gap: 8px; max-height: 55vh; overflow-y: auto; padding: 4px; }
+        .vote-modal-item { display: flex; align-items: center; padding: 12px 16px; border-radius: 14px; border: 2px solid #e0e8e0; background: #fff; cursor: pointer; transition: 0.15s; text-align: left; width: 100%; font-family: inherit; font-size: 1rem; }
+        .vote-modal-item:hover { border-color: #2e9e44; background: #f8fdf8; transform: translateX(2px); }
+        .tournament-stats-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:10px; margin-top:12px; }
+        .tournament-stat-box { background:#fff; border-radius:12px; padding:12px; border:1px solid #e0e8e0; }
+        .tournament-stat-box .label { font-size:0.75rem; text-transform:uppercase; letter-spacing:0.5px; color:#7a8a7a; font-weight:700; margin-bottom:4px; }
+        .tournament-stat-box .value { font-size:0.95rem; font-weight:700; color:#1a7a2e; }
+        .tournament-stat-box .value.muted { color:#9aab9a; font-weight:500; }
+        .tournament-stat-box .sub { font-size:0.78rem; color:#7a8a7a; margin-top:2px; }
+        .change-log-item { display:flex; gap:12px; align-items:flex-start; background:#fff; border-radius:12px; padding:12px 14px; margin-bottom:8px; border-left:4px solid #4a90d9; box-shadow:0 2px 6px rgba(0,0,0,0.04); }
+        .change-log-item.delete { border-left-color:#e74c3c; }
+        .change-log-item.add { border-left-color:#2e9e44; }
+        .change-log-item.edit { border-left-color:#f5a623; }
+        .change-log-item.rename { border-left-color:#9b59b6; }
+        .change-log-icon { font-size:1.4rem; line-height:1; }
+        .change-log-body { flex:1; }
+        .change-log-title { font-weight:700; color:#1e2a1e; font-size:0.95rem; }
+        .change-log-desc { font-size:0.85rem; color:#5a6b5a; margin-top:2px; }
+        .change-log-time { font-size:0.75rem; color:#9aab9a; margin-top:4px; }
+        .change-log-author { color:#4a90d9; font-weight:600; }
+        .chat-messages { max-height: 500px; overflow-y: auto; background: #f8faf8; border-radius: 16px; padding: 15px; margin-bottom: 15px; }
+        .chat-msg { background: #fff; border-radius: 12px; padding: 10px 14px; margin-bottom: 8px; border-left: 4px solid #2e9e44; box-shadow: 0 2px 6px rgba(0,0,0,0.04); }
+        .chat-msg.own { border-left-color: #4a90d9; background: #eef6fd; }
+        .chat-msg-header { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 4px; font-size: 0.82rem; flex-wrap: wrap; }
+        .chat-msg-player { font-weight: 700; color: #1a7a2e; }
+        .chat-msg.own .chat-msg-player { color: #2b6cb0; }
+        .chat-msg-time { color: #9aab9a; font-size: 0.75rem; }
+        .chat-msg-text { color: #1e2a1e; font-size: 0.95rem; word-wrap: break-word; overflow-wrap: anywhere; white-space: pre-wrap; }
+        .chat-input-area { display: grid; grid-template-columns: 1fr; gap: 8px; background: #f0f7f0; border-radius: 16px; padding: 15px; }
+        @media (min-width: 600px) { .chat-input-area { grid-template-columns: 1fr auto; align-items: center; } }
+        .chat-input-area input { padding: 12px 14px; border-radius: 12px; border: 2px solid #e0e8e0; font-size: 0.95rem; background: #fff; }
+        .chat-input-area input:focus { outline: none; border-color: #2e9e44; box-shadow: 0 0 0 4px rgba(46,158,68,0.12); }
+        .chat-input-area button { padding: 12px 24px; }
+        .chat-as-label { font-size: 0.85rem; color: #5a6b5a; margin-bottom: 6px; }
+        .chat-as-label strong { color: #1a7a2e; }
+        .roster-section-title { display:flex; align-items:center; gap:8px; font-size:1.1rem; font-weight:700; margin:18px 0 10px; color:#1e2a1e; }
+        .roster-section-title .badge { background:#eef3ee; color:#5a6b5a; padding:3px 10px; border-radius:12px; font-size:0.8rem; font-weight:700; }
+        .roster-card-main { border-left-color:#2e9e44 !important; }
+        .roster-card-pending { border-left-color:#f5a623 !important; }
+        .roster-card-reserve { border-left-color:#e74c3c !important; opacity:0.88; }
+        .roster-check { font-size:1.1rem; }
+        .team-name-clickable { cursor: pointer; text-decoration: underline dotted; user-select: none; }
+        .team-name-clickable:hover { opacity: 0.75; }
+        .color-options { display: flex; gap: 8px; flex-wrap: wrap; }
+        .color-option { padding: 10px 18px; border-radius: 20px; border: 2px solid #e0e8e0; background: #fff; cursor: pointer; font-weight: 700; font-size: 0.9rem; transition: 0.2s; user-select: none; }
+        .color-option:hover { transform: translateY(-1px); }
+        .color-option.selected { border-width: 3px; box-shadow: 0 0 0 3px rgba(0,0,0,0.08); }
+        .no-tournament-banner { background: #e3f2fd; border: 1px solid #90caf9; border-radius: 14px; padding: 14px 18px; margin-bottom: 18px; color: #0d47a1; font-size: 0.92rem; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+        .no-tournament-banner .nt-emoji { font-size: 1.6rem; }
+        .no-tournament-banner .nt-text { flex: 1; min-width: 200px; line-height: 1.4; }
+        .record-hero { text-align: center; padding: 22px 16px; border-radius: 16px; background: linear-gradient(135deg, #fffbea 0%, #fff3cd 100%); border: 2px solid #f5a623; margin-bottom: 20px; }
+        .record-hero .rec-medal { font-size: 3rem; line-height: 1; }
+        .record-hero .rec-name { font-size: 1.4rem; font-weight: 800; color: #1e2a1e; margin-top: 8px; }
+        .record-hero .rec-value { font-size: 1.1rem; font-weight: 700; color: #b87333; margin-top: 4px; }
+        .record-hero .rec-sub { font-size: 0.85rem; color: #7a8a7a; margin-top: 6px; }
+        .player-chip { display:inline-block; background:#eef3ee; color:#1e2a1e; padding:2px 9px; border-radius:10px; font-size:0.75rem; margin:2px 2px 0 0; font-weight:600; }
+        @media (max-width: 700px) { .app-wrapper { flex-direction: column; } .sidebar { flex: 1; width: 100%; } .match-scorers-grid { grid-template-columns:1fr; } }
+    </style>
+</head>
+<body>
+    <div class="app-wrapper">
+        <div class="sidebar">
+            <div class="user-box"><div id="userBoxContent"></div></div>
+            <button class="btn btn-secondary" id="notifyBtn"></button>
+            <div class="tournament-selector">
+                <label style="color:#fff; font-weight:600;">Турнир:</label>
+                <select id="tournamentSelect"></select>
+                <button class="btn btn-secondary btn-sm" id="newTournamentBtn">➕ Новый</button>
+            </div>
+            <div class="nav-tabs" id="navTabsContainer">
+                <button class="nav-tab active" data-tab="home"><span>🏠</span> Главная</button>
+                <button class="nav-tab" data-tab="settings"><span>⚙️</span> Настройки турнира</button>
+                <button class="nav-tab" data-tab="combinedHistory"><span>📚</span> История</button>
+                <button class="nav-tab" data-tab="players"><span>👥</span> База игроков</button>
+                <button class="nav-tab" data-tab="stats"><span>📊</span> Статистика</button>
+                <button class="nav-tab" data-tab="overall"><span>🏅</span> Общий рейтинг</button>
+                <button class="nav-tab" data-tab="records"><span>🏆</span> Рекорды</button>
+                <button class="nav-tab" data-tab="chat" id="chatNavTab"><span>💬</span> Чат</button>
+            </div>
+            <div id="syncStatus">🔄 Подключение…</div>
+        </div>
+        <div class="main-content">
+            <div id="guestBannerWrap"></div>
+            <div id="noTournamentBannerWrap"></div>
+            <div class="content-panel" id="contentPanel"></div>
+        </div>
+    </div>
 
-const PORT = process.env.PORT || 3000;
-const JSONBIN_BIN_ID = '6ab45dceac6210605aeee08c';
-const JSONBIN_API_KEY = '$2a$10$1ebBxDj5FRXFDtjsc1GVne44FSKBOaTV4GVhLTNs7fQe62sSPE3Om';
+    <div id="playerModal" class="modal-overlay" style="display:none;"><div class="modal"><button class="close-btn" data-modal="playerModal">&times;</button><div id="modalContent"></div></div></div>
+    <div id="addPlayerBaseModal" class="modal-overlay" style="display:none;"><div class="modal"><button class="close-btn" data-modal="addPlayerBaseModal">&times;</button><div><h2>➕ Добавить игрока в базу</h2><input type="text" id="newBasePlayerName" placeholder="Имя игрока" style="width:100%; padding:12px; border-radius:12px; border:2px solid #e0e8e0; margin-bottom:15px;"><button class="btn btn-primary" id="saveBasePlayerBtn">Добавить</button></div></div></div>
 
-function httpsReq(method, url, headers, body) {
-  return new Promise(function(resolve, reject) {
-    const u = new URL(url);
-    const opts = { method: method, hostname: u.hostname, path: u.pathname + u.search, headers: headers || {} };
-    const req = https.request(opts, function(res) {
-      let data = '';
-      res.on('data', function(c) { data += c; });
-      res.on('end', function() { resolve({ status: res.statusCode, body: data }); });
-    });
-    req.on('error', reject);
-    if (body) req.write(body);
-    req.end();
-  });
-}
+    <div id="selectTeamModal" class="modal-overlay" style="display:none;">
+        <div class="modal" style="max-width:440px;">
+            <button class="close-btn" data-modal="selectTeamModal">&times;</button>
+            <h2>📝 Подать заявку</h2>
+            <p style="color:#5a6b5a; font-size:0.9rem; margin-bottom:12px;">Игрок: <strong id="teamSelectPlayerName" style="color:#1a7a2e;"></strong></p>
+            <p style="color:#5a6b5a; font-size:0.85rem; margin-bottom:15px; line-height:1.4;">Команда будет назначена позже админом (или тем, кому он разрешит).</p>
+            <p style="color:#5a6b5a; font-size:0.85rem; margin-bottom:10px;">Выберите статус участия:</p>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                <button class="btn btn-primary" id="confirmAddPlayerBtn" style="margin:0; justify-content:center; padding:14px 10px;">🟢 Точно</button>
+                <button class="btn btn-warning" id="pendingAddPlayerBtn" style="margin:0; justify-content:center; padding:14px 10px;">🟡 Под вопросом</button>
+            </div>
+        </div>
+    </div>
 
-async function loadData() {
-  try {
-    const r = await httpsReq('GET', 'https://api.jsonbin.io/v3/b/' + JSONBIN_BIN_ID + '/latest', { 'X-Master-Key': JSONBIN_API_KEY });
-    if (r.status !== 200) return { version: 0, tournaments: [], data: {}, playersDb: [] };
-    const json = JSON.parse(r.body);
-    const rec = json.record || {};
-    return {
-      version: typeof rec.version === 'number' ? rec.version : 0,
-      tournaments: rec.tournaments || [],
-      data: rec.data || {},
-      playersDb: rec.playersDb || []
-    };
-  } catch (e) {
-    return { version: 0, tournaments: [], data: {}, playersDb: [] };
-  }
-}
+    <div id="editMatchModal" class="modal-overlay" style="display:none;"><div class="modal"><button class="close-btn" data-modal="editMatchModal">&times;</button><div id="editMatchContent"></div></div></div>
+    <div id="loginModal" class="modal-overlay" style="display:none;">
+        <div class="modal" style="max-width:420px;">
+            <button class="close-btn" data-modal="loginModal">&times;</button>
+            <h2>👤 Вход / Регистрация</h2>
+            <p style="color:#5a6b5a; font-size:0.88rem; margin-bottom:15px; line-height:1.4;">
+                • Если у вас уже есть профиль — введите имя и пароль.<br>
+                • Если вы новый — введите желаемое имя и пароль.<br>
+                <strong>🔒 Новые заявки требуют одобрения админа.</strong>
+            </p>
+            <input type="text" id="loginName" placeholder="Имя игрока" maxlength="30" autocomplete="off" style="width:100%; padding:12px; border-radius:12px; border:2px solid #e0e8e0; margin-bottom:10px; font-size:1rem;">
+            <input type="password" id="loginPassword" placeholder="Пароль (минимум 3 символа)" maxlength="50" autocomplete="off" style="width:100%; padding:12px; border-radius:12px; border:2px solid #e0e8e0; margin-bottom:10px; font-size:1rem;">
+            <div id="loginError" style="color:#e74c3c; font-size:0.85rem; margin-bottom:10px; display:none;"></div>
+            <button class="btn btn-primary" id="loginSubmitBtn" style="width:100%; justify-content:center; margin:0;">Войти</button>
+        </div>
+    </div>
 
-async function saveData(d) {
-  const r = await httpsReq('PUT', 'https://api.jsonbin.io/v3/b/' + JSONBIN_BIN_ID, {
-    'Content-Type': 'application/json',
-    'X-Master-Key': JSONBIN_API_KEY
-  }, JSON.stringify(d));
-  if (r.status >= 300) throw new Error('save failed: ' + r.status);
-}
+    <div id="voteModal" class="modal-overlay" style="display:none;">
+        <div class="modal" style="max-width:480px;">
+            <button class="close-btn" data-modal="voteModal">&times;</button>
+            <div id="voteModalContent"></div>
+        </div>
+    </div>
 
-let queue = Promise.resolve();
-function enqueue(fn) {
-  const r = queue.then(fn);
-  queue = r.catch(function(){});
-  return r;
-}
+    <script>
+        (function() {
+            const API_URL = 'https://laguna-cup-2026-azubkov852.sl.swteh.ru/api/data';
+            const LOCAL_STATE_KEY = 'laguna_full_state';
+            const LOCAL_VERSION_KEY = 'laguna_state_version';
+            const CURRENT_TOURNAMENT_KEY = 'laguna_current_tournament';
+            const VOTE_KEY_PREFIX = 'laguna_vote_';
+            const CHAT_KEY = '__chat__';
+            const PASSWORDS_KEY = '__passwords__';
+            const ADMINS_KEY = '__admins__';
+            const PENDING_KEY = '__pending__';
+            const ASSIGNERS_KEY = '__assigners__';
+            const PRIMARY_ADMIN = 'Лёха';
+            const ROSTER_LIMIT = 15;
+            const CURRENT_USER_KEY = 'laguna_current_user';
+            const CHAT_LAST_READ_KEY = 'laguna_chat_last_read';
+            const NOTIFY_KEY = 'laguna_notify_enabled';
+            const LAST_NOTIFIED_MSG_KEY = 'laguna_last_notified_msg';
+            const POLL_MS = 3000;
+            const BACKUP_PREFIX = 'laguna_backup_';
 
-function readIndexHtml() {
-  try {
-    return fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8');
-  } catch (e) {
-    return '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body><h1>HTML не найден</h1></body></html>';
-  }
-}
+            const TEAM_COLORS = [
+                { id: 'blue', name: 'Синие', color: '#2563eb' },
+                { id: 'green', name: 'Зелёные', color: '#2e9e44' },
+                { id: 'red', name: 'Красные', color: '#dc2626' }
+            ];
 
-const server = http.createServer(async function(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
+            let serverState = { tournaments: [], data: {}, playersDb: [], version: 0 };
+            let appData = { teams: [], matches: [], players: [], votes: {}, changeLog: [] };
+            let currentTournamentId = null;
+            let tournamentsList = [];
+            let playersDatabase = [];
+            let knownVersion = 0;
+            let saveTimer = null;
+            let syncInFlight = false;
+            let hasUnsavedChanges = false;
+            let lastSaveTime = 0;
+            let statsSubTab = 'rating';
+            let historySubTab = 'games';
+            let overallSubTab = 'rating';
+            let adminSubTab = 'pending';
+            let pendingPlayerToAdd = null;
+            let currentTab = 'home';
 
-  if (req.method === 'GET' && req.url.indexOf('/api/data') === 0) {
-    const data = await loadData();
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(data));
-    return;
-  }
+            function generateId() { return Date.now().toString(36) + Math.random().toString(36).substr(2, 5); }
+            function escapeHtml(text) { const div = document.createElement('div'); div.textContent = text; return div.innerHTML; }
+            function getTeamById(id) { return appData.teams.find(t => t.id === id); }
+            function getPlayerById(id) { return appData.players.find(p => p.id === id); }
+            function getPlayersByTeam(teamId) { return appData.players.filter(p => p.teamId === teamId); }
+            function emptyTournament() { return { teams: [], matches: [], players: [], votes: {}, changeLog: [] }; }
+            function pluralVotes(n) { const n10 = n % 10, n100 = n % 100; if (n10 === 1 && n100 !== 11) return 'голос'; if (n10 >= 2 && n10 <= 4 && (n100 < 10 || n100 >= 20)) return 'голоса'; return 'голосов'; }
+            function getTournamentData(id) { if (!id) return emptyTournament(); if (!serverState.data[id]) serverState.data[id] = emptyTournament(); return serverState.data[id]; }
+            function fmtDate(iso) { try { const d = new Date(iso); return d.toLocaleString('ru-RU', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }); } catch(e) { return iso; } }
+            function getMatchTime(m) {
+                if (m.createdAt) return m.createdAt;
+                try { const prefix = m.id.substring(0, 8); const ts = parseInt(prefix, 36); if (ts > 1000000000000 && ts < 9999999999999) return new Date(ts).toISOString(); } catch(e) {}
+                return null;
+            }
+            function getTeamColor(team) { return (team && team.color) ? team.color : '#1e2a1e'; }
+            // НОВОЕ: чипы игроков
+            function renderPlayerChips(players) {
+                if (!players || !players.length) return '';
+                return players.map(p => `<span class="player-chip">👤 ${escapeHtml(p)}</span>`).join('');
+            }
+            function sortRoster(players) {
+                return [...players].sort((a, b) => {
+                    const aT = a.addedAt || ''; const bT = b.addedAt || '';
+                    if (!aT && !bT) return 0; if (!aT) return 1; if (!bT) return -1;
+                    return aT < bT ? -1 : 1;
+                });
+            }
+            function getRosterSplit() {
+                const sorted = sortRoster(appData.players || []);
+                const main = [];
+                const reserve = [];
+                sorted.forEach(p => {
+                    const status = p.status || 'confirmed';
+                    if (status === 'reserve') { reserve.push(p); }
+                    else if (main.length < ROSTER_LIMIT) { main.push(p); }
+                    else { reserve.push(p); }
+                });
+                return { main, reserve, sorted };
+            }
+            function getRosterBadge(playerName) {
+                const { main, reserve } = getRosterSplit();
+                const inMain = main.find(p => p.name === playerName);
+                if (inMain) {
+                    return inMain.status === 'pending'
+                        ? { icon: '🟡', text: 'Под вопросом', color: '#f5a623', label: '🟡 Под вопросом' }
+                        : { icon: '🟢', text: 'В основе', color: '#2e9e44', label: '🟢 В основе' };
+                }
+                const inReserve = reserve.find(p => p.name === playerName);
+                if (inReserve) return { icon: '🔴', text: 'Резерв', color: '#e74c3c', label: '🔴 Резерв' };
+                return null;
+            }
 
-  if (req.method === 'POST' && req.url.indexOf('/api/data') === 0) {
-    let body = '';
-    req.on('data', function(c) { body += c; });
-    req.on('end', async function() {
-      try {
-        const inc = JSON.parse(body || '{}');
-        const bv = typeof inc.baseVersion === 'number' ? inc.baseVersion : 0;
-        const out = await enqueue(async function() {
-          const cur = await loadData();
-          if (bv < cur.version) {
-            return { status: 409, body: { error: 'stale', currentVersion: cur.version, data: cur } };
-          }
-          const nd = {
-            version: cur.version + 1,
-            tournaments: inc.tournaments || [],
-            data: inc.data || {},
-            playersDb: inc.playersDb || []
-          };
-          await saveData(nd);
-          return { status: 200, body: { version: nd.version } };
-        });
-        res.writeHead(out.status, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(out.body));
-      } catch (e) {
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: e.message }));
-      }
-    });
-    return;
-  }
+            function getAdmins() { if (!serverState.data[ADMINS_KEY]) { serverState.data[ADMINS_KEY] = [PRIMARY_ADMIN]; } return serverState.data[ADMINS_KEY]; }
+            function isAdmin(name) { if (!name) return false; return getAdmins().includes(name); }
+            function isCurrentUserAdmin() { return isAdmin(getCurrentUser()); }
+            function getPending() { if (!serverState.data[PENDING_KEY]) serverState.data[PENDING_KEY] = []; return serverState.data[PENDING_KEY]; }
+            function getAssigners() { if (!serverState.data[ASSIGNERS_KEY]) serverState.data[ASSIGNERS_KEY] = []; return serverState.data[ASSIGNERS_KEY]; }
+            function canAssignTeams() {
+                const user = getCurrentUser();
+                if (!user) return false;
+                return isAdmin(user) || getAssigners().includes(user);
+            }
+            function requireTeamAssign() {
+                if (!canAssignTeams()) { alert('🔒 Только админ (или назначенный им игрок) может назначать команды.'); return false; }
+                return true;
+            }
+            function addAssigner(name) {
+                if (!isCurrentUserAdmin()) { alert('🔒 Только админ'); return; }
+                if (!playersDatabase.includes(name)) { alert('Игрока нет в базе'); return; }
+                const list = getAssigners(); if (list.includes(name)) return;
+                list.push(name); scheduleSave(); render();
+            }
+            function removeAssigner(name) {
+                if (!isCurrentUserAdmin()) { alert('🔒 Только админ'); return; }
+                const list = getAssigners(); const i = list.indexOf(name);
+                if (i >= 0) list.splice(i, 1);
+                scheduleSave(); render();
+            }
+            function assignTeamToPlayer(playerId, teamId) {
+                if (!requireTeamAssign()) return;
+                const p = appData.players.find(x => x.id === playerId); if (!p) return;
+                p.teamId = teamId || null;
+                saveCurrentData();
+                addChangeLog('edit', `Игроку ${p.name} назначена команда: ${teamId ? (getTeamById(teamId)?.name || '?') : '—'}`);
+                render();
+            }
+            function setPlayerStatus(playerId, newStatus) {
+                const user = getCurrentUser();
+                if (!user) { alert('🔒 Войдите, чтобы менять статус'); return; }
+                const p = appData.players.find(x => x.id === playerId);
+                if (!p) return;
+                if (!isCurrentUserAdmin() && p.name !== user) {
+                    alert('🔒 Вы можете менять статус только себе.\nТолько админ может менять статус другим игрокам.');
+                    return;
+                }
+                if (!['confirmed', 'pending', 'reserve'].includes(newStatus)) return;
+                if ((p.status || 'confirmed') === newStatus) return;
+                p.status = newStatus;
+                const labels = { confirmed: '🟢 Точно', pending: '🟡 Под вопросом', reserve: '🔴 Резерв' };
+                addChangeLog('edit', `Статус игрока ${p.name}: ${labels[newStatus]}`);
+                saveCurrentData(); render();
+            }
+            function openTeamChanger(playerId) {
+                if (!requireTeamAssign()) return;
+                const p = appData.players.find(x => x.id === playerId); if (!p) return;
+                const teamButtons = appData.teams.map(t => {
+                    const tc = getTeamColor(t);
+                    const isCurrent = p.teamId === t.id;
+                    return `<button class="btn" data-team-id="${t.id}" style="width:100%; justify-content:center; margin:4px 0; font-weight:700; color:${escapeHtml(tc)}; border:2px solid ${escapeHtml(tc)}; background:${isCurrent ? 'rgba(46,158,68,0.10)' : '#fff'};">${isCurrent ? '✅ ' : ''}${escapeHtml(t.name)}</button>`;
+                }).join('');
+                const modal = document.createElement('div');
+                modal.className = 'modal-overlay';
+                modal.style.display = 'flex';
+                modal.innerHTML = `<div class="modal" style="max-width:380px;"><button class="close-btn">&times;</button><h2>🎨 Сменить команду</h2><p style="color:#5a6b5a; font-size:0.9rem; margin-bottom:15px;">Игрок: <strong>${escapeHtml(p.name)}</strong></p>${teamButtons || '<p style="color:#9aab9a;">Нет доступных команд. Сначала добавьте команды.</p>'}<button class="btn btn-danger" data-team-id="" style="width:100%; justify-content:center; margin:4px 0;">Без команды</button></div>`;
+                document.body.appendChild(modal);
+                const closeModal = () => modal.remove();
+                modal.querySelector('.close-btn').onclick = closeModal;
+                modal.addEventListener('click', ev => {
+                    if (ev.target === modal) { closeModal(); return; }
+                    const btn = ev.target.closest('button[data-team-id]');
+                    if (btn) { assignTeamToPlayer(playerId, btn.dataset.teamId || null); closeModal(); }
+                });
+            }
+            function approvePending(name) {
+                if (!isCurrentUserAdmin()) { alert('🔒 Только админ может одобрять заявки'); return; }
+                const pending = getPending();
+                const idx = pending.findIndex(p => p.name === name); if (idx < 0) return;
+                const item = pending[idx];
+                const passwords = getPasswords();
+                passwords[name] = item.passwordHash;
+                if (!playersDatabase.includes(name)) { playersDatabase.push(name); serverState.playersDb = playersDatabase; }
+                pending.splice(idx, 1);
+                if (!serverState.data[CHAT_KEY]) serverState.data[CHAT_KEY] = [];
+                serverState.data[CHAT_KEY].push({ id: 'msg_' + generateId(), playerName: '🔔 Система', text: `✅ Админ ${getCurrentUser()} одобрил регистрацию игрока ${name}`, timestamp: new Date().toISOString(), system: true });
+                scheduleSave(); render(); alert(`✅ Игрок "${name}" одобрен`);
+            }
+            function rejectPending(name) {
+                if (!isCurrentUserAdmin()) { alert('🔒 Только админ может отклонять заявки'); return; }
+                if (!confirm(`Отклонить заявку игрока "${name}"?`)) return;
+                const pending = getPending();
+                const idx = pending.findIndex(p => p.name === name); if (idx < 0) return;
+                pending.splice(idx, 1);
+                scheduleSave(); render(); alert(`❌ Заявка "${name}" отклонена`);
+            }
+            function promoteToAdmin(name) {
+                if (!isCurrentUserAdmin()) { alert('🔒 Только админ может назначать админов'); return; }
+                if (!playersDatabase.includes(name)) { alert('Такого игрока нет в базе'); return; }
+                const admins = getAdmins(); if (admins.includes(name)) return;
+                if (!confirm(`Назначить "${name}" админом?`)) return;
+                admins.push(name); scheduleSave(); render(); alert(`👑 ${name} теперь админ`);
+            }
+            function demoteAdmin(name) {
+                if (!isCurrentUserAdmin()) { alert('🔒 Только админ может снимать админов'); return; }
+                if (name === PRIMARY_ADMIN) { alert('Нельзя снять главного админа Лёху'); return; }
+                if (!confirm(`Снять "${name}" с должности админа?`)) return;
+                const admins = getAdmins(); const idx = admins.indexOf(name);
+                if (idx >= 0) admins.splice(idx, 1);
+                scheduleSave(); render();
+            }
 
-  if (req.method === 'GET') {
-    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-    res.end(readIndexHtml());
-    return;
-  }
+            function getCurrentUser() { return localStorage.getItem(CURRENT_USER_KEY) || ''; }
+            function setCurrentUser(name) { if (name) localStorage.setItem(CURRENT_USER_KEY, name); else localStorage.removeItem(CURRENT_USER_KEY); }
+            function isInTournamentRoster(name) { if (!name) return false; const { main } = getRosterSplit(); return main.some(p => p.name === name); }
+            function canManageMatches() { const user = getCurrentUser(); return user && isInTournamentRoster(user); }
+            function requireMatchRights() {
+                const user = getCurrentUser();
+                if (!user) { alert('🔒 Только зарегистрированные игроки могут это делать.'); return false; }
+                if (!isInTournamentRoster(user)) { alert('🔒 Добавлять, редактировать и удалять матчи могут только игроки из основы текущего турнира (первые 15 в заявке).'); return false; }
+                return true;
+            }
+            function requireLogin(action) {
+                const user = getCurrentUser();
+                if (!user) { alert('🔒 Только зарегистрированные игроки могут ' + action + '.\n\nВы в режиме просмотра. Войдите или зарегистрируйтесь.'); return false; }
+                return true;
+            }
+            function requireAdmin(action) {
+                if (!isCurrentUserAdmin()) { alert('🔒 Только админ может ' + action + '.'); return false; }
+                return true;
+            }
+            function canVote() {
+                const user = getCurrentUser();
+                if (!user) return { ok: false, reason: '🔒 Войдите, чтобы голосовать' };
+                if (!isInTournamentRoster(user)) return { ok: false, reason: '🗳️ Только игроки основы могут голосовать' };
+                return { ok: true };
+            }
 
-  res.writeHead(404);
-  res.end('Not found');
-});
+            function isNotifyEnabled() { return localStorage.getItem(NOTIFY_KEY) === '1' && ('Notification' in window) && Notification.permission === 'granted'; }
+            function renderNotifyButton() {
+                const btn = document.getElementById('notifyBtn'); if (!btn) return;
+                if (!('Notification' in window)) { btn.textContent = '🔕 Не поддерживается'; btn.disabled = true; btn.style.opacity = '0.5'; return; }
+                if (isNotifyEnabled()) { btn.innerHTML = '🔔 Уведомления вкл.'; btn.style.background = '#2e9e44'; btn.style.color = '#fff'; btn.style.border = '1px solid #2e9e44'; }
+                else { btn.innerHTML = '🔕 Включить уведомления'; btn.style.background = ''; btn.style.color = ''; btn.style.border = ''; }
+            }
+            function toggleNotifications() {
+                if (!('Notification' in window)) { alert('Ваш браузер не поддерживает уведомления'); return; }
+                if (isNotifyEnabled()) { if (!confirm('Выключить уведомления?')) return; localStorage.setItem(NOTIFY_KEY, '0'); renderNotifyButton(); return; }
+                Notification.requestPermission().then(perm => {
+                    if (perm === 'granted') {
+                        localStorage.setItem(NOTIFY_KEY, '1'); renderNotifyButton();
+                        try { const n = new Notification('🔔 Уведомления включены', { body: 'Теперь вы будете получать уведомления о новых сообщениях в чате.', silent: true }); setTimeout(() => n.close(), 5000); } catch(e) {}
+                    } else { alert('Разрешение не получено.'); }
+                });
+            }
+            function showSystemNotification(title, body) {
+                if (!isNotifyEnabled()) return;
+                if (document.visibilityState === 'visible' && currentTab === 'chat') return;
+                try { const n = new Notification(title, { body: body, tag: 'laguna-chat-' + Date.now(), silent: true }); n.onclick = () => { window.focus(); n.close(); }; setTimeout(() => { try { n.close(); } catch(e){} }, 8000); } catch(e) {}
+            }
+            function playNotifySound() {
+                try {
+                    const Ctx = window.AudioContext || window.webkitAudioContext; if (!Ctx) return;
+                    const ctx = new Ctx(); const now = ctx.currentTime;
+                    [0, 0.15].forEach(offset => {
+                        const osc = ctx.createOscillator(); const gain = ctx.createGain();
+                        osc.connect(gain); gain.connect(ctx.destination);
+                        osc.frequency.value = 880; osc.type = 'sine';
+                        gain.gain.setValueAtTime(0.0001, now + offset);
+                        gain.gain.exponentialRampToValueAtTime(0.15, now + offset + 0.01);
+                        gain.gain.exponentialRampToValueAtTime(0.0001, now + offset + 0.12);
+                        osc.start(now + offset); osc.stop(now + offset + 0.15);
+                    });
+                    setTimeout(() => { try { ctx.close(); } catch(e){} }, 1000);
+                } catch(e) {}
+            }
+            function checkForNewMessages() {
+                const chat = getChatMessages(); if (!chat.length) return;
+                const sorted = [...chat].sort((a,b) => (a.timestamp > b.timestamp ? 1 : -1));
+                const lastNotifiedId = localStorage.getItem(LAST_NOTIFIED_MSG_KEY) || '';
+                const user = getCurrentUser();
+                if (!lastNotifiedId) { localStorage.setItem(LAST_NOTIFIED_MSG_KEY, sorted[sorted.length - 1].id); return; }
+                const idx = sorted.findIndex(m => m.id === lastNotifiedId);
+                const newMsgs = idx >= 0 ? sorted.slice(idx + 1) : [];
+                const toNotify = newMsgs.filter(m => { if (m.system) return false; if (user && m.playerName === user) return false; return true; });
+                if (toNotify.length) {
+                    const toShow = toNotify.slice(-3);
+                    toShow.forEach((msg, i) => {
+                        let body = msg.text;
+                        if (i === toShow.length - 1 && toNotify.length > 3) body += `\n(и ещё ${toNotify.length - 3} сообщ.)`;
+                        showSystemNotification('💬 ' + msg.playerName, body);
+                    });
+                    playNotifySound();
+                }
+                localStorage.setItem(LAST_NOTIFIED_MSG_KEY, sorted[sorted.length - 1].id);
+            }
 
-server.listen(PORT, function() {
-  console.log('Server started on port ' + PORT);
-});
+            function hashPassword(password) {
+                let h = 5381; const s = 'laguna_' + password;
+                for (let i = 0; i < s.length; i++) { h = ((h << 5) + h) + s.charCodeAt(i); h = h & h; }
+                return 'v1_' + Math.abs(h).toString(36);
+            }
+            function getPasswords() { if (!serverState.data[PASSWORDS_KEY]) serverState.data[PASSWORDS_KEY] = {}; return serverState.data[PASSWORDS_KEY]; }
+            function loginOrRegister(name, password) {
+                name = (name || '').trim();
+                if (!name) return { error: 'Введите имя' };
+                if (name.length < 2) return { error: 'Имя должно быть не короче 2 символов' };
+                if (!password) return { error: 'Введите пароль' };
+                if (password.length < 3) return { error: 'Пароль должен быть минимум 3 символа' };
+                const passwords = getPasswords(); const hash = hashPassword(password);
+                const admins = getAdmins();
+                if (admins.includes(name)) {
+                    if (passwords[name] && passwords[name] !== hash) return { error: 'Неверный пароль' };
+                    if (!passwords[name]) passwords[name] = hash;
+                    if (!playersDatabase.includes(name)) { playersDatabase.push(name); serverState.playersDb = playersDatabase; }
+                    setCurrentUser(name); scheduleSave();
+                    return { ok: true, message: '👑 Вы вошли как админ' };
+                }
+                if (playersDatabase.includes(name)) {
+                    if (passwords[name]) {
+                        if (passwords[name] !== hash) return { error: 'Неверный пароль' };
+                        setCurrentUser(name); return { ok: true };
+                    } else {
+                        passwords[name] = hash;
+                        setCurrentUser(name); scheduleSave();
+                        return { ok: true, message: '✅ Профиль активирован' };
+                    }
+                }
+                const pending = getPending();
+                const existing = pending.find(p => p.name === name);
+                if (existing) { existing.passwordHash = hash; existing.requestedAt = new Date().toISOString(); scheduleSave(); return { error: '⏳ Ваша заявка уже отправлена админу. Ожидайте одобрения.' }; }
+                pending.push({ name, passwordHash: hash, requestedAt: new Date().toISOString() });
+                if (!serverState.data[CHAT_KEY]) serverState.data[CHAT_KEY] = [];
+                serverState.data[CHAT_KEY].push({ id: 'msg_' + generateId(), playerName: '🔔 Система', text: `🆕 Новая заявка на регистрацию: ${name}. Ожидает одобрения админа.`, timestamp: new Date().toISOString(), system: true });
+                scheduleSave();
+                return { error: '⏳ Заявка отправлена админу. Он должен её одобрить.' };
+            }
+            function logout() {
+                if (!confirm('Выйти из профиля?')) return;
+                setCurrentUser(''); renderUserBox(); renderGuestBanner(); renderNavTabs(); render();
+                alert('👋 Вы вышли из профиля');
+            }
+            function renderUserBox() {
+                const el = document.getElementById('userBoxContent'); if (!el) return;
+                const user = getCurrentUser();
+                if (user) {
+                    const initial = user.charAt(0).toUpperCase(); const admin = isAdmin(user); const assigner = !admin && getAssigners().includes(user);
+                    el.innerHTML = `<div class="user-name">${admin ? '<span class="admin-crown">👑</span>' : (assigner ? '🎯' : '')}<span class="user-avatar">${escapeHtml(initial)}</span> ${escapeHtml(user)}${admin ? ' <span style="font-size:0.7rem; color:#f5a623;">(админ)</span>' : (assigner ? ' <span style="font-size:0.7rem; color:#f5a623;">(назначает команды)</span>' : '')}</div><button class="btn btn-secondary btn-sm" id="logoutBtn" style="width:100%; justify-content:center; margin:0; padding:6px;">Выйти</button>`;
+                } else {
+                    el.innerHTML = `<button class="btn btn-primary btn-sm" id="openLoginBtn" style="width:100%; justify-content:center; margin:0; padding:8px;">👤 Войти / Регистрация</button>`;
+                }
+            }
+            function renderGuestBanner() {
+                const wrap = document.getElementById('guestBannerWrap'); if (!wrap) return;
+                const user = getCurrentUser();
+                if (user) { wrap.innerHTML = ''; return; }
+                wrap.innerHTML = `<div class="guest-banner"><span class="g-emoji">👀</span><span class="g-text"><strong>Режим просмотра.</strong> Войдите или зарегистрируйтесь (заявку одобрит админ), чтобы вносить изменения.</span><button class="btn btn-primary btn-sm" id="openLoginBtnBanner" style="margin:0;">👤 Войти / Регистрация</button></div>`;
+            }
+            function renderNoTournamentBanner() {
+                const wrap = document.getElementById('noTournamentBannerWrap'); if (!wrap) return;
+                if (currentTournamentId) { wrap.innerHTML = ''; return; }
+                const admin = isCurrentUserAdmin();
+                wrap.innerHTML = `<div class="no-tournament-banner"><span class="nt-emoji">⏳</span><span class="nt-text"><strong>Активного турнира нет.</strong> ${admin ? 'Создайте турнир кнопкой «➕ Новый» в боковой панели, чтобы игроки могли подавать заявки.' : 'Подача заявок откроется после того, как админ создаст новый турнир.'}</span></div>`;
+            }
+            function renderNavTabs() {
+                const container = document.getElementById('navTabsContainer');
+                const admin = isCurrentUserAdmin();
+                const oldAdmin = container.querySelector('.admin-tab');
+                if (oldAdmin) oldAdmin.remove();
+                if (admin) {
+                    const btn = document.createElement('button');
+                    btn.className = 'nav-tab admin-tab'; btn.dataset.tab = 'admin';
+                    const pendingCount = getPending().length;
+                    btn.innerHTML = `<span>👑</span> Админ${pendingCount > 0 ? `<span class="admin-badge">${pendingCount}</span>` : ''}`;
+                    if (currentTab === 'admin') btn.classList.add('active');
+                    container.appendChild(btn);
+                }
+                if (currentTab === 'admin' && !admin) { currentTab = 'home'; }
+            }
+            function openLoginModal() {
+                document.getElementById('loginName').value = '';
+                document.getElementById('loginPassword').value = '';
+                document.getElementById('loginError').style.display = 'none';
+                document.getElementById('loginModal').style.display = 'flex';
+                setTimeout(() => document.getElementById('loginName').focus(), 100);
+            }
+
+            function getChatMessages() { if (!serverState.data[CHAT_KEY]) serverState.data[CHAT_KEY] = []; return serverState.data[CHAT_KEY]; }
+            function getLastReadTime() { return localStorage.getItem(CHAT_LAST_READ_KEY) || '1970-01-01T00:00:00.000Z'; }
+            function markChatAsRead() { localStorage.setItem(CHAT_LAST_READ_KEY, new Date().toISOString()); }
+            function hasUnreadMessages() {
+                const chat = getChatMessages(); if (!chat.length) return false;
+                const lastRead = getLastReadTime(); let latestTs = '';
+                chat.forEach(msg => { if (msg.timestamp && msg.timestamp > latestTs) latestTs = msg.timestamp; });
+                return latestTs > lastRead;
+            }
+            function updateChatBadge() {
+                const chatTab = document.getElementById('chatNavTab'); if (!chatTab) return;
+                if (currentTab === 'chat') { chatTab.classList.remove('has-unread'); const d = chatTab.querySelector('.unread-dot'); if (d) d.remove(); return; }
+                if (hasUnreadMessages()) { chatTab.classList.add('has-unread'); if (!chatTab.querySelector('.unread-dot')) { const d = document.createElement('span'); d.className = 'unread-dot'; chatTab.appendChild(d); } }
+                else { chatTab.classList.remove('has-unread'); const d = chatTab.querySelector('.unread-dot'); if (d) d.remove(); }
+            }
+            function renderChatTab() {
+                markChatAsRead();
+                const chat = getChatMessages(); const user = getCurrentUser();
+                let html = `<div class="panel-title"><span class="icon">💬</span> Общий чат</div>`;
+                html += `<div class="chat-messages" id="chatMessages">`;
+                if (!chat.length) html += `<div class="empty-state" style="padding:30px 10px;"><span class="emoji" style="font-size:3rem;">💬</span><p>Сообщений пока нет. Будьте первым!</p></div>`;
+                else {
+                    const sorted = [...chat].sort((a,b) => (a.timestamp > b.timestamp ? 1 : -1));
+                    sorted.forEach(msg => {
+                        const isOwn = user && msg.playerName === user; const isSystem = msg.system === true;
+                        html += `<div class="chat-msg${isOwn ? ' own' : ''}" style="${isSystem ? 'background:#fff8e1; border-left-color:#f5a623;' : ''}"><div class="chat-msg-header"><span class="chat-msg-player">${isSystem ? '' : '👤 '}${escapeHtml(msg.playerName)}</span><span class="chat-msg-time">${fmtDate(msg.timestamp)}</span></div><div class="chat-msg-text">${escapeHtml(msg.text)}</div></div>`;
+                    });
+                }
+                html += `</div>`;
+                if (user) {
+                    html += `<div class="chat-as-label">Отправка от имени: <strong>${escapeHtml(user)}</strong></div>`;
+                    html += `<div class="chat-input-area"><input type="text" id="chatMessageInput" placeholder="Написать сообщение..." maxlength="500" autocomplete="off"><button class="btn btn-primary" id="chatSendBtn">📤 Отправить</button></div>`;
+                } else {
+                    html += `<div style="background:#fff3cd; border-radius:12px; padding:14px; color:#7a5a1a; text-align:center; font-size:0.9rem;">Чтобы писать в чат, войдите в свой профиль.<br><br><button class="btn btn-primary btn-sm" id="openLoginBtnChat" style="margin:0;">👤 Войти / Регистрация</button></div>`;
+                }
+                return html;
+            }
+            function sendChatMessage() {
+                const user = getCurrentUser();
+                if (!user) { alert('🔒 Сначала войдите в профиль'); return; }
+                const input = document.getElementById('chatMessageInput'); if (!input) return;
+                const text = input.value.trim(); if (!text) { alert('Введите сообщение'); return; }
+                if (!playersDatabase.includes(user)) { playersDatabase.push(user); serverState.playersDb = playersDatabase; }
+                if (!serverState.data[CHAT_KEY]) serverState.data[CHAT_KEY] = [];
+                const msg = { id: 'msg_' + generateId(), playerName: user, text, timestamp: new Date().toISOString() };
+                serverState.data[CHAT_KEY].push(msg);
+                if (serverState.data[CHAT_KEY].length > 200) serverState.data[CHAT_KEY] = serverState.data[CHAT_KEY].slice(-200);
+                localStorage.setItem(LAST_NOTIFIED_MSG_KEY, msg.id);
+                markChatAsRead(); input.value = ''; scheduleSave(); render();
+                setTimeout(() => { const el = document.getElementById('chatMessages'); if (el) el.scrollTop = el.scrollHeight; const inp = document.getElementById('chatMessageInput'); if (inp) inp.focus(); }, 60);
+            }
+
+            function saveToLocal() {
+                try {
+                    localStorage.setItem(LOCAL_STATE_KEY, JSON.stringify({ tournaments: serverState.tournaments || [], data: serverState.data || {}, playersDb: serverState.playersDb || [] }));
+                    localStorage.setItem(LOCAL_VERSION_KEY, String(knownVersion));
+                    if (currentTournamentId) localStorage.setItem(CURRENT_TOURNAMENT_KEY, currentTournamentId);
+                } catch (e) {}
+            }
+            function loadFromLocal() {
+                try {
+                    const saved = localStorage.getItem(LOCAL_STATE_KEY);
+                    if (saved) {
+                        const parsed = JSON.parse(saved);
+                        serverState.tournaments = parsed.tournaments || [];
+                        serverState.data = parsed.data || {};
+                        serverState.playersDb = parsed.playersDb || [];
+                        knownVersion = parseInt(localStorage.getItem(LOCAL_VERSION_KEY) || '0', 10);
+                        tournamentsList = serverState.tournaments;
+                        playersDatabase = serverState.playersDb;
+                        currentTournamentId = localStorage.getItem(CURRENT_TOURNAMENT_KEY) || null;
+                        if (tournamentsList.length && (!currentTournamentId || !tournamentsList.some(t => t.id === currentTournamentId))) currentTournamentId = tournamentsList[0].id;
+                        loadTournamentData(currentTournamentId);
+                    }
+                } catch (e) {}
+            }
+            function setStatus(state) {
+                const el = document.getElementById('syncStatus'); if (!el) return;
+                const map = { online:'🟢 Онлайн — всё сохранено', saving:'🟡 Сохранение…', saved:'🟢 Сохранено', offline:'🔴 Нет связи с сервером', conflict:'🟠 Конфликт — синхронизирую…' };
+                el.textContent = map[state] || '';
+            }
+            function scheduleSave() { hasUnsavedChanges = true; clearTimeout(saveTimer); setStatus('saving'); saveToLocal(); saveTimer = setTimeout(pushToServer, 500); }
+
+            async function pushToServer() {
+                try {
+                    const payload = { tournaments: serverState.tournaments || [], data: serverState.data || {}, playersDb: serverState.playersDb || [], baseVersion: knownVersion };
+                    try { localStorage.setItem(BACKUP_PREFIX + Date.now(), JSON.stringify(payload)); } catch(e) {}
+                    const res = await fetch(API_URL, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+                    if (res.status === 409) {
+                        console.warn('[SYNC] Сервер отклонил push.');
+                        setStatus('conflict'); hasUnsavedChanges = false;
+                        const freshRes = await fetch(API_URL + '?_=' + Date.now(), { cache: 'no-store' });
+                        if (freshRes.ok) {
+                            const fresh = await freshRes.json();
+                            serverState = { tournaments: fresh.tournaments || [], data: fresh.data || {}, playersDb: fresh.playersDb || [], version: fresh.version || 0 };
+                            knownVersion = serverState.version;
+                            tournamentsList = serverState.tournaments;
+                            playersDatabase = serverState.playersDb;
+                            if (tournamentsList.length) { if (!currentTournamentId || !tournamentsList.some(t => t.id === currentTournamentId)) currentTournamentId = tournamentsList[0].id; }
+                            else currentTournamentId = null;
+                            loadTournamentData(currentTournamentId); updateTournamentSelect(); saveToLocal(); render();
+                        }
+                        alert('⚠️ Ваши данные устарели и были перезагружены с сервера.\nВозможно, кто-то ещё вносил изменения. Пожалуйста, повторите действие заново.');
+                        setStatus('online'); return;
+                    }
+                    if (!res.ok) throw new Error('HTTP ' + res.status);
+                    const json = await res.json();
+                    if (json.error) throw new Error(json.error);
+                    knownVersion = json.version; serverState.version = json.version;
+                    localStorage.setItem(LOCAL_VERSION_KEY, String(knownVersion));
+                    hasUnsavedChanges = false; lastSaveTime = Date.now(); setStatus('saved');
+                } catch (e) { setStatus('offline'); }
+            }
+
+            async function pullFromServer(initial) {
+                if (syncInFlight) return;
+                if (!initial && Date.now() - lastSaveTime < 1500) return;
+                syncInFlight = true;
+                try {
+                    const res = await fetch(API_URL + '?_=' + Date.now(), { cache: 'no-store' });
+                    if (!res.ok) throw new Error('HTTP ' + res.status);
+                    const remote = await res.json();
+                    const remoteVersion = remote.version || 0;
+                    if (!initial && remoteVersion === knownVersion) { setStatus('online'); syncInFlight = false; return; }
+                    if (!initial && hasUnsavedChanges && remoteVersion > knownVersion) { setStatus('conflict'); clearTimeout(saveTimer); hasUnsavedChanges = false; syncInFlight = false; await pushToServer(); return; }
+                    if (!initial && remoteVersion < knownVersion) { setStatus('conflict'); clearTimeout(saveTimer); syncInFlight = false; await pushToServer(); return; }
+                    serverState = { tournaments: remote.tournaments || [], data: remote.data || {}, playersDb: remote.playersDb || [], version: remoteVersion };
+                    knownVersion = remoteVersion;
+                    tournamentsList = serverState.tournaments;
+                    playersDatabase = serverState.playersDb;
+                    if (tournamentsList.length) { if (!currentTournamentId || !tournamentsList.some(t => t.id === currentTournamentId)) currentTournamentId = tournamentsList[0].id; }
+                    else currentTournamentId = null;
+                    loadTournamentData(currentTournamentId); updateTournamentSelect(); saveToLocal(); render(); checkForNewMessages(); setStatus('online');
+                } catch (e) { setStatus('offline'); }
+                syncInFlight = false;
+            }
+
+            function loadTournamentData(id) {
+                if (!id || !serverState.data[id]) { appData = emptyTournament(); return; }
+                appData = serverState.data[id];
+                appData.teams = appData.teams || []; appData.matches = appData.matches || [];
+                appData.players = appData.players || []; appData.votes = appData.votes || {}; appData.changeLog = appData.changeLog || [];
+                const baseTime = Date.now() - 1000 * 60 * 60 * 24 * 365;
+                appData.players.forEach((p, i) => {
+                    if (!p.addedAt) p.addedAt = new Date(baseTime + i * 1000).toISOString();
+                    if (!p.status) p.status = 'confirmed';
+                    p.goals = p.goals || 0; p.assists = p.assists || 0; p.matchesPlayed = p.matchesPlayed || 0;
+                    p.goalsConceded = p.goalsConceded || 0; p.cleanSheets = p.cleanSheets || 0;
+                    p.goalkeeperMatches = p.goalkeeperMatches || 0;
+                });
+                appData.matches.forEach(m => { if (!m.goalsA) m.goalsA = []; if (!m.goalsB) m.goalsB = []; });
+            }
+            function saveCurrentData() { if (currentTournamentId) serverState.data[currentTournamentId] = appData; scheduleSave(); }
+            function savePlayersDatabase() { serverState.playersDb = playersDatabase; scheduleSave(); }
+            function switchTournament(id) { currentTournamentId = id; localStorage.setItem(CURRENT_TOURNAMENT_KEY, id); loadTournamentData(id); updateTournamentSelect(); render(); }
+
+            function createNewTournament() {
+                if (!requireAdmin('создавать турниры')) return;
+                const name = prompt('Название нового турнира:', 'ЛАГУНА CUP ' + (tournamentsList.length + 1));
+                if (!name || !name.trim()) return;
+                const trimmedName = name.trim();
+                const id = generateId();
+                const user = getCurrentUser();
+                tournamentsList.push({ id, name: trimmedName, createdAt: new Date().toISOString(), createdBy: user });
+                serverState.data[id] = emptyTournament();
+                currentTournamentId = id; appData = serverState.data[id];
+                if (!serverState.data[CHAT_KEY]) serverState.data[CHAT_KEY] = [];
+                serverState.data[CHAT_KEY].push({
+                    id: 'msg_' + generateId(), playerName: '🔔 Система',
+                    text: `🏆 Админ ${user} создал новый турнир: «${trimmedName}».\nЗаявки открыты! Игроки могут подавать заявки в разделе «База игроков» → «➕ В заявку».`,
+                    timestamp: new Date().toISOString(), system: true
+                });
+                if (serverState.data[CHAT_KEY].length > 200) serverState.data[CHAT_KEY] = serverState.data[CHAT_KEY].slice(-200);
+                scheduleSave(); updateTournamentSelect(); render();
+                alert(`✅ Турнир «${trimmedName}» создан.`);
+            }
+
+            function deleteTournament(tournamentId) {
+                if (!requireAdmin('удалять турниры')) return;
+                const tournament = tournamentsList.find(t => t.id === tournamentId); if (!tournament) return;
+                if (!confirm(`Удалить турнир "${tournament.name}"?`)) return;
+                delete serverState.data[tournamentId];
+                tournamentsList = tournamentsList.filter(t => t.id !== tournamentId);
+                serverState.tournaments = tournamentsList;
+                localStorage.removeItem(VOTE_KEY_PREFIX + tournamentId);
+                if (currentTournamentId === tournamentId) {
+                    if (tournamentsList.length) { currentTournamentId = tournamentsList[0].id; loadTournamentData(currentTournamentId); }
+                    else { currentTournamentId = null; appData = emptyTournament(); }
+                }
+                if (!serverState.data[CHAT_KEY]) serverState.data[CHAT_KEY] = [];
+                serverState.data[CHAT_KEY].push({
+                    id: 'msg_' + generateId(), playerName: '🔔 Система',
+                    text: `❌ Админ ${getCurrentUser()} удалил турнир: «${tournament.name}».`,
+                    timestamp: new Date().toISOString(), system: true
+                });
+                if (serverState.data[CHAT_KEY].length > 200) serverState.data[CHAT_KEY] = serverState.data[CHAT_KEY].slice(-200);
+                scheduleSave(); updateTournamentSelect(); render();
+            }
+            function updateTournamentSelect() {
+                const select = document.getElementById('tournamentSelect'); if (!select) return;
+                if (!tournamentsList.length) { select.innerHTML = '<option value="">— нет турниров —</option>'; return; }
+                select.innerHTML = tournamentsList.map(t => `<option value="${t.id}" ${t.id === currentTournamentId ? 'selected' : ''}>${escapeHtml(t.name)}</option>`).join('');
+            }
+            function calculateTable() {
+                const table = {};
+                appData.teams.forEach(team => { table[team.id] = { id: team.id, name: team.name, color: team.color || '#1e2a1e', games: 0, wins: 0, draws: 0, losses: 0, goalsFor: 0, goalsAgainst: 0, points: 0 }; });
+                appData.matches.forEach(m => {
+                    const teamA = table[m.teamA]; const teamB = table[m.teamB]; if (!teamA || !teamB) return;
+                    const scoreA = parseInt(m.scoreA, 10) || 0; const scoreB = parseInt(m.scoreB, 10) || 0;
+                    teamA.games++; teamB.games++; teamA.goalsFor += scoreA; teamA.goalsAgainst += scoreB; teamB.goalsFor += scoreB; teamB.goalsAgainst += scoreA;
+                    if (scoreA > scoreB) { teamA.wins++; teamB.losses++; teamA.points += 3; }
+                    else if (scoreA < scoreB) { teamB.wins++; teamA.losses++; teamB.points += 3; }
+                    else { teamA.draws++; teamB.draws++; teamA.points++; teamB.points++; }
+                });
+                const arr = Object.values(table);
+                arr.sort((a,b) => b.points - a.points || (b.goalsFor-b.goalsAgainst) - (a.goalsFor-a.goalsAgainst) || b.goalsFor - a.goalsFor || a.name.localeCompare(b.name));
+                return arr;
+            }
+            function aggregateAllPlayers() {
+                const allPlayers = [];
+                tournamentsList.forEach(t => { const data = getTournamentData(t.id); (data.players || []).forEach(p => allPlayers.push({...p})); });
+                const aggregated = {};
+                allPlayers.forEach(p => {
+                    if (!aggregated[p.name]) aggregated[p.name] = { name: p.name, goals: 0, assists: 0, matchesPlayed: 0, goalsConceded: 0, goalkeeperMatches: 0 };
+                    aggregated[p.name].goals += p.goals || 0; aggregated[p.name].assists += p.assists || 0;
+                    aggregated[p.name].matchesPlayed += p.matchesPlayed || 0; aggregated[p.name].goalsConceded += p.goalsConceded || 0;
+                    aggregated[p.name].goalkeeperMatches += p.goalkeeperMatches || 0;
+                });
+                return Object.values(aggregated);
+            }
+            function getBestScorer(data) { const ps = (data.players || []).filter(p => p.matchesPlayed > 0); if (!ps.length) return null; return ps.reduce((m, p) => p.goals > m.goals ? p : m, ps[0]); }
+            function getBestAssister(data) { const ps = (data.players || []).filter(p => p.matchesPlayed > 0); if (!ps.length) return null; return ps.reduce((m, p) => p.assists > m.assists ? p : m, ps[0]); }
+            function getBestGoalkeeper(data) { const gks = (data.players || []).filter(p => p.goalkeeperMatches > 0); if (!gks.length) return null; return gks.reduce((m, p) => p.goalsConceded < m.goalsConceded ? p : m, gks[0]); }
+            function getMVPTournament(data) { const ps = (data.players || []).filter(p => p.matchesPlayed > 0); if (!ps.length) return null; return ps.reduce((m, p) => (p.goals + p.assists) > (m.goals + m.assists) ? p : m, ps[0]); }
+            function getBestVoted(data) { const v = data.votes || {}; let b = null, mx = 0; Object.keys(v).forEach(n => { if (v[n] > mx) { mx = v[n]; b = n; } }); return b ? { name: b, votes: mx } : null; }
+            // ⭐ Лучшая команда турнира — с игроками
+            function getBestTeamTournament(data) {
+                const teams = (data.teams || []);
+                if (!teams.length) return null;
+                const rated = teams.map(t => {
+                    const players = (data.players || []).filter(p => p.teamId === t.id);
+                    const avg = players.length ? Math.round(players.reduce((s, p) => s + calcRatingForPlayerInTournament(p.name, data), 0) / players.length) : 0;
+                    return {
+                        name: t.name,
+                        color: t.color,
+                        rating: avg,
+                        players: players.map(p => p.name)
+                    };
+                }).filter(x => x.rating > 0 && x.players.length > 0);
+                if (!rated.length) return null;
+                rated.sort((a, b) => b.rating - a.rating);
+                return rated[0];
+            }
+            function countPlayerAwards(playerName) {
+                let bestScorer = 0, bestAssister = 0, bestGoalkeeper = 0, mvp = 0, bestVoted = 0;
+                tournamentsList.forEach(t => {
+                    const data = getTournamentData(t.id);
+                    const scorer = getBestScorer(data); if (scorer && scorer.name === playerName) bestScorer++;
+                    const assister = getBestAssister(data); if (assister && assister.name === playerName) bestAssister++;
+                    const gk = getBestGoalkeeper(data); if (gk && gk.name === playerName) bestGoalkeeper++;
+                    const mvpWinner = getMVPTournament(data); if (mvpWinner && mvpWinner.name === playerName) mvp++;
+                    const voted = getBestVoted(data); if (voted && voted.name === playerName) bestVoted++;
+                });
+                return { bestScorer, bestAssister, bestGoalkeeper, mvp, bestVoted };
+            }
+            function addChangeLog(action, description) {
+                if (!appData.changeLog) appData.changeLog = [];
+                appData.changeLog.push({ id: 'log_' + generateId(), timestamp: new Date().toISOString(), action, description, author: getCurrentUser() || 'Гость' });
+            }
+
+            // ⭐ Рекорды — лучшая команда считается как ЛУЧШИЙ результат в ОДНОМ турнире
+            function calcRecords() {
+                const allAgg = aggregateAllPlayers();
+                const rated = allAgg.map(p => ({ name: p.name, rating: calcRatingForPlayer(p.name) })).filter(x => x.rating > 0).sort((a, b) => b.rating - a.rating);
+                const bestRating = rated[0] || null;
+                const mvpSorted = [...allAgg].filter(p => p.matchesPlayed > 0).sort((a, b) => (b.goals + b.assists) - (a.goals + a.assists));
+                const bestMVP = mvpSorted[0] || null;
+                const scorerSorted = [...allAgg].filter(p => p.matchesPlayed > 0).sort((a, b) => b.goals - a.goals);
+                const bestScorer = scorerSorted[0] || null;
+                const assistSorted = [...allAgg].filter(p => p.matchesPlayed > 0).sort((a, b) => b.assists - a.assists);
+                const bestAssister = assistSorted[0] || null;
+                const gks = allAgg.filter(p => p.goalkeeperMatches > 0).sort((a, b) => a.goalsConceded - b.goalsConceded);
+                const bestGK = gks[0] || null;
+                const voteSum = {};
+                tournamentsList.forEach(t => {
+                    const data = getTournamentData(t.id);
+                    const v = data.votes || {};
+                    Object.keys(v).forEach(name => {
+                        if (!voteSum[name]) voteSum[name] = 0;
+                        voteSum[name] += v[name];
+                    });
+                });
+                const voteEntries = Object.entries(voteSum).sort((a, b) => b[1] - a[1]);
+                const bestVoted = voteEntries[0] ? { name: voteEntries[0][0], votes: voteEntries[0][1] } : null;
+
+                // ⭐ Лучшая команда — лучший результат в ОДНОМ турнире
+                let bestTeam = null;
+                tournamentsList.forEach(t => {
+                    const data = getTournamentData(t.id);
+                    const bt = getBestTeamTournament(data);
+                    if (bt && (!bestTeam || bt.rating > bestTeam.rating)) {
+                        bestTeam = { ...bt, tournamentName: t.name };
+                    }
+                });
+
+                return { bestRating, bestMVP, bestScorer, bestAssister, bestGK, bestVoted, bestTeam };
+            }
+
+            function render() {
+                const panel = document.getElementById('contentPanel');
+                renderGuestBanner(); renderNoTournamentBanner(); renderNavTabs();
+                if (!currentTournamentId && currentTab !== 'players' && currentTab !== 'combinedHistory' && currentTab !== 'overall' && currentTab !== 'records' && currentTab !== 'chat' && currentTab !== 'admin') {
+                    panel.innerHTML = `<div class="empty-state"><span class="emoji">🏆</span><p>Нет активных турниров.</p><p style="font-size:0.95rem; margin-top:10px; color:#7a8a7a;">${isCurrentUserAdmin() ? 'Создайте новый турнир кнопкой «➕ Новый» в боковой панели.' : 'Подача заявок откроется после того, как админ создаст новый турнир.'}</p></div>`;
+                    updateChatBadge(); return;
+                }
+                switch (currentTab) {
+                    case 'home': panel.innerHTML = renderHomeTab(); break;
+                    case 'settings': panel.innerHTML = renderSettingsTab(); break;
+                    case 'combinedHistory': panel.innerHTML = renderCombinedHistoryTab(); break;
+                    case 'players': panel.innerHTML = renderPlayersTab(); break;
+                    case 'stats': panel.innerHTML = renderStatsTab(); break;
+                    case 'overall': panel.innerHTML = renderOverallTab(); break;
+                    case 'records': panel.innerHTML = renderRecordsTab(); break;
+                    case 'chat': panel.innerHTML = renderChatTab(); break;
+                    case 'admin': panel.innerHTML = renderAdminTab(); break;
+                    default: panel.innerHTML = renderHomeTab();
+                }
+                updateChatBadge();
+            }
+
+            function renderRecordsTab() {
+                let html = `<div class="panel-title"><span class="icon">🏆</span> Рекорды — лучшие результаты за всё время</div>`;
+                html += `<p style="color:#5a6b5a; font-size:0.92rem; margin-bottom:20px; line-height:1.5;">Здесь показаны лучшие достижения игроков и команд по всем турнирам. Позиция обновляется автоматически, как только кто-то показывает результат выше.</p>`;
+
+                if (!tournamentsList.length) {
+                    html += `<div class="empty-state"><span class="emoji">🏆</span><p>Пока нет данных. Создайте турнир и добавьте матчи.</p></div>`;
+                    return html;
+                }
+
+                const rec = calcRecords();
+
+                if (rec.bestRating) {
+                    const rs = getRatingStyle(rec.bestRating.rating);
+                    html += `<div class="record-hero" style="border-color:${rs.border}; background:${rs.bg};">
+                        <div class="rec-medal">${rs.medal}</div>
+                        <div class="rec-name">👤 ${escapeHtml(rec.bestRating.name)}</div>
+                        <div class="rec-value" style="color:${rs.color};">Рейтинг LAGUNA: ${rec.bestRating.rating}</div>
+                        <div class="rec-sub">${rs.label} · лучший рейтинг за всё время</div>
+                    </div>`;
+                }
+
+                html += `<div class="stats-summary">`;
+
+                if (rec.bestMVP) html += `<div class="stat-card"><h4>🏅 MVP</h4><div class="mvp">🌟 ${escapeHtml(rec.bestMVP.name)}</div><div style="font-size:1.35rem; font-weight:800; color:#f5a623; margin-top:8px;">${rec.bestMVP.goals + rec.bestMVP.assists} очков</div><div style="font-size:0.8rem; color:#7a8a7a; margin-top:4px;">Голы + Ассисты</div></div>`;
+                else html += `<div class="stat-card"><h4>🏅 MVP</h4><div style="color:#9aab9a;">Нет данных</div></div>`;
+
+                if (rec.bestScorer) html += `<div class="stat-card"><h4>⚽ Бомбардир</h4><div class="best">🏆 ${escapeHtml(rec.bestScorer.name)}</div><div style="font-size:1.35rem; font-weight:800; color:#1a7a2e; margin-top:8px;">${rec.bestScorer.goals} гол.</div><div style="font-size:0.8rem; color:#7a8a7a; margin-top:4px;">Матчей: ${rec.bestScorer.matchesPlayed}</div></div>`;
+                else html += `<div class="stat-card"><h4>⚽ Бомбардир</h4><div style="color:#9aab9a;">Нет данных</div></div>`;
+
+                if (rec.bestAssister) html += `<div class="stat-card"><h4>🎯 Ассистент</h4><div class="best">🏆 ${escapeHtml(rec.bestAssister.name)}</div><div style="font-size:1.35rem; font-weight:800; color:#1a7a2e; margin-top:8px;">${rec.bestAssister.assists} пас.</div><div style="font-size:0.8rem; color:#7a8a7a; margin-top:4px;">Матчей: ${rec.bestAssister.matchesPlayed}</div></div>`;
+                else html += `<div class="stat-card"><h4>🎯 Ассистент</h4><div style="color:#9aab9a;">Нет данных</div></div>`;
+
+                if (rec.bestGK) html += `<div class="stat-card"><h4>🧤 Вратарь</h4><div class="best">🏆 ${escapeHtml(rec.bestGK.name)}</div><div style="font-size:1.35rem; font-weight:800; color:#1a7a2e; margin-top:8px;">${rec.bestGK.goalsConceded} проп.</div><div style="font-size:0.8rem; color:#7a8a7a; margin-top:4px;">Матчей: ${rec.bestGK.goalkeeperMatches}</div></div>`;
+                else html += `<div class="stat-card"><h4>🧤 Вратарь</h4><div style="color:#9aab9a;">Нет данных</div></div>`;
+
+                if (rec.bestVoted) html += `<div class="stat-card"><h4>🗳️ Голосование</h4><div class="best">🏆 ${escapeHtml(rec.bestVoted.name)}</div><div style="font-size:1.35rem; font-weight:800; color:#1a7a2e; margin-top:8px;">${rec.bestVoted.votes} ${pluralVotes(rec.bestVoted.votes)}</div><div style="font-size:0.8rem; color:#7a8a7a; margin-top:4px;">Сумма голосов</div></div>`;
+                else html += `<div class="stat-card"><h4>🗳️ Голосование</h4><div style="color:#9aab9a;">Нет данных</div></div>`;
+
+                // ⭐ Лучшая команда — с игроками и турниром
+                if (rec.bestTeam) {
+                    const rs = getRatingStyle(rec.bestTeam.rating);
+                    html += `<div class="stat-card" style="grid-column:1/-1;">
+                        <h4>🏆 Лучшая команда</h4>
+                        <div class="best">🥇 ${escapeHtml(rec.bestTeam.name)}</div>
+                        <div style="font-size:1.35rem; font-weight:800; color:${rs.color}; margin-top:8px;">Средний рейтинг: ${rec.bestTeam.rating} ${rs.medal}</div>
+                        <div style="font-size:0.85rem; color:#7a8a7a; margin-top:6px;">Турнир: <strong>${escapeHtml(rec.bestTeam.tournamentName)}</strong></div>
+                        <div style="font-size:0.8rem; color:#7a8a7a; margin-top:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px;">Состав (${rec.bestTeam.players.length}):</div>
+                        <div style="margin-top:6px;">${renderPlayerChips(rec.bestTeam.players)}</div>
+                    </div>`;
+                } else {
+                    html += `<div class="stat-card" style="grid-column:1/-1;"><h4>🏆 Лучшая команда</h4><div style="color:#9aab9a;">Нет данных</div></div>`;
+                }
+
+                html += `</div>`;
+                return html;
+            }
+
+            function renderAdminTab() {
+                if (!isCurrentUserAdmin()) return `<div class="empty-state"><span class="emoji">🔒</span><p>Доступ только для админов</p></div>`;
+                let html = `<div class="panel-title"><span class="icon">👑</span> Админ-панель</div>`;
+                html += `<div class="sub-tabs">
+                    <button class="sub-tab ${adminSubTab === 'pending' ? 'active' : ''}" data-admin="pending">⏳ Заявки (${getPending().length})</button>
+                    <button class="sub-tab ${adminSubTab === 'admins' ? 'active' : ''}" data-admin="admins">👑 Админы (${getAdmins().length})</button>
+                    <button class="sub-tab ${adminSubTab === 'assigners' ? 'active' : ''}" data-admin="assigners">🎯 Команды (${getAssigners().length})</button>
+                </div>`;
+                if (adminSubTab === 'pending') {
+                    const pending = getPending();
+                    html += `<div class="admin-section"><h3>⏳ Заявки на регистрацию</h3>`;
+                    if (!pending.length) html += `<p style="color:#7a8a7a;">Нет новых заявок.</p>`;
+                    else pending.forEach(p => {
+                        html += `<div class="pending-item"><div class="pending-info"><div class="pending-name">👤 ${escapeHtml(p.name)}</div><div class="pending-time">Заявка отправлена: ${fmtDate(p.requestedAt)}</div></div><div style="display:flex; gap:6px; flex-wrap:wrap;"><button class="btn btn-primary btn-sm approve-pending" data-name="${escapeHtml(p.name)}">✅ Одобрить</button><button class="btn btn-danger btn-sm reject-pending" data-name="${escapeHtml(p.name)}">❌ Отклонить</button></div></div>`;
+                    });
+                    html += `</div>`;
+                } else if (adminSubTab === 'admins') {
+                    const admins = getAdmins();
+                    html += `<div class="admin-section"><h3>👑 Список админов</h3>`;
+                    admins.forEach(name => {
+                        const isPrimary = name === PRIMARY_ADMIN;
+                        html += `<div class="admin-list-item"><div class="admin-name">${isPrimary ? '👑' : '⭐'} ${escapeHtml(name)}${isPrimary ? ' <span style="font-size:0.75rem; color:#b87333;">(главный)</span>' : ''}</div>${!isPrimary ? `<button class="btn btn-danger btn-sm demote-admin" data-name="${escapeHtml(name)}">Снять</button>` : ''}</div>`;
+                    });
+                    html += `</div>`;
+                    html += `<div class="admin-section"><h3>➕ Назначить админом</h3>`;
+                    const candidates = playersDatabase.filter(n => !admins.includes(n));
+                    if (!candidates.length) html += `<p style="color:#7a8a7a;">Нет игроков, которых можно назначить.</p>`;
+                    else candidates.forEach(n => { html += `<button class="btn btn-secondary btn-sm promote-admin" data-name="${escapeHtml(n)}" style="margin:3px;">👤 ${escapeHtml(n)}</button>`; });
+                    html += `</div>`;
+                } else {
+                    const assigners = getAssigners();
+                    html += `<div class="admin-section"><h3>🎯 Кто может назначать команды игрокам</h3>`;
+                    if (!assigners.length) html += `<p style="color:#7a8a7a;">Пока никого. Только админы могут назначать команды.</p>`;
+                    else assigners.forEach(n => {
+                        html += `<div class="admin-list-item"><div class="admin-name">🎯 ${escapeHtml(n)}</div><button class="btn btn-danger btn-sm remove-assigner" data-name="${escapeHtml(n)}">Снять</button></div>`;
+                    });
+                    html += `</div>`;
+                    html += `<div class="admin-section"><h3>➕ Разрешить назначать команды</h3>`;
+                    const candidates = playersDatabase.filter(n => !assigners.includes(n) && !isAdmin(n));
+                    if (!candidates.length) html += `<p style="color:#7a8a7a;">Нет кандидатов.</p>`;
+                    else {
+                        html += `<p style="font-size:0.88rem; color:#7a5a1a; margin-bottom:10px;">Нажмите на имя, чтобы разрешить:</p>`;
+                        candidates.forEach(n => { html += `<button class="btn btn-secondary btn-sm add-assigner" data-name="${escapeHtml(n)}" style="margin:3px;">👤 ${escapeHtml(n)}</button>`; });
+                    }
+                    html += `</div>`;
+                }
+                return html;
+            }
+
+            function renderHomeTab() {
+                if (!currentTournamentId) return '';
+                const table = calculateTable();
+                let html = `<div class="panel-title"><span class="icon">🏠</span> Главная — ${escapeHtml(tournamentsList.find(t => t.id === currentTournamentId)?.name || '')}</div>`;
+                if (table.length === 0) html += `<div class="empty-state"><span class="emoji">📊</span><p>Добавьте команды.</p></div>`;
+                else {
+                    html += `<div class="table-container"><table><thead><tr><th>#</th><th>Рейтинг</th><th>Команда</th><th>И</th><th>В</th><th>Н</th><th>П</th><th>ГЗ</th><th>ГП</th><th>РМ</th><th>Очки</th></tr></thead><tbody>`;
+                    table.forEach((row, i) => {
+                        const teamRating = calcTeamRating(row.id, appData);
+                        const rs = getRatingStyle(teamRating);
+                        const ratingBox = teamRating > 0
+                            ? `<div style="display:inline-flex; align-items:center; justify-content:center; min-width:46px; height:38px; padding:0 8px; border:3px solid ${rs.border}; border-radius:12px; background:${rs.bg}; box-shadow:0 3px 8px ${rs.shadow};" title="${rs.label} — рейтинг команды"><span style="font-size:1.05rem; font-weight:800; color:${rs.color}; line-height:1;">${teamRating}</span></div>`
+                            : `<span style="color:#9aab9a; font-size:0.85rem;">—</span>`;
+                        html += `<tr class="${i === 0 ? 'highlight-row' : ''}"><td>${i+1}</td><td>${ratingBox}</td><td class="team-name"><span style="color:${escapeHtml(row.color)};">${escapeHtml(row.name)}</span></td><td>${row.games}</td><td>${row.wins}</td><td>${row.draws}</td><td>${row.losses}</td><td>${row.goalsFor}</td><td>${row.goalsAgainst}</td><td>${row.goalsFor-row.goalsAgainst}</td><td><strong>${row.points}</strong></td></tr>`;
+                    });
+                    html += `</tbody></table></div>`;
+                }
+                html += `<div class="stats-summary">`;
+
+                const ratedHome = [...appData.players].filter(p => p.matchesPlayed > 0).map(p => ({ name: p.name, rating: calcRatingForPlayerInTournament(p.name, appData) })).sort((a,b) => b.rating - a.rating || a.name.localeCompare(b.name));
+                const topRated = ratedHome[0];
+                html += `<div class="stat-card"><h4>⭐ Рейтинг LAGUNA</h4>${topRated ? `<div class="best">🏆 ${escapeHtml(topRated.name)} (${topRated.rating})</div>` : `<div>Нет данных</div>`}</div>`;
+
+                const mvpC = [...appData.players].filter(p => p.matchesPlayed > 0);
+                html += `<div class="stat-card"><h4>🏅 MVP</h4>${mvpC.length ? `<div class="mvp">🌟 ${escapeHtml(mvpC.reduce((m, p) => (p.goals + p.assists) > (m.goals + m.assists) ? p : m, mvpC[0]).name)}</div>` : `<div>Нет данных</div>`}</div>`;
+
+                const byGoals = [...appData.players].filter(p => p.matchesPlayed > 0).sort((a,b) => b.goals - a.goals);
+                html += `<div class="stat-card"><h4>⚽ Бомбардир</h4>${byGoals.length ? `<div class="best">🏆 ${escapeHtml(byGoals[0].name)} (${byGoals[0].goals})</div>` : `<div>Нет данных</div>`}</div>`;
+
+                const byAssists = [...appData.players].filter(p => p.matchesPlayed > 0).sort((a,b) => b.assists - a.assists);
+                html += `<div class="stat-card"><h4>🎯 Ассистент</h4>${byAssists.length ? `<div class="best">🏆 ${escapeHtml(byAssists[0].name)} (${byAssists[0].assists})</div>` : `<div>Нет данных</div>`}</div>`;
+
+                const gks = appData.players.filter(p => p.goalkeeperMatches > 0);
+                html += `<div class="stat-card"><h4>🧤 Вратарь</h4>${gks.length ? `<div class="best">🏆 ${escapeHtml([...gks].sort((a,b) => a.goalsConceded - b.goalsConceded)[0].name)}</div>` : `<div>Нет данных</div>`}</div>`;
+
+                html += `</div>`;
+                html += renderVotingSection();
+                return html;
+            }
+
+            function renderVotingSection() {
+                if (!currentTournamentId) return '';
+                appData.votes = appData.votes || {};
+                const players = appData.players || [];
+                let totalVotes = 0;
+                Object.keys(appData.votes).forEach(k => { const v = appData.votes[k]; if (typeof v === 'number' && v > 0) totalVotes += v; });
+                const voteCheck = canVote();
+                const votedFor = localStorage.getItem(VOTE_KEY_PREFIX + currentTournamentId);
+                let html = `<div class="voting-section"><div class="voting-header"><h3>🗳️ Голосование за лучшего игрока</h3><div class="votes-total">Всего: <strong>${totalVotes}</strong></div></div>`;
+                if (voteCheck.ok) { const btnText = votedFor ? '✏️ Изменить голос' : '🗳️ Проголосовать'; html += `<button class="btn btn-primary vote-main-btn" id="openVoteModalBtn">${btnText}</button>`; }
+                else { html += `<div class="vote-locked">${voteCheck.reason}</div>`; }
+                const playersWithVotes = players.filter(p => (appData.votes[p.name] || 0) > 0);
+                if (playersWithVotes.length > 0) {
+                    const maxVotes = playersWithVotes.reduce((m, p) => Math.max(m, appData.votes[p.name] || 0), 0);
+                    const sorted = [...playersWithVotes].sort((a,b) => (appData.votes[b.name]||0) - (appData.votes[a.name]||0) || a.name.localeCompare(b.name));
+                    html += `<div class="vote-grid">`;
+                    sorted.forEach(p => {
+                        const votes = appData.votes[p.name] || 0;
+                        const pct = totalVotes > 0 ? Math.round(votes / totalVotes * 100) : 0;
+                        const team = getTeamById(p.teamId);
+                        const teamColor = getTeamColor(team);
+                        const isMyVote = votedFor === p.name;
+                        const isLeader = votes === maxVotes;
+                        html += `<div class="vote-card${isMyVote ? ' my-vote' : ''}${isLeader ? ' leader' : ''}"><div><div class="vote-player-name">${isLeader ? '👑 ' : ''}${escapeHtml(p.name)}</div><div class="vote-team" style="${team ? `color:${escapeHtml(teamColor)}; font-weight:700;` : ''}">${team ? escapeHtml(team.name) : ''}</div></div><div class="vote-bar-track"><div class="vote-bar-fill" style="width:${pct}%"></div></div><div class="vote-meta"><span>${votes} ${pluralVotes(votes)}</span><span>${pct}%</span></div>${isMyVote ? `<div class="voted-badge">✅ Ваш голос</div>` : ''}</div>`;
+                    });
+                    html += `</div>`;
+                } else { html += `<p style="text-align:center;color:#9aab9a; padding:20px 0;">Пока никто не голосовал.</p>`; }
+                if (votedFor) html += `<div class="vote-footer">Вы отдали голос за <strong>${escapeHtml(votedFor)}</strong>.</div>`;
+                html += `</div>`;
+                return html;
+            }
+
+            function openVoteModal() {
+                if (!currentTournamentId) return;
+                const check = canVote();
+                if (!check.ok) { alert(check.reason); return; }
+                const players = (appData.players || []).filter(p => (p.matchesPlayed || 0) > 0);
+                if (!players.length) { alert('Нет игроков, которые сыграли хотя бы один матч.'); return; }
+                const votedFor = localStorage.getItem(VOTE_KEY_PREFIX + currentTournamentId);
+                const sorted = [...players].sort((a,b) => a.name.localeCompare(b.name));
+                let html = `<h2>🗳️ Выберите лучшего игрока</h2>`;
+                html += `<p style="color:#5a6b5a; font-size:0.9rem; margin-bottom:15px;">Показаны только игроки, которые сыграли хотя бы один матч.</p>`;
+                html += `<div class="vote-modal-list">`;
+                sorted.forEach(p => {
+                    const team = getTeamById(p.teamId);
+                    const tc = getTeamColor(team);
+                    const isMyVote = votedFor === p.name;
+                    html += `<button class="vote-modal-item" data-player="${escapeHtml(p.name)}" style="${isMyVote ? 'border-color:#2e9e44; background:#f2fbf3;' : ''}"><div style="display:flex; justify-content:space-between; align-items:center; gap:10px; width:100%;"><div style="text-align:left;"><div style="font-weight:700; color:#1e2a1e; font-size:1rem;">${isMyVote ? '✅ ' : ''}${escapeHtml(p.name)}</div><div style="font-size:0.8rem; color:${escapeHtml(tc)}; font-weight:700;">${team ? escapeHtml(team.name) : 'Без команды'}</div></div><div style="font-size:0.78rem; color:#5a6b5a; white-space:nowrap; text-align:right;">И:${p.matchesPlayed}<br>Г:${p.goals} · П:${p.assists}</div></div></button>`;
+                });
+                html += `</div>`;
+                html += `<button class="btn btn-secondary" id="cancelVoteModalBtn" style="width:100%; justify-content:center; margin-top:15px;">Отмена</button>`;
+                document.getElementById('voteModalContent').innerHTML = html;
+                document.getElementById('voteModal').style.display = 'flex';
+            }
+
+            function handleVote(playerName) {
+                const check = canVote();
+                if (!check.ok) { alert(check.reason); return; }
+                if (!currentTournamentId || !playerName) return;
+                if (!appData.players.some(p => p.name === playerName)) return;
+                appData.votes = appData.votes || {};
+                const key = VOTE_KEY_PREFIX + currentTournamentId;
+                const prev = localStorage.getItem(key);
+                if (prev === playerName) return;
+                if (prev && appData.votes[prev]) appData.votes[prev] = Math.max(0, appData.votes[prev] - 1);
+                appData.votes[playerName] = (appData.votes[playerName] || 0) + 1;
+                localStorage.setItem(key, playerName);
+                saveCurrentData(); render();
+            }
+
+            function renderSettingsTab() {
+                if (!currentTournamentId) return '';
+                const user = getCurrentUser();
+                const canMatch = canManageMatches();
+                const canAssign = canAssignTeams();
+                let html = `<div class="panel-title"><span class="icon">⚙️</span> Настройки турнира</div>`;
+                if (!user) html += `<div style="background:#fff3cd; border-radius:12px; padding:12px; color:#7a5a1a; font-size:0.88rem; margin-bottom:15px;">🔒 Войдите, чтобы добавлять матчи, команды и игроков.</div>`;
+                else if (!canMatch) html += `<div style="background:#fff3cd; border-radius:12px; padding:12px; color:#7a5a1a; font-size:0.88rem; margin-bottom:15px;">⚠️ Только игроки <strong>основы заявки</strong> (первые 15) могут добавлять/редактировать матчи.</div>`;
+                html += `<div style="background:#f0f7f0; border-radius:16px; padding:20px; margin:25px 0;"><h3>⚔️ Добавить матч</h3>
+                    <div class="match-form-grid">
+                        <select id="matchTeamA"><option value="">А</option>${appData.teams.map(t => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('')}</select>
+                        <input type="number" id="matchScoreA" min="0" value="0">
+                        <input type="number" id="matchScoreB" min="0" value="0">
+                        <select id="matchTeamB"><option value="">Б</option>${appData.teams.map(t => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('')}</select>
+                    </div>
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px; margin-top:20px;">
+                        <div><label style="font-weight:700; display:block; margin-bottom:8px;">🧤 Вратарь А</label><select id="goalkeeperA" style="width:100%; padding:12px; border-radius:12px; border:2px solid #e0e8e0;"><option value="">-- без вратаря --</option></select></div>
+                        <div><label style="font-weight:700; display:block; margin-bottom:8px;">🧤 Вратарь Б</label><select id="goalkeeperB" style="width:100%; padding:12px; border-radius:12px; border:2px solid #e0e8e0;"><option value="">-- без вратаря --</option></select></div>
+                    </div>
+                    <div style="margin-top:20px;"><label style="font-weight:700; display:block; margin-bottom:8px;">⚽ Голы А</label><div id="goalsA" class="scorer-list"></div><button class="btn btn-secondary btn-sm" id="addGoalA">➕ Гол А</button></div>
+                    <div style="margin-top:20px;"><label style="font-weight:700; display:block; margin-bottom:8px;">⚽ Голы Б</label><div id="goalsB" class="scorer-list"></div><button class="btn btn-secondary btn-sm" id="addGoalB">➕ Гол Б</button></div>
+                    <button class="btn btn-primary" id="addMatchBtn" style="margin-top:15px;">Добавить матч</button></div>`;
+                html += `<div style="background:#f0f7f0; border-radius:16px; padding:20px; margin-bottom:25px;">
+                    <h3 style="margin-bottom:15px;">➕ Добавить команду</h3>
+                    <input type="text" id="newTeamName" placeholder="Название команды" style="width:100%; padding:12px; border:2px solid #e0e8e0; border-radius:12px; margin-bottom:12px;">
+                    <div style="font-size:0.85rem; font-weight:700; color:#5a6b5a; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">Цвет команды:</div>
+                    <div class="color-options" id="teamColorOptions">
+                        ${TEAM_COLORS.map((c, i) => `<div class="color-option${i === 0 ? ' selected' : ''}" data-color="${c.color}" style="color:${c.color}; border-color:${c.color};">${c.name}</div>`).join('')}
+                    </div>
+                    <button class="btn btn-primary" id="addTeamBtn" style="width:100%; justify-content:center; margin:15px 0 0;">Добавить</button>
+                </div>`;
+
+                if (appData.teams.length) {
+                    html += `<div style="background:#fff; border-radius:16px; padding:20px; margin-bottom:25px; border:1px solid #e0e8e0;"><h3 style="margin-bottom:15px;">🎨 Команды турнира</h3><div style="display:flex; flex-wrap:wrap; gap:10px;">${appData.teams.map(t => `<div style="display:flex; align-items:center; gap:8px; padding:6px 8px 6px 16px; border-radius:20px; border:2px solid ${escapeHtml(getTeamColor(t))}; background:#fff;"><span style="color:${escapeHtml(getTeamColor(t))}; font-weight:700;">${escapeHtml(t.name)}</span><button class="btn btn-danger btn-sm delete-team-btn" data-id="${t.id}" style="margin:0; padding:2px 10px; font-size:0.75rem;">🗑️</button></div>`).join('')}</div></div>`;
+                }
+
+                const { main, reserve } = getRosterSplit();
+                html += `<h3 style="margin-top:20px;">📝 Заявка на турнир</h3>`;
+                if (canAssign) html += `<div style="background:#e8f5e9; border-radius:10px; padding:10px; color:#1a7a2e; font-size:0.85rem; margin-bottom:12px;">🎯 Вы можете назначать и менять команды игрокам.</div>`;
+                if (!appData.players.length) html += `<p style="color:#9aab9a;">Нет игроков в заявке.</p>`;
+                else {
+                    const renderRosterCard = (p, idx, isReserve, mainLength) => {
+                        const team = p.teamId ? getTeamById(p.teamId) : null;
+                        const currentStatus = p.status || 'confirmed';
+                        const isPending = currentStatus === 'pending';
+                        const isReserved = currentStatus === 'reserve';
+                        const check = isReserved ? '🔴' : (isPending ? '🟡' : '🟢');
+                        const cls = isReserved ? 'roster-card-reserve' : (isPending ? 'roster-card-pending' : 'roster-card-main');
+                        const num = isReserve ? (mainLength + idx + 1) : (idx + 1);
+                        const reserveIcon = isReserve ? '🔴 ' : '';
+                        let teamHtml = '';
+                        if (team) {
+                            const tc = getTeamColor(team);
+                            if (canAssign) teamHtml = ` — <span class="team-name-clickable" data-id="${p.id}" style="color:${escapeHtml(tc)}; font-weight:700;">${escapeHtml(team.name)} ✏️</span>`;
+                            else teamHtml = ` — <span style="color:${escapeHtml(tc)}; font-weight:700;">${escapeHtml(team.name)}</span>`;
+                        } else {
+                            if (canAssign) teamHtml = ` — <span class="team-name-clickable" data-id="${p.id}" style="color:#b8860b; font-weight:700;">Без команды ✏️</span>`;
+                            else teamHtml = ` — <span style="color:#b8860b; font-weight:700;">Без команды</span>`;
+                        }
+                        const currentUser = getCurrentUser();
+                        const canEditThis = isCurrentUserAdmin() || (currentUser && currentUser === p.name);
+                        let statusControls = '';
+                        if (canEditThis) {
+                            const mkBtn = (val, label, activeColor) => {
+                                const active = currentStatus === val;
+                                const style = active ? `background:${activeColor}; color:#fff; border:2px solid ${activeColor};` : `background:#fff; color:${activeColor}; border:2px solid ${activeColor};`;
+                                return `<button class="btn btn-sm status-btn" data-id="${p.id}" data-status="${val}" style="${style} padding:4px 10px; font-size:0.72rem; margin:2px 2px 0 0;">${label}</button>`;
+                            };
+                            statusControls = `<div style="margin-top:8px; display:flex; flex-wrap:wrap; align-items:center;"><span style="font-size:0.72rem; color:#7a8a7a; font-weight:700; margin-right:6px;">Статус:</span>${mkBtn('confirmed', '🟢 Точно', '#2e9e44')}${mkBtn('pending', '🟡 Под вопросом', '#f5a623')}${mkBtn('reserve', '🔴 Резерв', '#e74c3c')}</div>`;
+                        }
+                        return `<div class="record-card ${cls}"><div class="info"><strong>${num}. ${reserveIcon}<span class="roster-check">${check}</span> ${escapeHtml(p.name)}</strong>${teamHtml}<div class="match-detail">📅 ${p.addedAt ? fmtDate(p.addedAt) : '—'} · И:${p.matchesPlayed} Г:${p.goals} П:${p.assists}</div>${statusControls}</div><button class="btn btn-danger btn-sm delete-player" data-id="${p.id}">🗑️</button></div>`;
+                    };
+                    html += `<div class="roster-section-title">✅ Основа <span class="badge">${main.length} / ${ROSTER_LIMIT}</span></div>`;
+                    if (!main.length) html += `<p style="color:#9aab9a; font-size:0.9rem;">Нет игроков.</p>`;
+                    else main.forEach((p, idx) => { html += renderRosterCard(p, idx, false, main.length); });
+                    html += `<div class="roster-section-title">🔴 Резерв <span class="badge">${reserve.length}</span></div>`;
+                    if (!reserve.length) html += `<p style="color:#9aab9a; font-size:0.9rem;">Резерв пуст.</p>`;
+                    else reserve.forEach((p, idx) => { html += renderRosterCard(p, idx, true, main.length); });
+                    html += `<p style="font-size:0.82rem; color:#7a8a7a; margin-top:15px;">🟢 — Точно · 🟡 — Под вопросом · 🔴 — Резерв<br>✏️ Игрок может менять свой статус сам. Админ — любого игрока.</p>`;
+                }
+                return html;
+            }
+
+            function renderCombinedHistoryTab() {
+                let html = `<div class="panel-title"><span class="icon">📚</span> История</div>`;
+                html += `<div class="sub-tabs">
+                    <button class="sub-tab ${historySubTab === 'games' ? 'active' : ''}" data-history="games">📋 Игры</button>
+                    <button class="sub-tab ${historySubTab === 'tournaments' ? 'active' : ''}" data-history="tournaments">📜 Турниры</button>
+                    <button class="sub-tab ${historySubTab === 'changes' ? 'active' : ''}" data-history="changes">📝 Изменения</button>
+                </div>`;
+                if (historySubTab === 'games') {
+                    if (!currentTournamentId) html += `<p>Выберите турнир.</p>`;
+                    else if (!appData.matches.length) html += `<p>Нет сыгранных матчей.</p>`;
+                    else {
+                        [...appData.matches].sort((a,b) => (b.id > a.id ? 1 : -1)).forEach(m => {
+                            const teamA = getTeamById(m.teamA); const teamB = getTeamById(m.teamB); if (!teamA || !teamB) return;
+                            const colA = getTeamColor(teamA); const colB = getTeamColor(teamB);
+                            const matchTime = getMatchTime(m);
+                            const buildList = (goals) => {
+                                if (!goals || !goals.length) return `<div class="col-empty">Голов нет</div>`;
+                                return goals.map(g => {
+                                    const s = getPlayerById(g.scorerId); const a = g.assistId ? getPlayerById(g.assistId) : null;
+                                    const sName = s ? escapeHtml(s.name) : '???'; const aName = a ? escapeHtml(a.name) : null;
+                                    return `<div class="col-goal">⚽ ${sName}${aName ? ` <span class="assist-name">(ассист: ${aName})</span>` : ''}</div>`;
+                                }).join('');
+                            };
+                            let metaHtml = '';
+                            if (matchTime) metaHtml += `🕒 ${fmtDate(matchTime)}`;
+                            if (m.createdBy) metaHtml += `${metaHtml ? ' · ' : ''}<span class="author-tag">👤 ${escapeHtml(m.createdBy)}</span>`;
+                            if (m.lastEditedBy) metaHtml += `${metaHtml ? ' · ' : ''}<span class="editor-tag">✏️ ${escapeHtml(m.lastEditedBy)}</span>`;
+                            html += `<div class="match-history-card"><div class="match-history-score"><span style="color:${escapeHtml(colA)};">${escapeHtml(teamA.name)}</span> ${m.scoreA} : ${m.scoreB} <span style="color:${escapeHtml(colB)};">${escapeHtml(teamB.name)}</span></div>${metaHtml ? `<div class="match-time">${metaHtml}</div>` : ''}<div class="match-scorers-grid"><div class="match-scorers-col"><div class="col-team-name" style="color:${escapeHtml(colA)};">${escapeHtml(teamA.name)}</div>${buildList(m.goalsA)}</div><div class="match-scorers-col"><div class="col-team-name" style="color:${escapeHtml(colB)};">${escapeHtml(teamB.name)}</div>${buildList(m.goalsB)}</div></div><div class="match-actions"><button class="btn btn-secondary btn-sm edit-match" data-id="${m.id}">✏️ Редактировать</button><button class="btn btn-danger btn-sm delete-match" data-id="${m.id}">🗑️ Удалить</button></div></div>`;
+                        });
+                    }
+                } else if (historySubTab === 'tournaments') {
+                    if (!tournamentsList.length) html += `<p>Нет турниров.</p>`;
+                    else tournamentsList.forEach(t => {
+                        const data = getTournamentData(t.id);
+                        const bestScorer = getBestScorer(data);
+                        const bestAssister = getBestAssister(data);
+                        const bestGK = getBestGoalkeeper(data);
+                        const mvp = getMVPTournament(data);
+                        const bestVoted = getBestVoted(data);
+                        const bestTeam = getBestTeamTournament(data);
+                        const rated = (data.players || []).filter(p => p.matchesPlayed > 0).map(p => ({ name: p.name, rating: calcRatingForPlayerInTournament(p.name, data) })).sort((a, b) => b.rating - a.rating);
+                        const bestRating = rated[0];
+                        let metaHtml = '';
+                        if (t.createdAt) metaHtml += `🕒 ${fmtDate(t.createdAt)}`;
+                        if (t.createdBy) metaHtml += `${metaHtml ? ' · ' : ''}<span class="author-tag">👤 ${escapeHtml(t.createdBy)}</span>`;
+                        html += `<div class="history-card">
+                            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                                <h3>${escapeHtml(t.name)}</h3>
+                                <button class="btn btn-sm btn-danger delete-tournament-btn" data-id="${t.id}">🗑️</button>
+                            </div>
+                            ${metaHtml ? `<div style="font-size:0.82rem; color:#7a8a7a; margin-bottom:10px;">${metaHtml}</div>` : ''}
+                            <div class="tournament-stats-grid">
+                                <div class="tournament-stat-box"><div class="label">⭐ Рейтинг LAGUNA</div><div class="value${bestRating ? '' : ' muted'}">${bestRating ? escapeHtml(bestRating.name) : '—'}</div>${bestRating ? `<div class="sub">${bestRating.rating} очк.</div>` : ''}</div>
+                                <div class="tournament-stat-box"><div class="label">🏅 MVP</div><div class="value${mvp ? '' : ' muted'}">${mvp ? escapeHtml(mvp.name) : '—'}</div>${mvp ? `<div class="sub">${mvp.goals + mvp.assists} очков</div>` : ''}</div>
+                                <div class="tournament-stat-box"><div class="label">⚽ Бомбардир</div><div class="value${bestScorer ? '' : ' muted'}">${bestScorer ? escapeHtml(bestScorer.name) : '—'}</div>${bestScorer ? `<div class="sub">${bestScorer.goals} гол.</div>` : ''}</div>
+                                <div class="tournament-stat-box"><div class="label">🎯 Ассистент</div><div class="value${bestAssister ? '' : ' muted'}">${bestAssister ? escapeHtml(bestAssister.name) : '—'}</div>${bestAssister ? `<div class="sub">${bestAssister.assists} пас.</div>` : ''}</div>
+                                <div class="tournament-stat-box"><div class="label">🧤 Вратарь</div><div class="value${bestGK ? '' : ' muted'}">${bestGK ? escapeHtml(bestGK.name) : '—'}</div>${bestGK ? `<div class="sub">${bestGK.goalsConceded} проп.</div>` : ''}</div>
+                                <div class="tournament-stat-box"><div class="label">🗳️ Лучший по голосованию</div><div class="value${bestVoted ? '' : ' muted'}">${bestVoted ? escapeHtml(bestVoted.name) : '—'}</div>${bestVoted ? `<div class="sub">${bestVoted.votes} ${pluralVotes(bestVoted.votes)}</div>` : ''}</div>
+                                <div class="tournament-stat-box"><div class="label">🏆 Лучшая команда</div><div class="value${bestTeam ? '' : ' muted'}">${bestTeam ? escapeHtml(bestTeam.name) : '—'}</div>${bestTeam ? `<div class="sub">${bestTeam.rating} ср. рейтинг</div>` : ''}${bestTeam && bestTeam.players.length ? `<div style="margin-top:8px;">${renderPlayerChips(bestTeam.players)}</div>` : ''}</div>
+                            </div>
+                        </div>`;
+                    });
+                } else {
+                    if (!currentTournamentId) html += `<p>Выберите турнир.</p>`;
+                    else if (!appData.changeLog || !appData.changeLog.length) html += `<div class="empty-state"><span class="emoji">📝</span><p>Изменений не было.</p></div>`;
+                    else {
+                        const meta = { add:{icon:'➕',title:'Матч добавлен',cls:'add'}, delete:{icon:'🗑️',title:'Матч удалён',cls:'delete'}, edit:{icon:'✏️',title:'Матч изменён',cls:'edit'}, rename:{icon:'👤',title:'Игрок переименован',cls:'rename'} };
+                        html += `<div style="margin-top:15px;">`;
+                        [...appData.changeLog].reverse().forEach(log => {
+                            const info = meta[log.action] || { icon:'📝', title:'Изменение', cls:'' };
+                            html += `<div class="change-log-item ${info.cls}"><div class="change-log-icon">${info.icon}</div><div class="change-log-body"><div class="change-log-title">${info.title}${log.author ? ` <span class="change-log-author">— 👤 ${escapeHtml(log.author)}</span>` : ''}</div><div class="change-log-desc">${escapeHtml(log.description)}</div><div class="change-log-time">${fmtDate(log.timestamp)}</div></div></div>`;
+                        });
+                        html += `</div>`;
+                    }
+                }
+                return html;
+            }
+
+            function renderPlayersTab() {
+                const currentUser = getCurrentUser();
+                let html = `<div class="panel-title"><span class="icon">👥</span> База игроков</div>`;
+                if (!currentTournamentId) html += `<div style="background:#e3f2fd; border-radius:12px; padding:14px; color:#0d47a1; font-size:0.92rem; margin-bottom:15px;">⏳ Активного турнира нет. Подача заявок откроется после того, как админ создаст новый турнир.</div>`;
+                html += `<div style="display:flex; justify-content:flex-end; margin-bottom:15px;"><button class="add-player-btn" id="addPlayerToBaseBtn">➕ Добавить игрока вручную</button></div>`;
+                if (!playersDatabase.length) html += `<div class="empty-state"><span class="emoji">👥</span><p>База пуста.</p></div>`;
+                else playersDatabase.forEach(name => {
+                    const badge = getRosterBadge(name);
+                    const isMe = currentUser === name;
+                    const hasPassword = !!(getPasswords()[name]);
+                    const adm = isAdmin(name);
+                    let tourCount = 0;
+                    tournamentsList.forEach(t => { if (getTournamentData(t.id).players.some(p => p.name === name)) tourCount++; });
+                    let cardStyle = isMe ? 'border-left-color:#4a90d9; background:#eef6fd;' : '';
+                    if (badge) {
+                        if (badge.icon === '🟢') cardStyle = 'border-left-color:#2e9e44;';
+                        else if (badge.icon === '🟡') cardStyle = 'border-left-color:#f5a623;';
+                        else if (badge.icon === '🔴') cardStyle = 'border-left-color:#e74c3c; opacity:0.9;';
+                        if (isMe) cardStyle += ' background:#eef6fd;';
+                    }
+                    html += `<div class="record-card" style="${cardStyle}"><div class="info"><span class="player-link" data-player="${escapeHtml(name)}"><strong>${escapeHtml(name)}</strong></span>${isMe ? ' <span style="color:#2b6cb0; font-size:0.8rem; font-weight:700;">(это вы)</span>' : ''}${adm ? ' <span title="Админ" style="color:#f5a623; font-size:0.9rem;">👑</span>' : ''}${hasPassword ? ' <span title="Профиль создан" style="color:#2e9e44; font-size:0.85rem;">🔐</span>' : ' <span title="Без профиля" style="color:#b8860b; font-size:0.85rem;">⚠️</span>'}<div class="player-stats-list"><div>Турниров: ${tourCount}</div></div></div><div class="actions">${badge ? `<span style="font-weight:700; color:${badge.color}; font-size:0.85rem;">${badge.label}</span>` : `<button class="btn btn-sm btn-primary add-to-tournament-btn" data-player="${escapeHtml(name)}" ${!currentTournamentId ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : ''}>➕ В заявку</button>`}<button class="btn btn-sm btn-danger remove-from-base-btn" data-player="${escapeHtml(name)}">🗑️</button></div></div>`;
+                });
+                html += `<p style="font-size:0.82rem; color:#7a8a7a; margin-top:15px;">👑 — админ. 🔐 — профиль создан. ⚠️ — профиль не создан.<br>🟢 — в основе (точно) · 🟡 — под вопросом · 🔴 — резерв</p>`;
+                return html;
+            }
+
+            function renderStatsTab() {
+                if (!currentTournamentId) return '';
+                let html = `<div class="panel-title"><span class="icon">📊</span> Статистика — ${escapeHtml(tournamentsList.find(t => t.id === currentTournamentId)?.name || '')}</div><div class="sub-tabs">
+                    <button class="sub-tab ${statsSubTab === 'rating' ? 'active' : ''}" data-subtab="rating">⭐ Рейтинг LAGUNA</button>
+                    <button class="sub-tab ${statsSubTab === 'mvp' ? 'active' : ''}" data-subtab="mvp">🏅 MVP</button>
+                    <button class="sub-tab ${statsSubTab === 'bombardiers' ? 'active' : ''}" data-subtab="bombardiers">⚽ Бомбардиры</button>
+                    <button class="sub-tab ${statsSubTab === 'assists' ? 'active' : ''}" data-subtab="assists">🎯 Ассистенты</button>
+                    <button class="sub-tab ${statsSubTab === 'goalkeepers' ? 'active' : ''}" data-subtab="goalkeepers">🧤 Вратари</button>
+                    <button class="sub-tab ${statsSubTab === 'votes' ? 'active' : ''}" data-subtab="votes">🗳️ Голосование</button>
+                    <button class="sub-tab ${statsSubTab === 'bestteam' ? 'active' : ''}" data-subtab="bestteam">🏆 Лучшая команда</button>
+                </div>`;
+                if (statsSubTab === 'rating') {
+                    const rated = appData.players.filter(p => p.matchesPlayed > 0).map(p => ({ ...p, rating: calcRatingForPlayerInTournament(p.name, appData) })).sort((a,b) => b.rating - a.rating || b.goals - a.goals || a.name.localeCompare(b.name));
+                    if (!rated.length) html += `<p>Нет данных</p>`;
+                    else { html += `<div class="table-container"><table><thead><tr><th>#</th><th>Игрок</th><th>Матчи</th><th>Голы</th><th>Передачи</th><th>Рейтинг</th></tr></thead><tbody>`; rated.forEach((p, i) => { const rs = getRatingStyle(p.rating); html += `<tr class="${i === 0 ? 'highlight-row' : ''}"><td>${i+1}${i === 0 ? ' ' + rs.medal : ''}</td><td>${escapeHtml(p.name)}</td><td>${p.matchesPlayed}</td><td>${p.goals}</td><td>${p.assists}</td><td><strong style="color:${rs.color};">${p.rating} ${rs.medal}</strong></td></tr>`; }); html += `</tbody></table></div>`; }
+                } else if (statsSubTab === 'mvp') {
+                    const sorted = [...appData.players].filter(p => p.matchesPlayed > 0).sort((a,b) => (b.goals + b.assists) - (a.goals + a.assists) || b.goals - a.goals || a.name.localeCompare(b.name));
+                    if (!sorted.length) html += `<p>Нет данных</p>`;
+                    else { html += `<div class="table-container"><table><thead><tr><th>#</th><th>Игрок</th><th>Голы</th><th>Передачи</th><th>Очки MVP</th></tr></thead><tbody>`; sorted.forEach((p, i) => { const pts = p.goals + p.assists; html += `<tr class="${i === 0 ? 'highlight-row' : ''}"><td>${i+1}${i === 0 ? ' 👑' : ''}</td><td>${escapeHtml(p.name)}</td><td>${p.goals}</td><td>${p.assists}</td><td><strong>${pts}</strong></td></tr>`; }); html += `</tbody></table></div>`; }
+                } else if (statsSubTab === 'bombardiers') {
+                    const sorted = [...appData.players].filter(p => p.matchesPlayed > 0).sort((a,b) => b.goals - a.goals);
+                    if (!sorted.length) html += `<p>Нет данных</p>`;
+                    else { html += `<div class="table-container"><table><thead><tr><th>#</th><th>Игрок</th><th>Матчи</th><th>Голы</th></tr></thead><tbody>`; sorted.forEach((p, i) => html += `<tr class="${i === 0 ? 'highlight-row' : ''}"><td>${i+1}</td><td>${escapeHtml(p.name)}</td><td>${p.matchesPlayed}</td><td>${p.goals}</td></tr>`); html += `</tbody></table></div>`; }
+                } else if (statsSubTab === 'assists') {
+                    const sorted = [...appData.players].filter(p => p.matchesPlayed > 0).sort((a,b) => b.assists - a.assists);
+                    if (!sorted.length) html += `<p>Нет данных</p>`;
+                    else { html += `<div class="table-container"><table><thead><tr><th>#</th><th>Игрок</th><th>Матчи</th><th>Передачи</th></tr></thead><tbody>`; sorted.forEach((p, i) => html += `<tr class="${i === 0 ? 'highlight-row' : ''}"><td>${i+1}</td><td>${escapeHtml(p.name)}</td><td>${p.matchesPlayed}</td><td>${p.assists}</td></tr>`); html += `</tbody></table></div>`; }
+                } else if (statsSubTab === 'goalkeepers') {
+                    const gks = appData.players.filter(p => p.goalkeeperMatches > 0).sort((a,b) => a.goalsConceded - b.goalsConceded);
+                    if (!gks.length) html += `<p>Нет данных</p>`;
+                    else { html += `<div class="table-container"><table><thead><tr><th>#</th><th>Игрок</th><th>Матчи</th><th>Пропущено</th></tr></thead><tbody>`; gks.forEach((p, i) => html += `<tr class="${i === 0 ? 'highlight-row' : ''}"><td>${i+1}</td><td>${escapeHtml(p.name)}</td><td>${p.goalkeeperMatches}</td><td>${p.goalsConceded}</td></tr>`); html += `</tbody></table></div>`; }
+                } else if (statsSubTab === 'votes') {
+                    const players = [...appData.players];
+                    const votes = appData.votes || {};
+                    let totalVotes = 0;
+                    Object.keys(votes).forEach(k => { const v = votes[k]; if (typeof v === 'number' && v > 0) totalVotes += v; });
+                    const sorted = players.sort((a, b) => (votes[b.name] || 0) - (votes[a.name] || 0) || a.name.localeCompare(b.name));
+                    if (!sorted.length || totalVotes === 0) html += `<p>Нет голосов.</p>`;
+                    else { html += `<div class="table-container"><table><thead><tr><th>#</th><th>Игрок</th><th>Голоса</th><th>%</th></tr></thead><tbody>`; sorted.forEach((p, i) => { const v = votes[p.name] || 0; const pct = totalVotes > 0 ? Math.round(v / totalVotes * 100) : 0; html += `<tr class="${i === 0 && v > 0 ? 'highlight-row' : ''}"><td>${i+1}${i === 0 && v > 0 ? ' 👑' : ''}</td><td>${escapeHtml(p.name)}</td><td>${v}</td><td>${pct}%</td></tr>`; }); html += `</tbody></table></div>`; }
+                } else if (statsSubTab === 'bestteam') {
+                    // ⭐ Лучшая команда — таблица с игроками
+                    const teams = appData.teams.map(t => {
+                        const players = appData.players.filter(p => p.teamId === t.id);
+                        const avg = players.length ? Math.round(players.reduce((s, p) => s + calcRatingForPlayerInTournament(p.name, appData), 0) / players.length) : 0;
+                        return { id: t.id, name: t.name, color: t.color, playerCount: players.length, rating: avg, players: players.map(p => p.name) };
+                    }).filter(t => t.playerCount > 0).sort((a,b) => b.rating - a.rating || a.name.localeCompare(b.name));
+                    if (!teams.length) html += `<p>Нет данных</p>`;
+                    else {
+                        html += `<div class="table-container"><table><thead><tr><th>#</th><th>Команда</th><th>Игроков</th><th>Рейтинг</th><th>Состав</th></tr></thead><tbody>`;
+                        teams.forEach((t, i) => {
+                            const rs = getRatingStyle(t.rating);
+                            html += `<tr class="${i === 0 ? 'highlight-row' : ''}"><td>${i+1}${i === 0 ? ' ' + rs.medal : ''}</td><td><span style="color:${escapeHtml(t.color || '#1e2a1e')}; font-weight:700;">${escapeHtml(t.name)}</span></td><td>${t.playerCount}</td><td><strong style="color:${rs.color};">${t.rating} ${rs.medal}</strong></td><td style="text-align:left;">${renderPlayerChips(t.players)}</td></tr>`;
+                        });
+                        html += `</tbody></table></div>`;
+                    }
+                }
+                return html;
+            }
+
+            function renderOverallTab() {
+                let html = `<div class="panel-title"><span class="icon">🏅</span> Общий рейтинг — по всем турнирам</div>`;
+                html += `<div class="sub-tabs">
+                    <button class="sub-tab ${overallSubTab === 'rating' ? 'active' : ''}" data-overall="rating">⭐ Рейтинг LAGUNA</button>
+                    <button class="sub-tab ${overallSubTab === 'mvp' ? 'active' : ''}" data-overall="mvp">🏅 MVP</button>
+                    <button class="sub-tab ${overallSubTab === 'bombardiers' ? 'active' : ''}" data-overall="bombardiers">⚽ Бомбардиры</button>
+                    <button class="sub-tab ${overallSubTab === 'assists' ? 'active' : ''}" data-overall="assists">🎯 Ассистенты</button>
+                    <button class="sub-tab ${overallSubTab === 'goalkeepers' ? 'active' : ''}" data-overall="goalkeepers">🧤 Вратари</button>
+                    <button class="sub-tab ${overallSubTab === 'votes' ? 'active' : ''}" data-overall="votes">🗳️ Голосование</button>
+                </div>`;
+                if (overallSubTab === 'rating') {
+                    const allNamesSet = new Set();
+                    tournamentsList.forEach(t => { (getTournamentData(t.id).players || []).forEach(p => allNamesSet.add(p.name)); });
+                    const ratedOverall = [...allNamesSet].map(name => ({ name, rating: calcRatingForPlayer(name) })).filter(x => x.rating > 0).sort((a,b) => b.rating - a.rating || a.name.localeCompare(b.name));
+                    if (!ratedOverall.length) html += `<p>Нет данных</p>`;
+                    else { html += `<div class="table-container"><table><thead><tr><th>#</th><th>Игрок</th><th>Рейтинг</th></tr></thead><tbody>`; ratedOverall.forEach((p, i) => { const rs = getRatingStyle(p.rating); html += `<tr class="${i === 0 ? 'highlight-row' : ''}"><td>${i+1}${i === 0 ? ' ' + rs.medal : ''}</td><td>${escapeHtml(p.name)}</td><td><strong style="color:${rs.color};">${p.rating} ${rs.medal}</strong></td></tr>`; }); html += `</tbody></table></div>`; }
+                } else if (overallSubTab === 'mvp') {
+                    const mvpCounter = {};
+                    tournamentsList.forEach(t => { const data = getTournamentData(t.id); const mvp = getMVPTournament(data); if (mvp) mvpCounter[mvp.name] = (mvpCounter[mvp.name] || 0) + 1; });
+                    const mvpEntries = Object.entries(mvpCounter).sort((a,b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+                    if (!mvpEntries.length) html += `<p>Нет данных</p>`;
+                    else { html += `<div class="table-container"><table><thead><tr><th>#</th><th>Игрок</th><th>Количество MVP</th></tr></thead><tbody>`; mvpEntries.forEach(([name, count], i) => html += `<tr class="${i === 0 ? 'highlight-row' : ''}"><td>${i+1}${i === 0 ? ' 👑' : ''}</td><td>${escapeHtml(name)}</td><td>${count}</td></tr>`); html += `</tbody></table></div>`; }
+                } else if (overallSubTab === 'bombardiers') {
+                    const allAgg = aggregateAllPlayers();
+                    const byGoals = [...allAgg].sort((a,b) => b.goals - a.goals);
+                    if (!byGoals.length) html += `<p>Нет данных</p>`;
+                    else { html += `<div class="table-container"><table><thead><tr><th>#</th><th>Игрок</th><th>Матчи</th><th>Голы</th></tr></thead><tbody>`; byGoals.forEach((p, i) => html += `<tr class="${i === 0 ? 'highlight-row' : ''}"><td>${i+1}</td><td>${escapeHtml(p.name)}</td><td>${p.matchesPlayed}</td><td>${p.goals}</td></tr>`); html += `</tbody></table></div>`; }
+                } else if (overallSubTab === 'assists') {
+                    const allAgg = aggregateAllPlayers();
+                    const byAssists = [...allAgg].sort((a,b) => b.assists - a.assists);
+                    if (!byAssists.length) html += `<p>Нет данных</p>`;
+                    else { html += `<div class="table-container"><table><thead><tr><th>#</th><th>Игрок</th><th>Матчи</th><th>Передачи</th></tr></thead><tbody>`; byAssists.forEach((p, i) => html += `<tr class="${i === 0 ? 'highlight-row' : ''}"><td>${i+1}</td><td>${escapeHtml(p.name)}</td><td>${p.matchesPlayed}</td><td>${p.assists}</td></tr>`); html += `</tbody></table></div>`; }
+                } else if (overallSubTab === 'goalkeepers') {
+                    const allAgg = aggregateAllPlayers();
+                    const gks = allAgg.filter(p => p.goalkeeperMatches > 0).sort((a,b) => a.goalsConceded - b.goalsConceded);
+                    if (!gks.length) html += `<p>Нет данных</p>`;
+                    else { html += `<div class="table-container"><table><thead><tr><th>#</th><th>Игрок</th><th>Матчи</th><th>Пропущено</th></tr></thead><tbody>`; gks.forEach((p, i) => html += `<tr class="${i === 0 ? 'highlight-row' : ''}"><td>${i+1}</td><td>${escapeHtml(p.name)}</td><td>${p.goalkeeperMatches}</td><td>${p.goalsConceded}</td></tr>`); html += `</tbody></table></div>`; }
+                } else if (overallSubTab === 'votes') {
+                    const votesCounter = {};
+                    tournamentsList.forEach(t => { const data = getTournamentData(t.id); const best = getBestVoted(data); if (best) votesCounter[best.name] = (votesCounter[best.name] || 0) + 1; });
+                    const votesEntries = Object.entries(votesCounter).sort((a,b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+                    if (!votesEntries.length) html += `<p>Нет данных</p>`;
+                    else { html += `<div class="table-container"><table><thead><tr><th>#</th><th>Игрок</th><th>Побед в голосовании</th></tr></thead><tbody>`; votesEntries.forEach(([name, count], i) => html += `<tr class="${i === 0 ? 'highlight-row' : ''}"><td>${i+1}</td><td>${escapeHtml(name)}</td><td>${count}</td></tr>`); html += `</tbody></table></div>`; }
+                }
+                return html;
+            }
+
+            function buildGoalRowHtml(scorerId, assistId, players) {
+                let h = `<div class="goal-row">`;
+                h += `<select class="scorer-select"><option value="">Бомбардир</option>`;
+                players.forEach(p => { h += `<option value="${p.id}" ${scorerId === p.id ? 'selected' : ''}>${escapeHtml(p.name)}</option>`; });
+                h += `</select>`;
+                h += `<select class="assist-select"><option value="">Ассистент</option>`;
+                players.forEach(p => { h += `<option value="${p.id}" ${assistId === p.id ? 'selected' : ''}>${escapeHtml(p.name)}</option>`; });
+                h += `</select><button class="btn btn-danger btn-sm remove-goal" type="button">✕</button></div>`;
+                return h;
+            }
+            function openEditMatchModal(matchId) {
+                if (!requireMatchRights()) return;
+                const m = appData.matches.find(x => x.id === matchId); if (!m) return;
+                const teamA = getTeamById(m.teamA); const teamB = getTeamById(m.teamB); if (!teamA || !teamB) return;
+                const playersA = getPlayersByTeam(m.teamA); const playersB = getPlayersByTeam(m.teamB);
+                let html = `<h2>✏️ Редактировать матч</h2><div style="font-weight:700; margin-bottom:15px; font-size:1.1rem;"><span style="color:${escapeHtml(getTeamColor(teamA))};">${escapeHtml(teamA.name)}</span> — <span style="color:${escapeHtml(getTeamColor(teamB))};">${escapeHtml(teamB.name)}</span></div>`;
+                html += `<div style="display:grid; grid-template-columns: 1fr auto auto 1fr; gap:10px; align-items:center; margin-bottom:20px;"><div style="font-weight:700; text-align:right;">Счёт:</div>`;
+                html += `<input type="number" id="editScoreA" min="0" value="${m.scoreA}" style="width:70px; padding:10px; border-radius:10px; border:2px solid #e0e8e0; text-align:center; font-weight:700;">`;
+                html += `<input type="number" id="editScoreB" min="0" value="${m.scoreB}" style="width:70px; padding:10px; border-radius:10px; border:2px solid #e0e8e0; text-align:center; font-weight:700;"><div></div></div>`;
+                html += `<div style="display:grid; grid-template-columns:1fr 1fr; gap:15px; margin-bottom:20px;">`;
+                html += `<div><label style="font-weight:700; display:block; margin-bottom:6px; font-size:0.9rem;">🧤 Вратарь ${escapeHtml(teamA.name)}</label><select id="editGkA" style="width:100%; padding:10px; border-radius:10px; border:2px solid #e0e8e0;"><option value="">-- нет --</option>`;
+                playersA.forEach(p => { html += `<option value="${p.id}" ${m.goalkeeperA === p.id ? 'selected' : ''}>${escapeHtml(p.name)}</option>`; });
+                html += `</select></div>`;
+                html += `<div><label style="font-weight:700; display:block; margin-bottom:6px; font-size:0.9rem;">🧤 Вратарь ${escapeHtml(teamB.name)}</label><select id="editGkB" style="width:100%; padding:10px; border-radius:10px; border:2px solid #e0e8e0;"><option value="">-- нет --</option>`;
+                playersB.forEach(p => { html += `<option value="${p.id}" ${m.goalkeeperB === p.id ? 'selected' : ''}>${escapeHtml(p.name)}</option>`; });
+                html += `</select></div></div>`;
+                html += `<div style="background:#f0f7f0; border-radius:12px; padding:14px; margin-bottom:12px;"><label style="font-weight:700; display:block; margin-bottom:8px;">⚽ Голы <span style="color:${escapeHtml(getTeamColor(teamA))};">${escapeHtml(teamA.name)}</span></label><div id="editGoalsA" class="scorer-list">`;
+                (m.goalsA || []).forEach(g => { html += buildGoalRowHtml(g.scorerId, g.assistId, playersA); });
+                html += `</div><button class="btn btn-secondary btn-sm" id="editAddGoalA" type="button">➕ Гол</button></div>`;
+                html += `<div style="background:#f0f7f0; border-radius:12px; padding:14px; margin-bottom:12px;"><label style="font-weight:700; display:block; margin-bottom:8px;">⚽ Голы <span style="color:${escapeHtml(getTeamColor(teamB))};">${escapeHtml(teamB.name)}</span></label><div id="editGoalsB" class="scorer-list">`;
+                (m.goalsB || []).forEach(g => { html += buildGoalRowHtml(g.scorerId, g.assistId, playersB); });
+                html += `</div><button class="btn btn-secondary btn-sm" id="editAddGoalB" type="button">➕ Гол</button></div>`;
+                html += `<div style="display:flex; gap:10px; margin-top:15px;"><button class="btn btn-primary" id="saveEditMatchBtn" data-match="${m.id}" style="flex:1;">💾 Сохранить</button><button class="btn btn-secondary" id="cancelEditMatchBtn" style="flex:1;">Отмена</button></div>`;
+                document.getElementById('editMatchContent').innerHTML = html;
+                document.getElementById('editMatchModal').style.display = 'flex';
+                document.querySelectorAll('#editMatchModal .remove-goal').forEach(btn => { btn.onclick = function() { this.closest('.goal-row').remove(); }; });
+                document.getElementById('editAddGoalA').onclick = () => { const row = document.createElement('div'); row.className = 'goal-row'; row.innerHTML = buildGoalRowHtml(null, null, playersA); document.getElementById('editGoalsA').appendChild(row); row.querySelector('.remove-goal').onclick = function() { row.remove(); }; };
+                document.getElementById('editAddGoalB').onclick = () => { const row = document.createElement('div'); row.className = 'goal-row'; row.innerHTML = buildGoalRowHtml(null, null, playersB); document.getElementById('editGoalsB').appendChild(row); row.querySelector('.remove-goal').onclick = function() { row.remove(); }; };
+                document.getElementById('cancelEditMatchBtn').onclick = () => { document.getElementById('editMatchModal').style.display = 'none'; };
+                document.getElementById('saveEditMatchBtn').onclick = () => saveEditedMatch(m.id);
+            }
+            function saveEditedMatch(matchId) {
+                if (!requireMatchRights()) return;
+                const m = appData.matches.find(x => x.id === matchId); if (!m) return;
+                const teamA = getTeamById(m.teamA); const teamB = getTeamById(m.teamB); if (!teamA || !teamB) return;
+                const newScoreA = document.getElementById('editScoreA').value; const newScoreB = document.getElementById('editScoreB').value;
+                const newGkA = document.getElementById('editGkA').value || null; const newGkB = document.getElementById('editGkB').value || null;
+                const newGoalsA = []; const newGoalsB = [];
+                document.querySelectorAll('#editGoalsA .goal-row').forEach(row => { const sc = row.querySelector('.scorer-select').value; const as = row.querySelector('.assist-select').value; if (sc) newGoalsA.push({ scorerId: sc, assistId: as || null }); });
+                document.querySelectorAll('#editGoalsB .goal-row').forEach(row => { const sc = row.querySelector('.scorer-select').value; const as = row.querySelector('.assist-select').value; if (sc) newGoalsB.push({ scorerId: sc, assistId: as || null }); });
+                if (newGoalsA.length !== parseInt(newScoreA, 10) || newGoalsB.length !== parseInt(newScoreB, 10)) { alert('Количество голов не совпадает со счётом'); return; }
+                const oldDesc = `${teamA.name} ${m.scoreA}:${m.scoreB} ${teamB.name}`;
+                revertMatchStats(m);
+                m.scoreA = newScoreA; m.scoreB = newScoreB; m.goalsA = newGoalsA; m.goalsB = newGoalsB; m.goalkeeperA = newGkA; m.goalkeeperB = newGkB;
+                m.lastEditedBy = getCurrentUser(); m.lastEditedAt = new Date().toISOString();
+                applyMatchStats(m);
+                const newDesc = `${teamA.name} ${m.scoreA}:${m.scoreB} ${teamB.name}`;
+                addChangeLog('edit', `${oldDesc} → ${newDesc}`);
+                saveCurrentData(); document.getElementById('editMatchModal').style.display = 'none'; render();
+            }
+            function renamePlayer(oldName) {
+                if (!requireAdmin('переименовывать игроков')) return;
+                const newName = prompt('Новое имя:', oldName); if (!newName) return;
+                const trimmed = newName.trim(); if (!trimmed || trimmed === oldName) return;
+                if (playersDatabase.includes(trimmed)) { alert('Игрок с таким именем уже есть в базе'); return; }
+                tournamentsList.forEach(t => {
+                    const data = getTournamentData(t.id);
+                    (data.players || []).forEach(p => { if (p.name === oldName) p.name = trimmed; });
+                    if (data.votes && data.votes[oldName] !== undefined) { data.votes[trimmed] = data.votes[oldName]; delete data.votes[oldName]; }
+                });
+                const idx = playersDatabase.indexOf(oldName); if (idx >= 0) playersDatabase[idx] = trimmed;
+                serverState.playersDb = playersDatabase;
+                const passwords = getPasswords(); if (passwords[oldName] !== undefined) { passwords[trimmed] = passwords[oldName]; delete passwords[oldName]; }
+                const admins = getAdmins(); const aIdx = admins.indexOf(oldName); if (aIdx >= 0) admins[aIdx] = trimmed;
+                const assigners = getAssigners(); const asIdx = assigners.indexOf(oldName); if (asIdx >= 0) assigners[asIdx] = trimmed;
+                tournamentsList.forEach(t => { const key = VOTE_KEY_PREFIX + t.id; if (localStorage.getItem(key) === oldName) localStorage.setItem(key, trimmed); });
+                if (getCurrentUser() === oldName) setCurrentUser(trimmed);
+                addChangeLog('rename', `«${oldName}» → «${trimmed}»`);
+                saveCurrentData(); document.getElementById('playerModal').style.display = 'none'; renderUserBox(); renderNavTabs(); render();
+                alert('✅ Имя изменено во всех турнирах');
+            }
+
+            document.addEventListener('click', function(e) {
+                const playerLink = e.target.closest('.player-link');
+                if (playerLink) { openPlayerProfile(playerLink.dataset.player); return; }
+                const closeBtn = e.target.closest('.close-btn');
+                if (closeBtn) { const m = document.getElementById(closeBtn.dataset.modal); if (m) m.style.display = 'none'; return; }
+
+                const voteItem = e.target.closest('.vote-modal-item');
+                if (voteItem) { handleVote(voteItem.dataset.player); document.getElementById('voteModal').style.display = 'none'; return; }
+
+                const statusBtn = e.target.closest('.status-btn');
+                if (statusBtn) { setPlayerStatus(statusBtn.dataset.id, statusBtn.dataset.status); return; }
+
+                const teamClickable = e.target.closest('.team-name-clickable');
+                if (teamClickable) { openTeamChanger(teamClickable.dataset.id); return; }
+
+                const colorOpt = e.target.closest('.color-option');
+                if (colorOpt) { document.querySelectorAll('#teamColorOptions .color-option').forEach(opt => opt.classList.remove('selected')); colorOpt.classList.add('selected'); return; }
+
+                const target = e.target.closest('button');
+                if (!target) return;
+
+                if (target.id === 'openLoginBtn' || target.id === 'openLoginBtnChat' || target.id === 'openLoginBtnBanner') { openLoginModal(); return; }
+                if (target.id === 'logoutBtn') { logout(); return; }
+                if (target.id === 'notifyBtn') { toggleNotifications(); return; }
+                if (target.id === 'openVoteModalBtn') { openVoteModal(); return; }
+                if (target.id === 'cancelVoteModalBtn') { document.getElementById('voteModal').style.display = 'none'; return; }
+                if (target.id === 'loginSubmitBtn') {
+                    const nameInput = document.getElementById('loginName'); const passInput = document.getElementById('loginPassword');
+                    const err = document.getElementById('loginError');
+                    const result = loginOrRegister(nameInput.value, passInput.value);
+                    if (result.error) { err.textContent = result.error; err.style.display = 'block'; return; }
+                    document.getElementById('loginModal').style.display = 'none';
+                    renderUserBox(); renderGuestBanner(); renderNavTabs(); render();
+                    alert(result.message || '✅ Вы вошли как ' + getCurrentUser());
+                    return;
+                }
+                if (target.classList.contains('approve-pending')) { approvePending(target.dataset.name); return; }
+                if (target.classList.contains('reject-pending')) { rejectPending(target.dataset.name); return; }
+                if (target.classList.contains('promote-admin')) { promoteToAdmin(target.dataset.name); return; }
+                if (target.classList.contains('demote-admin')) { demoteAdmin(target.dataset.name); return; }
+                if (target.classList.contains('add-assigner')) { addAssigner(target.dataset.name); return; }
+                if (target.classList.contains('remove-assigner')) { removeAssigner(target.dataset.name); return; }
+
+                if (target.classList.contains('nav-tab')) {
+                    currentTab = target.dataset.tab;
+                    document.querySelectorAll('.nav-tab').forEach(b => b.classList.toggle('active', b === target));
+                    if (currentTab === 'chat') markChatAsRead();
+                    render(); return;
+                }
+                if (target.dataset.admin) { adminSubTab = target.dataset.admin; render(); return; }
+                if (target.classList.contains('sub-tab')) {
+                    const s = target.dataset.subtab || target.dataset.history || target.dataset.overall;
+                    if (target.dataset.overall) overallSubTab = s;
+                    else if (['bombardiers','assists','goalkeepers','mvp','votes','rating','bestteam'].includes(s)) statsSubTab = s;
+                    else if (['games','tournaments','changes'].includes(s)) historySubTab = s;
+                    render(); return;
+                }
+                if (target.id === 'chatSendBtn') { sendChatMessage(); return; }
+                if (target.id === 'addPlayerToBaseBtn') { if (!requireLogin('добавлять игроков в базу')) return; document.getElementById('addPlayerBaseModal').style.display = 'flex'; return; }
+                if (target.classList.contains('add-to-tournament-btn')) { if (!requireLogin('добавлять игроков в заявку')) return; openTeamSelectModal(target.dataset.player); return; }
+                if (target.classList.contains('remove-from-base-btn')) {
+                    if (!requireAdmin('удалять игроков из базы')) return;
+                    const name = target.dataset.player;
+                    if (!confirm(`Удалить "${name}" из базы игроков?`)) return;
+                    playersDatabase = playersDatabase.filter(n => n !== name); savePlayersDatabase();
+                    const passwords = getPasswords(); delete passwords[name];
+                    const admins = getAdmins(); const ai = admins.indexOf(name); if (ai >= 0 && name !== PRIMARY_ADMIN) admins.splice(ai, 1);
+                    const assigners = getAssigners(); const asi = assigners.indexOf(name); if (asi >= 0) assigners.splice(asi, 1);
+                    if (getCurrentUser() === name) { setCurrentUser(''); renderUserBox(); renderGuestBanner(); renderNavTabs(); }
+                    render(); return;
+                }
+                if (target.classList.contains('delete-team-btn')) {
+                    if (!requireLogin('удалять команды')) return;
+                    const teamId = target.dataset.id;
+                    const team = getTeamById(teamId); if (!team) return;
+                    if (!confirm(`Удалить команду "${team.name}"?`)) return;
+                    const matchesToRemove = appData.matches.filter(m => m.teamA === teamId || m.teamB === teamId);
+                    matchesToRemove.forEach(m => { revertMatchStats(m); });
+                    appData.matches = appData.matches.filter(m => m.teamA !== teamId && m.teamB !== teamId);
+                    appData.players.forEach(p => { if (p.teamId === teamId) p.teamId = null; });
+                    appData.teams = appData.teams.filter(t => t.id !== teamId);
+                    addChangeLog('delete', `Удалена команда "${team.name}"`);
+                    saveCurrentData(); render(); alert(`✅ Команда "${team.name}" удалена`);
+                    return;
+                }
+                if (target.classList.contains('delete-tournament-btn')) { if (!requireAdmin('удалять турниры')) return; deleteTournament(target.dataset.id); return; }
+                if (target.classList.contains('edit-match')) { if (!requireMatchRights()) return; openEditMatchModal(target.dataset.id); return; }
+                if (target.classList.contains('delete-match')) {
+                    if (!requireMatchRights()) return;
+                    if (confirm('Удалить матч?')) {
+                        const m = appData.matches.find(x => x.id === target.dataset.id);
+                        if (m) { const teamA = getTeamById(m.teamA), teamB = getTeamById(m.teamB); addChangeLog('delete', `${teamA ? teamA.name : '?'} ${m.scoreA}:${m.scoreB} ${teamB ? teamB.name : '?'}`); revertMatchStats(m); }
+                        appData.matches = appData.matches.filter(x => x.id !== target.dataset.id);
+                        saveCurrentData(); render();
+                    }
+                    return;
+                }
+                if (target.classList.contains('delete-player')) {
+                    if (!requireLogin('удалять игроков из заявки')) return;
+                    if (confirm('Удалить игрока из заявки?')) {
+                        const r = appData.players.find(p => p.id === target.dataset.id);
+                        appData.players = appData.players.filter(p => p.id !== target.dataset.id);
+                        if (r && appData.votes && appData.votes[r.name]) delete appData.votes[r.name];
+                        saveCurrentData(); render();
+                    }
+                    return;
+                }
+                if (target.id === 'newTournamentBtn') { createNewTournament(); return; }
+                if (target.id === 'addTeamBtn') {
+                    if (!requireLogin('добавлять команды')) return;
+                    const n = document.getElementById('newTeamName').value.trim();
+                    const selectedColor = document.querySelector('#teamColorOptions .color-option.selected');
+                    const c = selectedColor ? selectedColor.dataset.color : '#1e2a1e';
+                    if (n) { appData.teams.push({ id: generateId(), name: n, color: c }); saveCurrentData(); render(); }
+                    else { alert('Введите название команды'); }
+                    return;
+                }
+                if (target.id === 'addMatchBtn') { handleAddMatch(); return; }
+                if (target.id === 'saveBasePlayerBtn') {
+                    if (!requireAdmin('добавлять игроков в базу')) return;
+                    const inp = document.getElementById('newBasePlayerName'); const n = inp.value.trim();
+                    if (n && !playersDatabase.includes(n)) { playersDatabase.push(n); savePlayersDatabase(); document.getElementById('addPlayerBaseModal').style.display = 'none'; inp.value = ''; render(); }
+                    return;
+                }
+                if (target.id === 'confirmAddPlayerBtn') { confirmAddPlayerToTournament('confirmed'); return; }
+                if (target.id === 'pendingAddPlayerBtn') { confirmAddPlayerToTournament('pending'); return; }
+                if (target.id === 'renamePlayerBtn') { renamePlayer(target.dataset.player); return; }
+                if (target.id === 'addGoalA') { if (!requireMatchRights()) return; addGoalRow(document.getElementById('goalsA'), document.getElementById('matchTeamA').value); return; }
+                if (target.id === 'addGoalB') { if (!requireMatchRights()) return; addGoalRow(document.getElementById('goalsB'), document.getElementById('matchTeamB').value); return; }
+            });
+
+            document.addEventListener('change', function(e) {
+                if (e.target.id === 'tournamentSelect') switchTournament(e.target.value);
+                if (e.target.id === 'matchTeamA' || e.target.id === 'matchTeamB') updateMatchFormLists();
+            });
+            document.addEventListener('keydown', function(e) {
+                if (e.target.id === 'chatMessageInput' && e.key === 'Enter') { e.preventDefault(); sendChatMessage(); }
+                if (e.target.id === 'loginPassword' && e.key === 'Enter') { e.preventDefault(); document.getElementById('loginSubmitBtn').click(); }
+                if (e.target.id === 'loginName' && e.key === 'Enter') { e.preventDefault(); document.getElementById('loginPassword').focus(); }
+            });
+
+            function openTeamSelectModal(playerName) {
+                if (!requireLogin('добавлять игроков в заявку')) return;
+                if (!currentTournamentId) { alert('🔒 Нет активного турнира.'); return; }
+                pendingPlayerToAdd = playerName;
+                document.getElementById('teamSelectPlayerName').textContent = playerName;
+                document.getElementById('selectTeamModal').style.display = 'flex';
+            }
+            function confirmAddPlayerToTournament(status) {
+                if (!requireLogin('добавлять игроков в заявку')) return;
+                if (!currentTournamentId) { alert('🔒 Нет активного турнира.'); document.getElementById('selectTeamModal').style.display = 'none'; pendingPlayerToAdd = null; return; }
+                if (!pendingPlayerToAdd) return;
+                if (appData.players.some(p => p.name === pendingPlayerToAdd)) { alert('Уже в заявке'); document.getElementById('selectTeamModal').style.display = 'none'; pendingPlayerToAdd = null; return; }
+                appData.players.push({ id: generateId(), name: pendingPlayerToAdd, teamId: null, status: status, addedAt: new Date().toISOString(), goals: 0, assists: 0, matchesPlayed: 0, goalsConceded: 0, cleanSheets: 0, goalkeeperMatches: 0 });
+                saveCurrentData();
+                document.getElementById('selectTeamModal').style.display = 'none';
+                pendingPlayerToAdd = null;
+                render();
+            }
+            function updateMatchFormLists() {
+                const tA = document.getElementById('matchTeamA'), tB = document.getElementById('matchTeamB');
+                const gA = document.getElementById('goalkeeperA'), gB = document.getElementById('goalkeeperB');
+                const cA = document.getElementById('goalsA'), cB = document.getElementById('goalsB');
+                if (!tA || !tB) return;
+                gA.innerHTML = '<option value="">-- без вратаря --</option>'; gB.innerHTML = '<option value="">-- без вратаря --</option>';
+                cA.innerHTML = ''; cB.innerHTML = '';
+                if (tA.value) getPlayersByTeam(tA.value).forEach(p => gA.innerHTML += `<option value="${p.id}">${escapeHtml(p.name)}</option>`);
+                if (tB.value) getPlayersByTeam(tB.value).forEach(p => gB.innerHTML += `<option value="${p.id}">${escapeHtml(p.name)}</option>`);
+            }
+            function addGoalRow(container, teamId) {
+                if (!requireMatchRights()) return;
+                if (!teamId) return alert('Выберите команду');
+                const players = getPlayersByTeam(teamId); if (!players.length) return alert('Нет игроков');
+                const row = document.createElement('div'); row.className = 'goal-row';
+                row.innerHTML = `<select class="scorer-select"><option value="">Бомбардир</option>${players.map(p => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('')}</select><select class="assist-select"><option value="">Ассистент</option>${players.map(p => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('')}</select><button class="btn btn-danger btn-sm remove-goal" type="button">✕</button>`;
+                container.appendChild(row);
+                row.querySelector('.remove-goal').addEventListener('click', () => row.remove());
+            }
+            function handleAddMatch() {
+                if (!requireMatchRights()) return;
+                const tA = document.getElementById('matchTeamA').value, tB = document.getElementById('matchTeamB').value;
+                const sA = document.getElementById('matchScoreA').value, sB = document.getElementById('matchScoreB').value;
+                const gkA = document.getElementById('goalkeeperA').value, gkB = document.getElementById('goalkeeperB').value;
+                if (!tA || !tB || tA === tB) return alert('Выберите две разные команды');
+                const goalsA = [], goalsB = [];
+                document.querySelectorAll('#goalsA .goal-row').forEach(row => { const sc = row.querySelector('.scorer-select').value; const as = row.querySelector('.assist-select').value; if (sc) goalsA.push({ scorerId: sc, assistId: as || null }); });
+                document.querySelectorAll('#goalsB .goal-row').forEach(row => { const sc = row.querySelector('.scorer-select').value; const as = row.querySelector('.assist-select').value; if (sc) goalsB.push({ scorerId: sc, assistId: as || null }); });
+                if (goalsA.length !== parseInt(sA,10) || goalsB.length !== parseInt(sB,10)) return alert('Голы не совпадают со счётом');
+                const user = getCurrentUser();
+                const match = { id: generateId(), createdAt: new Date().toISOString(), createdBy: user, teamA: tA, teamB: tB, scoreA: sA, scoreB: sB, goalsA, goalsB, goalkeeperA: gkA || null, goalkeeperB: gkB || null };
+                appData.matches.push(match); applyMatchStats(match);
+                const teamA = getTeamById(tA), teamB = getTeamById(tB);
+                addChangeLog('add', `${teamA.name} ${sA}:${sB} ${teamB.name}`);
+                saveCurrentData(); render(); alert('Матч добавлен');
+            }
+            function applyMatchStats(match) {
+                const all = [...getPlayersByTeam(match.teamA), ...getPlayersByTeam(match.teamB)];
+                all.forEach(p => p.matchesPlayed = (p.matchesPlayed || 0) + 1);
+                match.goalsA.forEach(g => { const sc = getPlayerById(g.scorerId); if (sc) sc.goals++; if (g.assistId) { const a = getPlayerById(g.assistId); if (a) a.assists++; } });
+                match.goalsB.forEach(g => { const sc = getPlayerById(g.scorerId); if (sc) sc.goals++; if (g.assistId) { const a = getPlayerById(g.assistId); if (a) a.assists++; } });
+                if (match.goalkeeperA) { const gk = getPlayerById(match.goalkeeperA); if (gk) { gk.goalkeeperMatches = (gk.goalkeeperMatches || 0) + 1; gk.goalsConceded += parseInt(match.scoreB,10)||0; } }
+                if (match.goalkeeperB) { const gk = getPlayerById(match.goalkeeperB); if (gk) { gk.goalkeeperMatches = (gk.goalkeeperMatches || 0) + 1; gk.goalsConceded += parseInt(match.scoreA,10)||0; } }
+            }
+            function revertMatchStats(match) {
+                const all = [...getPlayersByTeam(match.teamA), ...getPlayersByTeam(match.teamB)];
+                all.forEach(p => p.matchesPlayed = Math.max(0, p.matchesPlayed - 1));
+                (match.goalsA || []).forEach(g => { const sc = getPlayerById(g.scorerId); if (sc) sc.goals = Math.max(0, sc.goals - 1); if (g.assistId) { const a = getPlayerById(g.assistId); if (a) a.assists = Math.max(0, a.assists - 1); } });
+                (match.goalsB || []).forEach(g => { const sc = getPlayerById(g.scorerId); if (sc) sc.goals = Math.max(0, sc.goals - 1); if (g.assistId) { const a = getPlayerById(g.assistId); if (a) a.assists = Math.max(0, a.assists - 1); } });
+                if (match.goalkeeperA) { const gk = getPlayerById(match.goalkeeperA); if (gk) { gk.goalkeeperMatches = Math.max(0, gk.goalkeeperMatches - 1); gk.goalsConceded = Math.max(0, gk.goalsConceded - (parseInt(match.scoreB,10)||0)); } }
+                if (match.goalkeeperB) { const gk = getPlayerById(match.goalkeeperB); if (gk) { gk.goalkeeperMatches = Math.max(0, gk.goalkeeperMatches - 1); gk.goalsConceded = Math.max(0, gk.goalsConceded - (parseInt(match.scoreA,10)||0)); } }
+            }
+
+            function calcRatingFromStats(matches, goals, assists, totalAwards) {
+                if (matches === 0) return 0;
+                const P = matches * 1 + goals * 10 + assists * 7 + totalAwards * 20;
+                const ppm = P / matches;
+                const expMult = Math.min(1, matches / 10);
+                let rating = Math.round((ppm / 48) * 99 * expMult);
+                if (rating > 99) rating = 99;
+                if (rating < 0) rating = 0;
+                return rating;
+            }
+            function calcRatingForPlayer(playerName) {
+                let matches = 0, goals = 0, assists = 0;
+                tournamentsList.forEach(t => {
+                    const data = getTournamentData(t.id);
+                    const player = (data.players || []).find(p => p.name === playerName);
+                    if (player) { matches += player.matchesPlayed || 0; goals += player.goals || 0; assists += player.assists || 0; }
+                });
+                const awards = countPlayerAwards(playerName);
+                const totalAwards = (awards.bestScorer || 0) + (awards.bestAssister || 0) + (awards.bestGoalkeeper || 0) + (awards.mvp || 0) + (awards.bestVoted || 0);
+                return calcRatingFromStats(matches, goals, assists, totalAwards);
+            }
+            function calcRatingForPlayerInTournament(playerName, data) {
+                const player = (data.players || []).find(p => p.name === playerName);
+                if (!player) return 0;
+                const matches = player.matchesPlayed || 0;
+                const goals = player.goals || 0;
+                const assists = player.assists || 0;
+                let totalAwards = 0;
+                const scorer = getBestScorer(data); if (scorer && scorer.name === playerName) totalAwards++;
+                const assister = getBestAssister(data); if (assister && assister.name === playerName) totalAwards++;
+                const gk = getBestGoalkeeper(data); if (gk && gk.name === playerName) totalAwards++;
+                const mvp = getMVPTournament(data); if (mvp && mvp.name === playerName) totalAwards++;
+                const voted = getBestVoted(data); if (voted && voted.name === playerName) totalAwards++;
+                return calcRatingFromStats(matches, goals, assists, totalAwards);
+            }
+            function calcTeamRating(teamId, data) {
+                const players = (data.players || []).filter(p => p.teamId === teamId);
+                if (!players.length) return 0;
+                const sum = players.reduce((acc, p) => acc + calcRatingForPlayerInTournament(p.name, data), 0);
+                return Math.round(sum / players.length);
+            }
+            function getRatingStyle(r) {
+                if (r >= 75) return { border: '#f5a623', bg: 'linear-gradient(135deg, #fff8e1 0%, #ffeaa7 100%)', color: '#b87333', shadow: 'rgba(245,166,35,0.35)', medal: '🥇', label: 'Золото' };
+                if (r >= 35) return { border: '#a8a8a8', bg: 'linear-gradient(135deg, #f8f8f8 0%, #d0d0d0 100%)', color: '#4a4a4a', shadow: 'rgba(168,168,168,0.35)', medal: '🥈', label: 'Серебро' };
+                return { border: '#cd7f32', bg: 'linear-gradient(135deg, #fbe9d7 0%, #e8b98a 100%)', color: '#7a4a1a', shadow: 'rgba(205,127,50,0.35)', medal: '🥉', label: 'Бронза' };
+            }
+
+            function openPlayerProfile(playerName) {
+                const isMe = getCurrentUser() === playerName;
+                const hasPassword = !!(getPasswords()[playerName]);
+                const adm = isAdmin(playerName);
+                const assigner = !adm && getAssigners().includes(playerName);
+                const badge = getRosterBadge(playerName);
+                let profile = { name: playerName, goals: 0, assists: 0, matches: 0, tournamentsCount: 0 };
+                tournamentsList.forEach(t => {
+                    const data = getTournamentData(t.id);
+                    const player = data.players.find(p => p.name === playerName);
+                    if (player) { profile.tournamentsCount++; profile.goals += player.goals || 0; profile.assists += player.assists || 0; profile.matches += player.matchesPlayed || 0; }
+                });
+                const awards = countPlayerAwards(playerName);
+                const rating = calcRatingForPlayer(playerName);
+                const rs = getRatingStyle(rating);
+                const modal = document.getElementById('playerModal');
+                document.getElementById('modalContent').innerHTML = `<div style="display:flex; align-items:center; gap:14px; margin-bottom:15px; flex-wrap:wrap;"><div style="display:flex; align-items:center; justify-content:center; min-width:64px; height:64px; padding:0 12px; border:3px solid ${rs.border}; border-radius:16px; background:${rs.bg}; box-shadow:0 4px 12px ${rs.shadow};" title="${rs.label} — Рейтинг LAGUNA"><span style="font-size:1.6rem; font-weight:800; color:${rs.color}; line-height:1;">${rating}</span></div><div style="flex:1; min-width:180px;"><h2 style="margin:0; font-size:1.5rem; line-height:1.2;">👤 ${escapeHtml(playerName)} ${adm ? '<span style="color:#f5a623;">👑</span>' : ''} ${isMe ? '<span style="color:#2b6cb0; font-size:0.9rem;">(это вы)</span>' : ''}</h2><div style="font-size:0.85rem; color:${rs.color}; font-weight:700; margin-top:2px;">${rs.medal} ${rs.label} · Рейтинг LAGUNA</div></div></div><p style="color:${hasPassword ? '#2e9e44' : '#b8860b'}; font-size:0.9rem; margin-bottom:15px;">${hasPassword ? '🔐 Профиль создан' : '⚠️ Профиль не создан'}<br>${adm ? '<span style="color:#f5a623;">👑 Админ</span>' : ''}${assigner ? '<br><span style="color:#f5a623;">🎯 Может назначать команды</span>' : ''}${badge ? `<br><span style="color:${badge.color};">${badge.label}</span>` : ''}</p><table><tr><th>Показатель</th><th>Значение</th></tr><tr><td>Турниров</td><td>${profile.tournamentsCount}</td></tr><tr><td>Матчей</td><td>${profile.matches}</td></tr><tr><td>Голов</td><td>${profile.goals}</td></tr><tr><td>Передач</td><td>${profile.assists}</td></tr><tr><td>🏆 Бомбардир</td><td>${awards.bestScorer}</td></tr><tr><td>🏆 Ассистент</td><td>${awards.bestAssister}</td></tr><tr><td>🏆 Вратарь</td><td>${awards.bestGoalkeeper}</td></tr><tr><td>🏅 MVP</td><td>${awards.mvp}</td></tr><tr><td>🗳️ Голосование</td><td>${awards.bestVoted}</td></tr></table>${isCurrentUserAdmin() ? `<button class="btn btn-primary" id="renamePlayerBtn" data-player="${escapeHtml(playerName)}" style="margin-top:20px; width:100%; justify-content:center;">✏️ Изменить имя (админ)</button>` : ''}`;
+                modal.style.display = 'flex';
+            }
+
+            function cleanupOldBackups() {
+                try {
+                    const keys = Object.keys(localStorage).filter(k => k.startsWith(BACKUP_PREFIX));
+                    if (keys.length > 5) { keys.sort(); const toRemove = keys.slice(0, keys.length - 5); toRemove.forEach(k => localStorage.removeItem(k)); }
+                } catch(e) {}
+            }
+
+            async function init() {
+                loadFromLocal();
+                if (!serverState.data[ADMINS_KEY]) { serverState.data[ADMINS_KEY] = [PRIMARY_ADMIN]; scheduleSave(); }
+                if (!serverState.data[ASSIGNERS_KEY]) { serverState.data[ASSIGNERS_KEY] = []; }
+                updateTournamentSelect();
+                renderUserBox(); renderGuestBanner(); renderNotifyButton(); renderNavTabs(); render();
+                await pullFromServer(true);
+                setInterval(() => pullFromServer(false), POLL_MS);
+                setInterval(cleanupOldBackups, 60000);
+                window.addEventListener('beforeunload', function() { if (saveTimer) { clearTimeout(saveTimer); pushToServer(); } });
+            }
+            init();
+        })();
+    </script>
+</body>
+</html>
