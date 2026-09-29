@@ -335,7 +335,6 @@
                 return null;
             }
             function getTeamColor(team) { return (team && team.color) ? team.color : '#1e2a1e'; }
-            // НОВОЕ: чипы игроков
             function renderPlayerChips(players) {
                 if (!players || !players.length) return '';
                 return players.map(p => `<span class="player-chip">👤 ${escapeHtml(p)}</span>`).join('');
@@ -571,12 +570,32 @@
                 return 'v1_' + Math.abs(h).toString(36);
             }
             function getPasswords() { if (!serverState.data[PASSWORDS_KEY]) serverState.data[PASSWORDS_KEY] = {}; return serverState.data[PASSWORDS_KEY]; }
-            function loginOrRegister(name, password) {
+
+            // 🔑 ИСПРАВЛЕНО: async + принудительный pull с сервера перед изменениями
+            async function loginOrRegister(name, password) {
                 name = (name || '').trim();
                 if (!name) return { error: 'Введите имя' };
                 if (name.length < 2) return { error: 'Имя должно быть не короче 2 символов' };
                 if (!password) return { error: 'Введите пароль' };
                 if (password.length < 3) return { error: 'Пароль должен быть минимум 3 символа' };
+
+                // 🔑 Принудительно подтягиваем свежие данные с сервера ПЕРЕД любыми изменениями
+                try {
+                    const freshRes = await fetch(API_URL + '?_=' + Date.now(), { cache: 'no-store' });
+                    if (freshRes.ok) {
+                        const fresh = await freshRes.json();
+                        if ((fresh.version || 0) > knownVersion) {
+                            serverState = { tournaments: fresh.tournaments || [], data: fresh.data || {}, playersDb: fresh.playersDb || [], version: fresh.version || 0 };
+                            knownVersion = serverState.version;
+                            tournamentsList = serverState.tournaments;
+                            playersDatabase = serverState.playersDb;
+                            if (tournamentsList.length && (!currentTournamentId || !tournamentsList.some(t => t.id === currentTournamentId))) currentTournamentId = tournamentsList[0].id;
+                            loadTournamentData(currentTournamentId);
+                            try { saveToLocal(); } catch(e) {}
+                        }
+                    }
+                } catch(e) { /* если не удалось — продолжаем с локальными данными */ }
+
                 const passwords = getPasswords(); const hash = hashPassword(password);
                 const admins = getAdmins();
                 if (admins.includes(name)) {
@@ -605,6 +624,7 @@
                 scheduleSave();
                 return { error: '⏳ Заявка отправлена админу. Он должен её одобрить.' };
             }
+
             function logout() {
                 if (!confirm('Выйти из профиля?')) return;
                 setCurrentUser(''); renderUserBox(); renderGuestBanner(); renderNavTabs(); render();
@@ -738,8 +758,21 @@
             }
             function scheduleSave() { hasUnsavedChanges = true; clearTimeout(saveTimer); setStatus('saving'); saveToLocal(); saveTimer = setTimeout(pushToServer, 500); }
 
+            // 🔑 ИСПРАВЛЕНО: защита от отправки пустого стейта при knownVersion === 0
             async function pushToServer() {
                 try {
+                    // 🛡️ Защита: не отправляем пустой стейт, если у нас ещё ничего не загружено
+                    const hasAnyData = (serverState.tournaments && serverState.tournaments.length > 0)
+                                    || (serverState.playersDb && serverState.playersDb.length > 0)
+                                    || Object.keys(serverState.data || {}).length > 0;
+                    const hasRealData = Object.keys(serverState.data || {}).some(k => k !== ADMINS_KEY && k !== ASSIGNERS_KEY && k !== CHAT_KEY && k !== PASSWORDS_KEY);
+                    if (knownVersion === 0 && !hasRealData) {
+                        console.warn('[SYNC] Пропускаю push: стейт пустой и версия 0. Сначала дождусь данных с сервера.');
+                        hasUnsavedChanges = false;
+                        setStatus('online');
+                        return;
+                    }
+
                     const payload = { tournaments: serverState.tournaments || [], data: serverState.data || {}, playersDb: serverState.playersDb || [], baseVersion: knownVersion };
                     try { localStorage.setItem(BACKUP_PREFIX + Date.now(), JSON.stringify(payload)); } catch(e) {}
                     const res = await fetch(API_URL, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
@@ -890,7 +923,6 @@
             function getBestGoalkeeper(data) { const gks = (data.players || []).filter(p => p.goalkeeperMatches > 0); if (!gks.length) return null; return gks.reduce((m, p) => p.goalsConceded < m.goalsConceded ? p : m, gks[0]); }
             function getMVPTournament(data) { const ps = (data.players || []).filter(p => p.matchesPlayed > 0); if (!ps.length) return null; return ps.reduce((m, p) => (p.goals + p.assists) > (m.goals + m.assists) ? p : m, ps[0]); }
             function getBestVoted(data) { const v = data.votes || {}; let b = null, mx = 0; Object.keys(v).forEach(n => { if (v[n] > mx) { mx = v[n]; b = n; } }); return b ? { name: b, votes: mx } : null; }
-            // ⭐ Лучшая команда турнира — с игроками
             function getBestTeamTournament(data) {
                 const teams = (data.teams || []);
                 if (!teams.length) return null;
@@ -925,7 +957,6 @@
                 appData.changeLog.push({ id: 'log_' + generateId(), timestamp: new Date().toISOString(), action, description, author: getCurrentUser() || 'Гость' });
             }
 
-            // ⭐ Рекорды — лучшая команда считается как ЛУЧШИЙ результат в ОДНОМ турнире
             function calcRecords() {
                 const allAgg = aggregateAllPlayers();
                 const rated = allAgg.map(p => ({ name: p.name, rating: calcRatingForPlayer(p.name) })).filter(x => x.rating > 0).sort((a, b) => b.rating - a.rating);
@@ -949,8 +980,6 @@
                 });
                 const voteEntries = Object.entries(voteSum).sort((a, b) => b[1] - a[1]);
                 const bestVoted = voteEntries[0] ? { name: voteEntries[0][0], votes: voteEntries[0][1] } : null;
-
-                // ⭐ Лучшая команда — лучший результат в ОДНОМ турнире
                 let bestTeam = null;
                 tournamentsList.forEach(t => {
                     const data = getTournamentData(t.id);
@@ -959,7 +988,6 @@
                         bestTeam = { ...bt, tournamentName: t.name };
                     }
                 });
-
                 return { bestRating, bestMVP, bestScorer, bestAssister, bestGK, bestVoted, bestTeam };
             }
 
@@ -988,42 +1016,26 @@
             function renderRecordsTab() {
                 let html = `<div class="panel-title"><span class="icon">🏆</span> Рекорды — лучшие результаты за всё время</div>`;
                 html += `<p style="color:#5a6b5a; font-size:0.92rem; margin-bottom:20px; line-height:1.5;">Здесь показаны лучшие достижения игроков и команд по всем турнирам. Позиция обновляется автоматически, как только кто-то показывает результат выше.</p>`;
-
                 if (!tournamentsList.length) {
                     html += `<div class="empty-state"><span class="emoji">🏆</span><p>Пока нет данных. Создайте турнир и добавьте матчи.</p></div>`;
                     return html;
                 }
-
                 const rec = calcRecords();
-
                 if (rec.bestRating) {
                     const rs = getRatingStyle(rec.bestRating.rating);
-                    html += `<div class="record-hero" style="border-color:${rs.border}; background:${rs.bg};">
-                        <div class="rec-medal">${rs.medal}</div>
-                        <div class="rec-name">👤 ${escapeHtml(rec.bestRating.name)}</div>
-                        <div class="rec-value" style="color:${rs.color};">Рейтинг LAGUNA: ${rec.bestRating.rating}</div>
-                        <div class="rec-sub">${rs.label} · лучший рейтинг за всё время</div>
-                    </div>`;
+                    html += `<div class="record-hero" style="border-color:${rs.border}; background:${rs.bg};"><div class="rec-medal">${rs.medal}</div><div class="rec-name">👤 ${escapeHtml(rec.bestRating.name)}</div><div class="rec-value" style="color:${rs.color};">Рейтинг LAGUNA: ${rec.bestRating.rating}</div><div class="rec-sub">${rs.label} · лучший рейтинг за всё время</div></div>`;
                 }
-
                 html += `<div class="stats-summary">`;
-
                 if (rec.bestMVP) html += `<div class="stat-card"><h4>🏅 MVP</h4><div class="mvp">🌟 ${escapeHtml(rec.bestMVP.name)}</div><div style="font-size:1.35rem; font-weight:800; color:#f5a623; margin-top:8px;">${rec.bestMVP.goals + rec.bestMVP.assists} очков</div><div style="font-size:0.8rem; color:#7a8a7a; margin-top:4px;">Голы + Ассисты</div></div>`;
                 else html += `<div class="stat-card"><h4>🏅 MVP</h4><div style="color:#9aab9a;">Нет данных</div></div>`;
-
                 if (rec.bestScorer) html += `<div class="stat-card"><h4>⚽ Бомбардир</h4><div class="best">🏆 ${escapeHtml(rec.bestScorer.name)}</div><div style="font-size:1.35rem; font-weight:800; color:#1a7a2e; margin-top:8px;">${rec.bestScorer.goals} гол.</div><div style="font-size:0.8rem; color:#7a8a7a; margin-top:4px;">Матчей: ${rec.bestScorer.matchesPlayed}</div></div>`;
                 else html += `<div class="stat-card"><h4>⚽ Бомбардир</h4><div style="color:#9aab9a;">Нет данных</div></div>`;
-
                 if (rec.bestAssister) html += `<div class="stat-card"><h4>🎯 Ассистент</h4><div class="best">🏆 ${escapeHtml(rec.bestAssister.name)}</div><div style="font-size:1.35rem; font-weight:800; color:#1a7a2e; margin-top:8px;">${rec.bestAssister.assists} пас.</div><div style="font-size:0.8rem; color:#7a8a7a; margin-top:4px;">Матчей: ${rec.bestAssister.matchesPlayed}</div></div>`;
                 else html += `<div class="stat-card"><h4>🎯 Ассистент</h4><div style="color:#9aab9a;">Нет данных</div></div>`;
-
                 if (rec.bestGK) html += `<div class="stat-card"><h4>🧤 Вратарь</h4><div class="best">🏆 ${escapeHtml(rec.bestGK.name)}</div><div style="font-size:1.35rem; font-weight:800; color:#1a7a2e; margin-top:8px;">${rec.bestGK.goalsConceded} проп.</div><div style="font-size:0.8rem; color:#7a8a7a; margin-top:4px;">Матчей: ${rec.bestGK.goalkeeperMatches}</div></div>`;
                 else html += `<div class="stat-card"><h4>🧤 Вратарь</h4><div style="color:#9aab9a;">Нет данных</div></div>`;
-
                 if (rec.bestVoted) html += `<div class="stat-card"><h4>🗳️ Голосование</h4><div class="best">🏆 ${escapeHtml(rec.bestVoted.name)}</div><div style="font-size:1.35rem; font-weight:800; color:#1a7a2e; margin-top:8px;">${rec.bestVoted.votes} ${pluralVotes(rec.bestVoted.votes)}</div><div style="font-size:0.8rem; color:#7a8a7a; margin-top:4px;">Сумма голосов</div></div>`;
                 else html += `<div class="stat-card"><h4>🗳️ Голосование</h4><div style="color:#9aab9a;">Нет данных</div></div>`;
-
-                // ⭐ Лучшая команда — с игроками и турниром
                 if (rec.bestTeam) {
                     const rs = getRatingStyle(rec.bestTeam.rating);
                     html += `<div class="stat-card" style="grid-column:1/-1;">
@@ -1037,7 +1049,6 @@
                 } else {
                     html += `<div class="stat-card" style="grid-column:1/-1;"><h4>🏆 Лучшая команда</h4><div style="color:#9aab9a;">Нет данных</div></div>`;
                 }
-
                 html += `</div>`;
                 return html;
             }
@@ -1109,23 +1120,17 @@
                     html += `</tbody></table></div>`;
                 }
                 html += `<div class="stats-summary">`;
-
                 const ratedHome = [...appData.players].filter(p => p.matchesPlayed > 0).map(p => ({ name: p.name, rating: calcRatingForPlayerInTournament(p.name, appData) })).sort((a,b) => b.rating - a.rating || a.name.localeCompare(b.name));
                 const topRated = ratedHome[0];
                 html += `<div class="stat-card"><h4>⭐ Рейтинг LAGUNA</h4>${topRated ? `<div class="best">🏆 ${escapeHtml(topRated.name)} (${topRated.rating})</div>` : `<div>Нет данных</div>`}</div>`;
-
                 const mvpC = [...appData.players].filter(p => p.matchesPlayed > 0);
                 html += `<div class="stat-card"><h4>🏅 MVP</h4>${mvpC.length ? `<div class="mvp">🌟 ${escapeHtml(mvpC.reduce((m, p) => (p.goals + p.assists) > (m.goals + m.assists) ? p : m, mvpC[0]).name)}</div>` : `<div>Нет данных</div>`}</div>`;
-
                 const byGoals = [...appData.players].filter(p => p.matchesPlayed > 0).sort((a,b) => b.goals - a.goals);
                 html += `<div class="stat-card"><h4>⚽ Бомбардир</h4>${byGoals.length ? `<div class="best">🏆 ${escapeHtml(byGoals[0].name)} (${byGoals[0].goals})</div>` : `<div>Нет данных</div>`}</div>`;
-
                 const byAssists = [...appData.players].filter(p => p.matchesPlayed > 0).sort((a,b) => b.assists - a.assists);
                 html += `<div class="stat-card"><h4>🎯 Ассистент</h4>${byAssists.length ? `<div class="best">🏆 ${escapeHtml(byAssists[0].name)} (${byAssists[0].assists})</div>` : `<div>Нет данных</div>`}</div>`;
-
                 const gks = appData.players.filter(p => p.goalkeeperMatches > 0);
                 html += `<div class="stat-card"><h4>🧤 Вратарь</h4>${gks.length ? `<div class="best">🏆 ${escapeHtml([...gks].sort((a,b) => a.goalsConceded - b.goalsConceded)[0].name)}</div>` : `<div>Нет данных</div>`}</div>`;
-
                 html += `</div>`;
                 html += renderVotingSection();
                 return html;
@@ -1428,7 +1433,6 @@
                     if (!sorted.length || totalVotes === 0) html += `<p>Нет голосов.</p>`;
                     else { html += `<div class="table-container"><table><thead><tr><th>#</th><th>Игрок</th><th>Голоса</th><th>%</th></tr></thead><tbody>`; sorted.forEach((p, i) => { const v = votes[p.name] || 0; const pct = totalVotes > 0 ? Math.round(v / totalVotes * 100) : 0; html += `<tr class="${i === 0 && v > 0 ? 'highlight-row' : ''}"><td>${i+1}${i === 0 && v > 0 ? ' 👑' : ''}</td><td>${escapeHtml(p.name)}</td><td>${v}</td><td>${pct}%</td></tr>`; }); html += `</tbody></table></div>`; }
                 } else if (statsSubTab === 'bestteam') {
-                    // ⭐ Лучшая команда — таблица с игроками
                     const teams = appData.teams.map(t => {
                         const players = appData.players.filter(p => p.teamId === t.id);
                         const avg = players.length ? Math.round(players.reduce((s, p) => s + calcRatingForPlayerInTournament(p.name, appData), 0) / players.length) : 0;
@@ -1576,7 +1580,8 @@
                 alert('✅ Имя изменено во всех турнирах');
             }
 
-            document.addEventListener('click', function(e) {
+            // 🔑 ИСПРАВЛЕНО: обработчик клика сделан async, чтобы можно было использовать await loginOrRegister
+            document.addEventListener('click', async function(e) {
                 const playerLink = e.target.closest('.player-link');
                 if (playerLink) { openPlayerProfile(playerLink.dataset.player); return; }
                 const closeBtn = e.target.closest('.close-btn');
@@ -1605,7 +1610,8 @@
                 if (target.id === 'loginSubmitBtn') {
                     const nameInput = document.getElementById('loginName'); const passInput = document.getElementById('loginPassword');
                     const err = document.getElementById('loginError');
-                    const result = loginOrRegister(nameInput.value, passInput.value);
+                    // 🔑 await на async-функции
+                    const result = await loginOrRegister(nameInput.value, passInput.value);
                     if (result.error) { err.textContent = result.error; err.style.display = 'block'; return; }
                     document.getElementById('loginModal').style.display = 'none';
                     renderUserBox(); renderGuestBanner(); renderNavTabs(); render();
@@ -1862,13 +1868,23 @@
                 } catch(e) {}
             }
 
+            // 🔑 ИСПРАВЛЕНО: сначала pull с сервера, потом дефолты
             async function init() {
                 loadFromLocal();
-                if (!serverState.data[ADMINS_KEY]) { serverState.data[ADMINS_KEY] = [PRIMARY_ADMIN]; scheduleSave(); }
-                if (!serverState.data[ASSIGNERS_KEY]) { serverState.data[ASSIGNERS_KEY] = []; }
                 updateTournamentSelect();
                 renderUserBox(); renderGuestBanner(); renderNotifyButton(); renderNavTabs(); render();
+
+                // 🔑 Сначала забираем актуальные данные с сервера
                 await pullFromServer(true);
+
+                // Только теперь, когда мы знаем реальное состояние — ставим дефолты
+                let needSave = false;
+                if (!serverState.data[ADMINS_KEY]) { serverState.data[ADMINS_KEY] = [PRIMARY_ADMIN]; needSave = true; }
+                if (!serverState.data[ASSIGNERS_KEY]) { serverState.data[ASSIGNERS_KEY] = []; needSave = true; }
+                if (needSave && knownVersion > 0) scheduleSave(); // не отправляем, если сервер пустой (version 0)
+
+                updateTournamentSelect();
+                render();
                 setInterval(() => pullFromServer(false), POLL_MS);
                 setInterval(cleanupOldBackups, 60000);
                 window.addEventListener('beforeunload', function() { if (saveTimer) { clearTimeout(saveTimer); pushToServer(); } });
@@ -1877,4 +1893,4 @@
         })();
     </script>
 </body>
-    </html>
+</html>
