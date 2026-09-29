@@ -278,7 +278,8 @@
 
     <script>
         (function() {
-            const API_URL = 'https://laguna-cup-2026-azubkov852.sl.swteh.ru/api/data';
+            const API_URL = 'https://script.google.com/macros/s/AKfycbxwLZYUuR6C081nXqcM5DrRPMrPT485OvqWZe3viERPN67yEwj4DBO2QBx8nOjNJd5I/exec';
+            const POLL_MS = 30000;
             const LOCAL_STATE_KEY = 'laguna_full_state';
             const LOCAL_VERSION_KEY = 'laguna_state_version';
             const CURRENT_TOURNAMENT_KEY = 'laguna_current_tournament';
@@ -294,7 +295,6 @@
             const CHAT_LAST_READ_KEY = 'laguna_chat_last_read';
             const NOTIFY_KEY = 'laguna_notify_enabled';
             const LAST_NOTIFIED_MSG_KEY = 'laguna_last_notified_msg';
-            const POLL_MS = 3000;
             const BACKUP_PREFIX = 'laguna_backup_';
 
             const TEAM_COLORS = [
@@ -432,7 +432,7 @@
                 const modal = document.createElement('div');
                 modal.className = 'modal-overlay';
                 modal.style.display = 'flex';
-                modal.innerHTML = `<div class="modal" style="max-width:380px;"><button class="close-btn">&times;</button><h2>🎨 Сменить команду</h2><p style="color:#5a6b5a; font-size:0.9rem; margin-bottom:15px;">Игрок: <strong>${escapeHtml(p.name)}</strong></p>${teamButtons || '<p style="color:#9aab9a;">Нет доступных команд. Сначала добавьте команды.</p>'}<button class="btn btn-danger" data-team-id="" style="width:100%; justify-content:center; margin:4px 0;">Без команды</button></div>`;
+                modal.innerHTML = `<div class="modal" style="max-width:380px;"><button class="close-btn">&times;</button><h2>🎨 Сменить команду</h2><p style="color:#5a6b5a; font-size:0.9rem; margin-bottom:15px;">Игрок: <strong>${escapeHtml(p.name)}</strong></p>${teamButtons || '<p style="color:#9aab9a;">Нет доступных команд.</p>'}<button class="btn btn-danger" data-team-id="" style="width:100%; justify-content:center; margin:4px 0;">Без команды</button></div>`;
                 document.body.appendChild(modal);
                 const closeModal = () => modal.remove();
                 modal.querySelector('.close-btn').onclick = closeModal;
@@ -571,7 +571,6 @@
             }
             function getPasswords() { if (!serverState.data[PASSWORDS_KEY]) serverState.data[PASSWORDS_KEY] = {}; return serverState.data[PASSWORDS_KEY]; }
 
-            // 🔑 ИСПРАВЛЕНО: async + принудительный pull с сервера перед изменениями
             async function loginOrRegister(name, password) {
                 name = (name || '').trim();
                 if (!name) return { error: 'Введите имя' };
@@ -579,7 +578,6 @@
                 if (!password) return { error: 'Введите пароль' };
                 if (password.length < 3) return { error: 'Пароль должен быть минимум 3 символа' };
 
-                // 🔑 Принудительно подтягиваем свежие данные с сервера ПЕРЕД любыми изменениями
                 try {
                     const freshRes = await fetch(API_URL + '?_=' + Date.now(), { cache: 'no-store' });
                     if (freshRes.ok) {
@@ -594,7 +592,7 @@
                             try { saveToLocal(); } catch(e) {}
                         }
                     }
-                } catch(e) { /* если не удалось — продолжаем с локальными данными */ }
+                } catch(e) {}
 
                 const passwords = getPasswords(); const hash = hashPassword(password);
                 const admins = getAdmins();
@@ -650,7 +648,7 @@
                 const wrap = document.getElementById('noTournamentBannerWrap'); if (!wrap) return;
                 if (currentTournamentId) { wrap.innerHTML = ''; return; }
                 const admin = isCurrentUserAdmin();
-                wrap.innerHTML = `<div class="no-tournament-banner"><span class="nt-emoji">⏳</span><span class="nt-text"><strong>Активного турнира нет.</strong> ${admin ? 'Создайте турнир кнопкой «➕ Новый» в боковой панели, чтобы игроки могли подавать заявки.' : 'Подача заявок откроется после того, как админ создаст новый турнир.'}</span></div>`;
+                wrap.innerHTML = `<div class="no-tournament-banner"><span class="nt-emoji">⏳</span><span class="nt-text"><strong>Активного турнира нет.</strong> ${admin ? 'Создайте турнир кнопкой «➕ Новый» в боковой панели.' : 'Подача заявок откроется после того, как админ создаст новый турнир.'}</span></div>`;
             }
             function renderNavTabs() {
                 const container = document.getElementById('navTabsContainer');
@@ -695,7 +693,7 @@
                 const chat = getChatMessages(); const user = getCurrentUser();
                 let html = `<div class="panel-title"><span class="icon">💬</span> Общий чат</div>`;
                 html += `<div class="chat-messages" id="chatMessages">`;
-                if (!chat.length) html += `<div class="empty-state" style="padding:30px 10px;"><span class="emoji" style="font-size:3rem;">💬</span><p>Сообщений пока нет. Будьте первым!</p></div>`;
+                if (!chat.length) html += `<div class="empty-state" style="padding:30px 10px;"><span class="emoji" style="font-size:3rem;">💬</span><p>Сообщений пока нет.</p></div>`;
                 else {
                     const sorted = [...chat].sort((a,b) => (a.timestamp > b.timestamp ? 1 : -1));
                     sorted.forEach(msg => {
@@ -758,26 +756,27 @@
             }
             function scheduleSave() { hasUnsavedChanges = true; clearTimeout(saveTimer); setStatus('saving'); saveToLocal(); saveTimer = setTimeout(pushToServer, 500); }
 
-            // 🔑 ИСПРАВЛЕНО: защита от отправки пустого стейта при knownVersion === 0
             async function pushToServer() {
                 try {
-                    // 🛡️ Защита: не отправляем пустой стейт, если у нас ещё ничего не загружено
-                    const hasAnyData = (serverState.tournaments && serverState.tournaments.length > 0)
-                                    || (serverState.playersDb && serverState.playersDb.length > 0)
-                                    || Object.keys(serverState.data || {}).length > 0;
-                    const hasRealData = Object.keys(serverState.data || {}).some(k => k !== ADMINS_KEY && k !== ASSIGNERS_KEY && k !== CHAT_KEY && k !== PASSWORDS_KEY);
+                    const hasRealData = Object.keys(serverState.data || {}).some(k => k !== ADMINS_KEY && k !== ASSIGNERS_KEY && k !== CHAT_KEY && k !== PASSWORDS_KEY)
+                                     || (serverState.tournaments && serverState.tournaments.length > 0)
+                                     || (serverState.playersDb && serverState.playersDb.length > 0);
                     if (knownVersion === 0 && !hasRealData) {
-                        console.warn('[SYNC] Пропускаю push: стейт пустой и версия 0. Сначала дождусь данных с сервера.');
-                        hasUnsavedChanges = false;
-                        setStatus('online');
-                        return;
+                        console.warn('[SYNC] Пропускаю push: стейт пустой и версия 0.');
+                        hasUnsavedChanges = false; setStatus('online'); return;
                     }
 
                     const payload = { tournaments: serverState.tournaments || [], data: serverState.data || {}, playersDb: serverState.playersDb || [], baseVersion: knownVersion };
                     try { localStorage.setItem(BACKUP_PREFIX + Date.now(), JSON.stringify(payload)); } catch(e) {}
-                    const res = await fetch(API_URL, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+
+                    const res = await fetch(API_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                        body: JSON.stringify(payload)
+                    });
+
                     if (res.status === 409) {
-                        console.warn('[SYNC] Сервер отклонил push.');
+                        console.warn('[SYNC] Сервер отклонил push (409).');
                         setStatus('conflict'); hasUnsavedChanges = false;
                         const freshRes = await fetch(API_URL + '?_=' + Date.now(), { cache: 'no-store' });
                         if (freshRes.ok) {
@@ -790,16 +789,17 @@
                             else currentTournamentId = null;
                             loadTournamentData(currentTournamentId); updateTournamentSelect(); saveToLocal(); render();
                         }
-                        alert('⚠️ Ваши данные устарели и были перезагружены с сервера.\nВозможно, кто-то ещё вносил изменения. Пожалуйста, повторите действие заново.');
+                        alert('⚠️ Ваши данные устарели и были перезагружены с сервера.\nПовторите действие заново.');
                         setStatus('online'); return;
                     }
+
                     if (!res.ok) throw new Error('HTTP ' + res.status);
                     const json = await res.json();
                     if (json.error) throw new Error(json.error);
                     knownVersion = json.version; serverState.version = json.version;
                     localStorage.setItem(LOCAL_VERSION_KEY, String(knownVersion));
                     hasUnsavedChanges = false; lastSaveTime = Date.now(); setStatus('saved');
-                } catch (e) { setStatus('offline'); }
+                } catch (e) { console.error('[push] error:', e); setStatus('offline'); }
             }
 
             async function pullFromServer(initial) {
@@ -812,8 +812,16 @@
                     const remote = await res.json();
                     const remoteVersion = remote.version || 0;
                     if (!initial && remoteVersion === knownVersion) { setStatus('online'); syncInFlight = false; return; }
-                    if (!initial && hasUnsavedChanges && remoteVersion > knownVersion) { setStatus('conflict'); clearTimeout(saveTimer); hasUnsavedChanges = false; syncInFlight = false; await pushToServer(); return; }
-                    if (!initial && remoteVersion < knownVersion) { setStatus('conflict'); clearTimeout(saveTimer); syncInFlight = false; await pushToServer(); return; }
+
+                    if (!initial && hasUnsavedChanges && remoteVersion > knownVersion) {
+                        setStatus('conflict'); clearTimeout(saveTimer); hasUnsavedChanges = false; syncInFlight = false;
+                        await pushToServer(); return;
+                    }
+                    if (!initial && remoteVersion < knownVersion) {
+                        setStatus('conflict'); clearTimeout(saveTimer); syncInFlight = false;
+                        await pushToServer(); return;
+                    }
+
                     serverState = { tournaments: remote.tournaments || [], data: remote.data || {}, playersDb: remote.playersDb || [], version: remoteVersion };
                     knownVersion = remoteVersion;
                     tournamentsList = serverState.tournaments;
@@ -857,7 +865,7 @@
                 if (!serverState.data[CHAT_KEY]) serverState.data[CHAT_KEY] = [];
                 serverState.data[CHAT_KEY].push({
                     id: 'msg_' + generateId(), playerName: '🔔 Система',
-                    text: `🏆 Админ ${user} создал новый турнир: «${trimmedName}».\nЗаявки открыты! Игроки могут подавать заявки в разделе «База игроков» → «➕ В заявку».`,
+                    text: `🏆 Админ ${user} создал новый турнир: «${trimmedName}».\nЗаявки открыты!`,
                     timestamp: new Date().toISOString(), system: true
                 });
                 if (serverState.data[CHAT_KEY].length > 200) serverState.data[CHAT_KEY] = serverState.data[CHAT_KEY].slice(-200);
@@ -929,12 +937,7 @@
                 const rated = teams.map(t => {
                     const players = (data.players || []).filter(p => p.teamId === t.id);
                     const avg = players.length ? Math.round(players.reduce((s, p) => s + calcRatingForPlayerInTournament(p.name, data), 0) / players.length) : 0;
-                    return {
-                        name: t.name,
-                        color: t.color,
-                        rating: avg,
-                        players: players.map(p => p.name)
-                    };
+                    return { name: t.name, color: t.color, rating: avg, players: players.map(p => p.name) };
                 }).filter(x => x.rating > 0 && x.players.length > 0);
                 if (!rated.length) return null;
                 rated.sort((a, b) => b.rating - a.rating);
@@ -995,7 +998,7 @@
                 const panel = document.getElementById('contentPanel');
                 renderGuestBanner(); renderNoTournamentBanner(); renderNavTabs();
                 if (!currentTournamentId && currentTab !== 'players' && currentTab !== 'combinedHistory' && currentTab !== 'overall' && currentTab !== 'records' && currentTab !== 'chat' && currentTab !== 'admin') {
-                    panel.innerHTML = `<div class="empty-state"><span class="emoji">🏆</span><p>Нет активных турниров.</p><p style="font-size:0.95rem; margin-top:10px; color:#7a8a7a;">${isCurrentUserAdmin() ? 'Создайте новый турнир кнопкой «➕ Новый» в боковой панели.' : 'Подача заявок откроется после того, как админ создаст новый турнир.'}</p></div>`;
+                    panel.innerHTML = `<div class="empty-state"><span class="emoji">🏆</span><p>Нет активных турниров.</p><p style="font-size:0.95rem; margin-top:10px; color:#7a8a7a;">${isCurrentUserAdmin() ? 'Создайте новый турнир кнопкой «➕ Новый».' : 'Подача заявок откроется после создания турнира.'}</p></div>`;
                     updateChatBadge(); return;
                 }
                 switch (currentTab) {
@@ -1015,37 +1018,27 @@
 
             function renderRecordsTab() {
                 let html = `<div class="panel-title"><span class="icon">🏆</span> Рекорды — лучшие результаты за всё время</div>`;
-                html += `<p style="color:#5a6b5a; font-size:0.92rem; margin-bottom:20px; line-height:1.5;">Здесь показаны лучшие достижения игроков и команд по всем турнирам. Позиция обновляется автоматически, как только кто-то показывает результат выше.</p>`;
-                if (!tournamentsList.length) {
-                    html += `<div class="empty-state"><span class="emoji">🏆</span><p>Пока нет данных. Создайте турнир и добавьте матчи.</p></div>`;
-                    return html;
-                }
+                html += `<p style="color:#5a6b5a; font-size:0.92rem; margin-bottom:20px; line-height:1.5;">Здесь показаны лучшие достижения игроков и команд по всем турнирам.</p>`;
+                if (!tournamentsList.length) { html += `<div class="empty-state"><span class="emoji">🏆</span><p>Пока нет данных.</p></div>`; return html; }
                 const rec = calcRecords();
                 if (rec.bestRating) {
                     const rs = getRatingStyle(rec.bestRating.rating);
                     html += `<div class="record-hero" style="border-color:${rs.border}; background:${rs.bg};"><div class="rec-medal">${rs.medal}</div><div class="rec-name">👤 ${escapeHtml(rec.bestRating.name)}</div><div class="rec-value" style="color:${rs.color};">Рейтинг LAGUNA: ${rec.bestRating.rating}</div><div class="rec-sub">${rs.label} · лучший рейтинг за всё время</div></div>`;
                 }
                 html += `<div class="stats-summary">`;
-                if (rec.bestMVP) html += `<div class="stat-card"><h4>🏅 MVP</h4><div class="mvp">🌟 ${escapeHtml(rec.bestMVP.name)}</div><div style="font-size:1.35rem; font-weight:800; color:#f5a623; margin-top:8px;">${rec.bestMVP.goals + rec.bestMVP.assists} очков</div><div style="font-size:0.8rem; color:#7a8a7a; margin-top:4px;">Голы + Ассисты</div></div>`;
+                if (rec.bestMVP) html += `<div class="stat-card"><h4>🏅 MVP</h4><div class="mvp">🌟 ${escapeHtml(rec.bestMVP.name)}</div><div style="font-size:1.35rem; font-weight:800; color:#f5a623; margin-top:8px;">${rec.bestMVP.goals + rec.bestMVP.assists} очков</div></div>`;
                 else html += `<div class="stat-card"><h4>🏅 MVP</h4><div style="color:#9aab9a;">Нет данных</div></div>`;
-                if (rec.bestScorer) html += `<div class="stat-card"><h4>⚽ Бомбардир</h4><div class="best">🏆 ${escapeHtml(rec.bestScorer.name)}</div><div style="font-size:1.35rem; font-weight:800; color:#1a7a2e; margin-top:8px;">${rec.bestScorer.goals} гол.</div><div style="font-size:0.8rem; color:#7a8a7a; margin-top:4px;">Матчей: ${rec.bestScorer.matchesPlayed}</div></div>`;
+                if (rec.bestScorer) html += `<div class="stat-card"><h4>⚽ Бомбардир</h4><div class="best">🏆 ${escapeHtml(rec.bestScorer.name)}</div><div style="font-size:1.35rem; font-weight:800; color:#1a7a2e; margin-top:8px;">${rec.bestScorer.goals} гол.</div></div>`;
                 else html += `<div class="stat-card"><h4>⚽ Бомбардир</h4><div style="color:#9aab9a;">Нет данных</div></div>`;
-                if (rec.bestAssister) html += `<div class="stat-card"><h4>🎯 Ассистент</h4><div class="best">🏆 ${escapeHtml(rec.bestAssister.name)}</div><div style="font-size:1.35rem; font-weight:800; color:#1a7a2e; margin-top:8px;">${rec.bestAssister.assists} пас.</div><div style="font-size:0.8rem; color:#7a8a7a; margin-top:4px;">Матчей: ${rec.bestAssister.matchesPlayed}</div></div>`;
+                if (rec.bestAssister) html += `<div class="stat-card"><h4>🎯 Ассистент</h4><div class="best">🏆 ${escapeHtml(rec.bestAssister.name)}</div><div style="font-size:1.35rem; font-weight:800; color:#1a7a2e; margin-top:8px;">${rec.bestAssister.assists} пас.</div></div>`;
                 else html += `<div class="stat-card"><h4>🎯 Ассистент</h4><div style="color:#9aab9a;">Нет данных</div></div>`;
-                if (rec.bestGK) html += `<div class="stat-card"><h4>🧤 Вратарь</h4><div class="best">🏆 ${escapeHtml(rec.bestGK.name)}</div><div style="font-size:1.35rem; font-weight:800; color:#1a7a2e; margin-top:8px;">${rec.bestGK.goalsConceded} проп.</div><div style="font-size:0.8rem; color:#7a8a7a; margin-top:4px;">Матчей: ${rec.bestGK.goalkeeperMatches}</div></div>`;
+                if (rec.bestGK) html += `<div class="stat-card"><h4>🧤 Вратарь</h4><div class="best">🏆 ${escapeHtml(rec.bestGK.name)}</div><div style="font-size:1.35rem; font-weight:800; color:#1a7a2e; margin-top:8px;">${rec.bestGK.goalsConceded} проп.</div></div>`;
                 else html += `<div class="stat-card"><h4>🧤 Вратарь</h4><div style="color:#9aab9a;">Нет данных</div></div>`;
-                if (rec.bestVoted) html += `<div class="stat-card"><h4>🗳️ Голосование</h4><div class="best">🏆 ${escapeHtml(rec.bestVoted.name)}</div><div style="font-size:1.35rem; font-weight:800; color:#1a7a2e; margin-top:8px;">${rec.bestVoted.votes} ${pluralVotes(rec.bestVoted.votes)}</div><div style="font-size:0.8rem; color:#7a8a7a; margin-top:4px;">Сумма голосов</div></div>`;
+                if (rec.bestVoted) html += `<div class="stat-card"><h4>🗳️ Голосование</h4><div class="best">🏆 ${escapeHtml(rec.bestVoted.name)}</div><div style="font-size:1.35rem; font-weight:800; color:#1a7a2e; margin-top:8px;">${rec.bestVoted.votes} ${pluralVotes(rec.bestVoted.votes)}</div></div>`;
                 else html += `<div class="stat-card"><h4>🗳️ Голосование</h4><div style="color:#9aab9a;">Нет данных</div></div>`;
                 if (rec.bestTeam) {
                     const rs = getRatingStyle(rec.bestTeam.rating);
-                    html += `<div class="stat-card" style="grid-column:1/-1;">
-                        <h4>🏆 Лучшая команда</h4>
-                        <div class="best">🥇 ${escapeHtml(rec.bestTeam.name)}</div>
-                        <div style="font-size:1.35rem; font-weight:800; color:${rs.color}; margin-top:8px;">Средний рейтинг: ${rec.bestTeam.rating} ${rs.medal}</div>
-                        <div style="font-size:0.85rem; color:#7a8a7a; margin-top:6px;">Турнир: <strong>${escapeHtml(rec.bestTeam.tournamentName)}</strong></div>
-                        <div style="font-size:0.8rem; color:#7a8a7a; margin-top:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px;">Состав (${rec.bestTeam.players.length}):</div>
-                        <div style="margin-top:6px;">${renderPlayerChips(rec.bestTeam.players)}</div>
-                    </div>`;
+                    html += `<div class="stat-card" style="grid-column:1/-1;"><h4>🏆 Лучшая команда</h4><div class="best">🥇 ${escapeHtml(rec.bestTeam.name)}</div><div style="font-size:1.35rem; font-weight:800; color:${rs.color}; margin-top:8px;">Средний рейтинг: ${rec.bestTeam.rating} ${rs.medal}</div><div style="font-size:0.85rem; color:#7a8a7a; margin-top:6px;">Турнир: <strong>${escapeHtml(rec.bestTeam.tournamentName)}</strong></div><div style="font-size:0.8rem; color:#7a8a7a; margin-top:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px;">Состав (${rec.bestTeam.players.length}):</div><div style="margin-top:6px;">${renderPlayerChips(rec.bestTeam.players)}</div></div>`;
                 } else {
                     html += `<div class="stat-card" style="grid-column:1/-1;"><h4>🏆 Лучшая команда</h4><div style="color:#9aab9a;">Нет данных</div></div>`;
                 }
@@ -1066,7 +1059,7 @@
                     html += `<div class="admin-section"><h3>⏳ Заявки на регистрацию</h3>`;
                     if (!pending.length) html += `<p style="color:#7a8a7a;">Нет новых заявок.</p>`;
                     else pending.forEach(p => {
-                        html += `<div class="pending-item"><div class="pending-info"><div class="pending-name">👤 ${escapeHtml(p.name)}</div><div class="pending-time">Заявка отправлена: ${fmtDate(p.requestedAt)}</div></div><div style="display:flex; gap:6px; flex-wrap:wrap;"><button class="btn btn-primary btn-sm approve-pending" data-name="${escapeHtml(p.name)}">✅ Одобрить</button><button class="btn btn-danger btn-sm reject-pending" data-name="${escapeHtml(p.name)}">❌ Отклонить</button></div></div>`;
+                        html += `<div class="pending-item"><div class="pending-info"><div class="pending-name">👤 ${escapeHtml(p.name)}</div><div class="pending-time">Заявка: ${fmtDate(p.requestedAt)}</div></div><div style="display:flex; gap:6px; flex-wrap:wrap;"><button class="btn btn-primary btn-sm approve-pending" data-name="${escapeHtml(p.name)}">✅ Одобрить</button><button class="btn btn-danger btn-sm reject-pending" data-name="${escapeHtml(p.name)}">❌ Отклонить</button></div></div>`;
                     });
                     html += `</div>`;
                 } else if (adminSubTab === 'admins') {
@@ -1084,8 +1077,8 @@
                     html += `</div>`;
                 } else {
                     const assigners = getAssigners();
-                    html += `<div class="admin-section"><h3>🎯 Кто может назначать команды игрокам</h3>`;
-                    if (!assigners.length) html += `<p style="color:#7a8a7a;">Пока никого. Только админы могут назначать команды.</p>`;
+                    html += `<div class="admin-section"><h3>🎯 Кто может назначать команды</h3>`;
+                    if (!assigners.length) html += `<p style="color:#7a8a7a;">Пока никого.</p>`;
                     else assigners.forEach(n => {
                         html += `<div class="admin-list-item"><div class="admin-name">🎯 ${escapeHtml(n)}</div><button class="btn btn-danger btn-sm remove-assigner" data-name="${escapeHtml(n)}">Снять</button></div>`;
                     });
@@ -1093,10 +1086,7 @@
                     html += `<div class="admin-section"><h3>➕ Разрешить назначать команды</h3>`;
                     const candidates = playersDatabase.filter(n => !assigners.includes(n) && !isAdmin(n));
                     if (!candidates.length) html += `<p style="color:#7a8a7a;">Нет кандидатов.</p>`;
-                    else {
-                        html += `<p style="font-size:0.88rem; color:#7a5a1a; margin-bottom:10px;">Нажмите на имя, чтобы разрешить:</p>`;
-                        candidates.forEach(n => { html += `<button class="btn btn-secondary btn-sm add-assigner" data-name="${escapeHtml(n)}" style="margin:3px;">👤 ${escapeHtml(n)}</button>`; });
-                    }
+                    else candidates.forEach(n => { html += `<button class="btn btn-secondary btn-sm add-assigner" data-name="${escapeHtml(n)}" style="margin:3px;">👤 ${escapeHtml(n)}</button>`; });
                     html += `</div>`;
                 }
                 return html;
@@ -1113,7 +1103,7 @@
                         const teamRating = calcTeamRating(row.id, appData);
                         const rs = getRatingStyle(teamRating);
                         const ratingBox = teamRating > 0
-                            ? `<div style="display:inline-flex; align-items:center; justify-content:center; min-width:46px; height:38px; padding:0 8px; border:3px solid ${rs.border}; border-radius:12px; background:${rs.bg}; box-shadow:0 3px 8px ${rs.shadow};" title="${rs.label} — рейтинг команды"><span style="font-size:1.05rem; font-weight:800; color:${rs.color}; line-height:1;">${teamRating}</span></div>`
+                            ? `<div style="display:inline-flex; align-items:center; justify-content:center; min-width:46px; height:38px; padding:0 8px; border:3px solid ${rs.border}; border-radius:12px; background:${rs.bg};" title="${rs.label}"><span style="font-size:1.05rem; font-weight:800; color:${rs.color};">${teamRating}</span></div>`
                             : `<span style="color:#9aab9a; font-size:0.85rem;">—</span>`;
                         html += `<tr class="${i === 0 ? 'highlight-row' : ''}"><td>${i+1}</td><td>${ratingBox}</td><td class="team-name"><span style="color:${escapeHtml(row.color)};">${escapeHtml(row.name)}</span></td><td>${row.games}</td><td>${row.wins}</td><td>${row.draws}</td><td>${row.losses}</td><td>${row.goalsFor}</td><td>${row.goalsAgainst}</td><td>${row.goalsFor-row.goalsAgainst}</td><td><strong>${row.points}</strong></td></tr>`;
                     });
@@ -1213,7 +1203,7 @@
                 const canAssign = canAssignTeams();
                 let html = `<div class="panel-title"><span class="icon">⚙️</span> Настройки турнира</div>`;
                 if (!user) html += `<div style="background:#fff3cd; border-radius:12px; padding:12px; color:#7a5a1a; font-size:0.88rem; margin-bottom:15px;">🔒 Войдите, чтобы добавлять матчи, команды и игроков.</div>`;
-                else if (!canMatch) html += `<div style="background:#fff3cd; border-radius:12px; padding:12px; color:#7a5a1a; font-size:0.88rem; margin-bottom:15px;">⚠️ Только игроки <strong>основы заявки</strong> (первые 15) могут добавлять/редактировать матчи.</div>`;
+                else if (!canMatch) html += `<div style="background:#fff3cd; border-radius:12px; padding:12px; color:#7a5a1a; font-size:0.88rem; margin-bottom:15px;">⚠️ Только игроки <strong>основы заявки</strong> могут добавлять/редактировать матчи.</div>`;
                 html += `<div style="background:#f0f7f0; border-radius:16px; padding:20px; margin:25px 0;"><h3>⚔️ Добавить матч</h3>
                     <div class="match-form-grid">
                         <select id="matchTeamA"><option value="">А</option>${appData.teams.map(t => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('')}</select>
@@ -1237,11 +1227,9 @@
                     </div>
                     <button class="btn btn-primary" id="addTeamBtn" style="width:100%; justify-content:center; margin:15px 0 0;">Добавить</button>
                 </div>`;
-
                 if (appData.teams.length) {
                     html += `<div style="background:#fff; border-radius:16px; padding:20px; margin-bottom:25px; border:1px solid #e0e8e0;"><h3 style="margin-bottom:15px;">🎨 Команды турнира</h3><div style="display:flex; flex-wrap:wrap; gap:10px;">${appData.teams.map(t => `<div style="display:flex; align-items:center; gap:8px; padding:6px 8px 6px 16px; border-radius:20px; border:2px solid ${escapeHtml(getTeamColor(t))}; background:#fff;"><span style="color:${escapeHtml(getTeamColor(t))}; font-weight:700;">${escapeHtml(t.name)}</span><button class="btn btn-danger btn-sm delete-team-btn" data-id="${t.id}" style="margin:0; padding:2px 10px; font-size:0.75rem;">🗑️</button></div>`).join('')}</div></div>`;
                 }
-
                 const { main, reserve } = getRosterSplit();
                 html += `<h3 style="margin-top:20px;">📝 Заявка на турнир</h3>`;
                 if (canAssign) html += `<div style="background:#e8f5e9; border-radius:10px; padding:10px; color:#1a7a2e; font-size:0.85rem; margin-bottom:12px;">🎯 Вы можете назначать и менять команды игрокам.</div>`;
@@ -1284,7 +1272,7 @@
                     html += `<div class="roster-section-title">🔴 Резерв <span class="badge">${reserve.length}</span></div>`;
                     if (!reserve.length) html += `<p style="color:#9aab9a; font-size:0.9rem;">Резерв пуст.</p>`;
                     else reserve.forEach((p, idx) => { html += renderRosterCard(p, idx, true, main.length); });
-                    html += `<p style="font-size:0.82rem; color:#7a8a7a; margin-top:15px;">🟢 — Точно · 🟡 — Под вопросом · 🔴 — Резерв<br>✏️ Игрок может менять свой статус сам. Админ — любого игрока.</p>`;
+                    html += `<p style="font-size:0.82rem; color:#7a8a7a; margin-top:15px;">🟢 — Точно · 🟡 — Под вопросом · 🔴 — Резерв</p>`;
                 }
                 return html;
             }
@@ -1334,22 +1322,15 @@
                         let metaHtml = '';
                         if (t.createdAt) metaHtml += `🕒 ${fmtDate(t.createdAt)}`;
                         if (t.createdBy) metaHtml += `${metaHtml ? ' · ' : ''}<span class="author-tag">👤 ${escapeHtml(t.createdBy)}</span>`;
-                        html += `<div class="history-card">
-                            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
-                                <h3>${escapeHtml(t.name)}</h3>
-                                <button class="btn btn-sm btn-danger delete-tournament-btn" data-id="${t.id}">🗑️</button>
-                            </div>
-                            ${metaHtml ? `<div style="font-size:0.82rem; color:#7a8a7a; margin-bottom:10px;">${metaHtml}</div>` : ''}
-                            <div class="tournament-stats-grid">
-                                <div class="tournament-stat-box"><div class="label">⭐ Рейтинг LAGUNA</div><div class="value${bestRating ? '' : ' muted'}">${bestRating ? escapeHtml(bestRating.name) : '—'}</div>${bestRating ? `<div class="sub">${bestRating.rating} очк.</div>` : ''}</div>
-                                <div class="tournament-stat-box"><div class="label">🏅 MVP</div><div class="value${mvp ? '' : ' muted'}">${mvp ? escapeHtml(mvp.name) : '—'}</div>${mvp ? `<div class="sub">${mvp.goals + mvp.assists} очков</div>` : ''}</div>
-                                <div class="tournament-stat-box"><div class="label">⚽ Бомбардир</div><div class="value${bestScorer ? '' : ' muted'}">${bestScorer ? escapeHtml(bestScorer.name) : '—'}</div>${bestScorer ? `<div class="sub">${bestScorer.goals} гол.</div>` : ''}</div>
-                                <div class="tournament-stat-box"><div class="label">🎯 Ассистент</div><div class="value${bestAssister ? '' : ' muted'}">${bestAssister ? escapeHtml(bestAssister.name) : '—'}</div>${bestAssister ? `<div class="sub">${bestAssister.assists} пас.</div>` : ''}</div>
-                                <div class="tournament-stat-box"><div class="label">🧤 Вратарь</div><div class="value${bestGK ? '' : ' muted'}">${bestGK ? escapeHtml(bestGK.name) : '—'}</div>${bestGK ? `<div class="sub">${bestGK.goalsConceded} проп.</div>` : ''}</div>
-                                <div class="tournament-stat-box"><div class="label">🗳️ Лучший по голосованию</div><div class="value${bestVoted ? '' : ' muted'}">${bestVoted ? escapeHtml(bestVoted.name) : '—'}</div>${bestVoted ? `<div class="sub">${bestVoted.votes} ${pluralVotes(bestVoted.votes)}</div>` : ''}</div>
-                                <div class="tournament-stat-box"><div class="label">🏆 Лучшая команда</div><div class="value${bestTeam ? '' : ' muted'}">${bestTeam ? escapeHtml(bestTeam.name) : '—'}</div>${bestTeam ? `<div class="sub">${bestTeam.rating} ср. рейтинг</div>` : ''}${bestTeam && bestTeam.players.length ? `<div style="margin-top:8px;">${renderPlayerChips(bestTeam.players)}</div>` : ''}</div>
-                            </div>
-                        </div>`;
+                        html += `<div class="history-card"><div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;"><h3>${escapeHtml(t.name)}</h3><button class="btn btn-sm btn-danger delete-tournament-btn" data-id="${t.id}">🗑️</button></div>${metaHtml ? `<div style="font-size:0.82rem; color:#7a8a7a; margin-bottom:10px;">${metaHtml}</div>` : ''}<div class="tournament-stats-grid">
+                            <div class="tournament-stat-box"><div class="label">⭐ Рейтинг LAGUNA</div><div class="value${bestRating ? '' : ' muted'}">${bestRating ? escapeHtml(bestRating.name) : '—'}</div>${bestRating ? `<div class="sub">${bestRating.rating} очк.</div>` : ''}</div>
+                            <div class="tournament-stat-box"><div class="label">🏅 MVP</div><div class="value${mvp ? '' : ' muted'}">${mvp ? escapeHtml(mvp.name) : '—'}</div>${mvp ? `<div class="sub">${mvp.goals + mvp.assists} очков</div>` : ''}</div>
+                            <div class="tournament-stat-box"><div class="label">⚽ Бомбардир</div><div class="value${bestScorer ? '' : ' muted'}">${bestScorer ? escapeHtml(bestScorer.name) : '—'}</div>${bestScorer ? `<div class="sub">${bestScorer.goals} гол.</div>` : ''}</div>
+                            <div class="tournament-stat-box"><div class="label">🎯 Ассистент</div><div class="value${bestAssister ? '' : ' muted'}">${bestAssister ? escapeHtml(bestAssister.name) : '—'}</div>${bestAssister ? `<div class="sub">${bestAssister.assists} пас.</div>` : ''}</div>
+                            <div class="tournament-stat-box"><div class="label">🧤 Вратарь</div><div class="value${bestGK ? '' : ' muted'}">${bestGK ? escapeHtml(bestGK.name) : '—'}</div>${bestGK ? `<div class="sub">${bestGK.goalsConceded} проп.</div>` : ''}</div>
+                            <div class="tournament-stat-box"><div class="label">🗳️ Голосование</div><div class="value${bestVoted ? '' : ' muted'}">${bestVoted ? escapeHtml(bestVoted.name) : '—'}</div>${bestVoted ? `<div class="sub">${bestVoted.votes} ${pluralVotes(bestVoted.votes)}</div>` : ''}</div>
+                            <div class="tournament-stat-box"><div class="label">🏆 Лучшая команда</div><div class="value${bestTeam ? '' : ' muted'}">${bestTeam ? escapeHtml(bestTeam.name) : '—'}</div>${bestTeam ? `<div class="sub">${bestTeam.rating} ср. рейтинг</div>` : ''}${bestTeam && bestTeam.players.length ? `<div style="margin-top:8px;">${renderPlayerChips(bestTeam.players)}</div>` : ''}</div>
+                        </div></div>`;
                     });
                 } else {
                     if (!currentTournamentId) html += `<p>Выберите турнир.</p>`;
@@ -1370,7 +1351,7 @@
             function renderPlayersTab() {
                 const currentUser = getCurrentUser();
                 let html = `<div class="panel-title"><span class="icon">👥</span> База игроков</div>`;
-                if (!currentTournamentId) html += `<div style="background:#e3f2fd; border-radius:12px; padding:14px; color:#0d47a1; font-size:0.92rem; margin-bottom:15px;">⏳ Активного турнира нет. Подача заявок откроется после того, как админ создаст новый турнир.</div>`;
+                if (!currentTournamentId) html += `<div style="background:#e3f2fd; border-radius:12px; padding:14px; color:#0d47a1; font-size:0.92rem; margin-bottom:15px;">⏳ Активного турнира нет.</div>`;
                 html += `<div style="display:flex; justify-content:flex-end; margin-bottom:15px;"><button class="add-player-btn" id="addPlayerToBaseBtn">➕ Добавить игрока вручную</button></div>`;
                 if (!playersDatabase.length) html += `<div class="empty-state"><span class="emoji">👥</span><p>База пуста.</p></div>`;
                 else playersDatabase.forEach(name => {
@@ -1389,7 +1370,7 @@
                     }
                     html += `<div class="record-card" style="${cardStyle}"><div class="info"><span class="player-link" data-player="${escapeHtml(name)}"><strong>${escapeHtml(name)}</strong></span>${isMe ? ' <span style="color:#2b6cb0; font-size:0.8rem; font-weight:700;">(это вы)</span>' : ''}${adm ? ' <span title="Админ" style="color:#f5a623; font-size:0.9rem;">👑</span>' : ''}${hasPassword ? ' <span title="Профиль создан" style="color:#2e9e44; font-size:0.85rem;">🔐</span>' : ' <span title="Без профиля" style="color:#b8860b; font-size:0.85rem;">⚠️</span>'}<div class="player-stats-list"><div>Турниров: ${tourCount}</div></div></div><div class="actions">${badge ? `<span style="font-weight:700; color:${badge.color}; font-size:0.85rem;">${badge.label}</span>` : `<button class="btn btn-sm btn-primary add-to-tournament-btn" data-player="${escapeHtml(name)}" ${!currentTournamentId ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : ''}>➕ В заявку</button>`}<button class="btn btn-sm btn-danger remove-from-base-btn" data-player="${escapeHtml(name)}">🗑️</button></div></div>`;
                 });
-                html += `<p style="font-size:0.82rem; color:#7a8a7a; margin-top:15px;">👑 — админ. 🔐 — профиль создан. ⚠️ — профиль не создан.<br>🟢 — в основе (точно) · 🟡 — под вопросом · 🔴 — резерв</p>`;
+                html += `<p style="font-size:0.82rem; color:#7a8a7a; margin-top:15px;">👑 — админ. 🔐 — профиль создан. ⚠️ — профиль не создан.</p>`;
                 return html;
             }
 
@@ -1562,7 +1543,7 @@
                 if (!requireAdmin('переименовывать игроков')) return;
                 const newName = prompt('Новое имя:', oldName); if (!newName) return;
                 const trimmed = newName.trim(); if (!trimmed || trimmed === oldName) return;
-                if (playersDatabase.includes(trimmed)) { alert('Игрок с таким именем уже есть в базе'); return; }
+                if (playersDatabase.includes(trimmed)) { alert('Игрок с таким именем уже есть'); return; }
                 tournamentsList.forEach(t => {
                     const data = getTournamentData(t.id);
                     (data.players || []).forEach(p => { if (p.name === oldName) p.name = trimmed; });
@@ -1577,10 +1558,9 @@
                 if (getCurrentUser() === oldName) setCurrentUser(trimmed);
                 addChangeLog('rename', `«${oldName}» → «${trimmed}»`);
                 saveCurrentData(); document.getElementById('playerModal').style.display = 'none'; renderUserBox(); renderNavTabs(); render();
-                alert('✅ Имя изменено во всех турнирах');
+                alert('✅ Имя изменено');
             }
 
-            // 🔑 ИСПРАВЛЕНО: обработчик клика сделан async, чтобы можно было использовать await loginOrRegister
             document.addEventListener('click', async function(e) {
                 const playerLink = e.target.closest('.player-link');
                 if (playerLink) { openPlayerProfile(playerLink.dataset.player); return; }
@@ -1610,7 +1590,6 @@
                 if (target.id === 'loginSubmitBtn') {
                     const nameInput = document.getElementById('loginName'); const passInput = document.getElementById('loginPassword');
                     const err = document.getElementById('loginError');
-                    // 🔑 await на async-функции
                     const result = await loginOrRegister(nameInput.value, passInput.value);
                     if (result.error) { err.textContent = result.error; err.style.display = 'block'; return; }
                     document.getElementById('loginModal').style.display = 'none';
@@ -1857,7 +1836,7 @@
                 const rating = calcRatingForPlayer(playerName);
                 const rs = getRatingStyle(rating);
                 const modal = document.getElementById('playerModal');
-                document.getElementById('modalContent').innerHTML = `<div style="display:flex; align-items:center; gap:14px; margin-bottom:15px; flex-wrap:wrap;"><div style="display:flex; align-items:center; justify-content:center; min-width:64px; height:64px; padding:0 12px; border:3px solid ${rs.border}; border-radius:16px; background:${rs.bg}; box-shadow:0 4px 12px ${rs.shadow};" title="${rs.label} — Рейтинг LAGUNA"><span style="font-size:1.6rem; font-weight:800; color:${rs.color}; line-height:1;">${rating}</span></div><div style="flex:1; min-width:180px;"><h2 style="margin:0; font-size:1.5rem; line-height:1.2;">👤 ${escapeHtml(playerName)} ${adm ? '<span style="color:#f5a623;">👑</span>' : ''} ${isMe ? '<span style="color:#2b6cb0; font-size:0.9rem;">(это вы)</span>' : ''}</h2><div style="font-size:0.85rem; color:${rs.color}; font-weight:700; margin-top:2px;">${rs.medal} ${rs.label} · Рейтинг LAGUNA</div></div></div><p style="color:${hasPassword ? '#2e9e44' : '#b8860b'}; font-size:0.9rem; margin-bottom:15px;">${hasPassword ? '🔐 Профиль создан' : '⚠️ Профиль не создан'}<br>${adm ? '<span style="color:#f5a623;">👑 Админ</span>' : ''}${assigner ? '<br><span style="color:#f5a623;">🎯 Может назначать команды</span>' : ''}${badge ? `<br><span style="color:${badge.color};">${badge.label}</span>` : ''}</p><table><tr><th>Показатель</th><th>Значение</th></tr><tr><td>Турниров</td><td>${profile.tournamentsCount}</td></tr><tr><td>Матчей</td><td>${profile.matches}</td></tr><tr><td>Голов</td><td>${profile.goals}</td></tr><tr><td>Передач</td><td>${profile.assists}</td></tr><tr><td>🏆 Бомбардир</td><td>${awards.bestScorer}</td></tr><tr><td>🏆 Ассистент</td><td>${awards.bestAssister}</td></tr><tr><td>🏆 Вратарь</td><td>${awards.bestGoalkeeper}</td></tr><tr><td>🏅 MVP</td><td>${awards.mvp}</td></tr><tr><td>🗳️ Голосование</td><td>${awards.bestVoted}</td></tr></table>${isCurrentUserAdmin() ? `<button class="btn btn-primary" id="renamePlayerBtn" data-player="${escapeHtml(playerName)}" style="margin-top:20px; width:100%; justify-content:center;">✏️ Изменить имя (админ)</button>` : ''}`;
+                document.getElementById('modalContent').innerHTML = `<div style="display:flex; align-items:center; gap:14px; margin-bottom:15px; flex-wrap:wrap;"><div style="display:flex; align-items:center; justify-content:center; min-width:64px; height:64px; padding:0 12px; border:3px solid ${rs.border}; border-radius:16px; background:${rs.bg}; box-shadow:0 4px 12px ${rs.shadow};" title="${rs.label}"><span style="font-size:1.6rem; font-weight:800; color:${rs.color}; line-height:1;">${rating}</span></div><div style="flex:1; min-width:180px;"><h2 style="margin:0; font-size:1.5rem; line-height:1.2;">👤 ${escapeHtml(playerName)} ${adm ? '<span style="color:#f5a623;">👑</span>' : ''} ${isMe ? '<span style="color:#2b6cb0; font-size:0.9rem;">(это вы)</span>' : ''}</h2><div style="font-size:0.85rem; color:${rs.color}; font-weight:700; margin-top:2px;">${rs.medal} ${rs.label} · Рейтинг LAGUNA</div></div></div><p style="color:${hasPassword ? '#2e9e44' : '#b8860b'}; font-size:0.9rem; margin-bottom:15px;">${hasPassword ? '🔐 Профиль создан' : '⚠️ Профиль не создан'}<br>${adm ? '<span style="color:#f5a623;">👑 Админ</span>' : ''}${assigner ? '<br><span style="color:#f5a623;">🎯 Может назначать команды</span>' : ''}${badge ? `<br><span style="color:${badge.color};">${badge.label}</span>` : ''}</p><table><tr><th>Показатель</th><th>Значение</th></tr><tr><td>Турниров</td><td>${profile.tournamentsCount}</td></tr><tr><td>Матчей</td><td>${profile.matches}</td></tr><tr><td>Голов</td><td>${profile.goals}</td></tr><tr><td>Передач</td><td>${profile.assists}</td></tr><tr><td>🏆 Бомбардир</td><td>${awards.bestScorer}</td></tr><tr><td>🏆 Ассистент</td><td>${awards.bestAssister}</td></tr><tr><td>🏆 Вратарь</td><td>${awards.bestGoalkeeper}</td></tr><tr><td>🏅 MVP</td><td>${awards.mvp}</td></tr><tr><td>🗳️ Голосование</td><td>${awards.bestVoted}</td></tr></table>${isCurrentUserAdmin() ? `<button class="btn btn-primary" id="renamePlayerBtn" data-player="${escapeHtml(playerName)}" style="margin-top:20px; width:100%; justify-content:center;">✏️ Изменить имя (админ)</button>` : ''}`;
                 modal.style.display = 'flex';
             }
 
@@ -1868,21 +1847,15 @@
                 } catch(e) {}
             }
 
-            // 🔑 ИСПРАВЛЕНО: сначала pull с сервера, потом дефолты
             async function init() {
                 loadFromLocal();
                 updateTournamentSelect();
                 renderUserBox(); renderGuestBanner(); renderNotifyButton(); renderNavTabs(); render();
-
-                // 🔑 Сначала забираем актуальные данные с сервера
                 await pullFromServer(true);
-
-                // Только теперь, когда мы знаем реальное состояние — ставим дефолты
                 let needSave = false;
                 if (!serverState.data[ADMINS_KEY]) { serverState.data[ADMINS_KEY] = [PRIMARY_ADMIN]; needSave = true; }
                 if (!serverState.data[ASSIGNERS_KEY]) { serverState.data[ASSIGNERS_KEY] = []; needSave = true; }
-                if (needSave && knownVersion > 0) scheduleSave(); // не отправляем, если сервер пустой (version 0)
-
+                if (needSave && knownVersion > 0) scheduleSave();
                 updateTournamentSelect();
                 render();
                 setInterval(() => pullFromServer(false), POLL_MS);
@@ -1893,4 +1866,4 @@
         })();
     </script>
 </body>
-</html>
+    </html>
