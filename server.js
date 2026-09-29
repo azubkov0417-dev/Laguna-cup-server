@@ -25,7 +25,10 @@ function httpsReq(method, url, headers, body) {
 async function loadData() {
   try {
     const r = await httpsReq('GET', 'https://api.jsonbin.io/v3/b/' + JSONBIN_BIN_ID + '/latest', { 'X-Master-Key': JSONBIN_API_KEY });
-    if (r.status !== 200) return { version: 0, tournaments: [], data: {}, playersDb: [] };
+    if (r.status !== 200) {
+      console.error('[load] JSONbin status ' + r.status);
+      return { version: 0, tournaments: [], data: {}, playersDb: [] };
+    }
     const json = JSON.parse(r.body);
     const rec = json.record || {};
     return {
