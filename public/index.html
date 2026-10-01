@@ -233,32 +233,27 @@ tr:hover td { background:#f0f7f0; }
 .status-select { padding:4px 8px; border-radius:8px; border:2px solid var(--border-soft); font-size:0.8rem; font-weight:600; cursor:pointer; background:var(--input-bg); color:var(--text-main); min-height:36px; }
 .status-select:focus { outline:none; border-color:#2e9e44; }
 
-/* ===== ФОРМА КОМАНДЫ ===== */
 .form-row { display:inline-flex; gap:3px; align-items:center; }
 .form-badge { display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:6px; font-size:0.72rem; font-weight:800; color:#fff; }
 .form-badge.W { background:#2e9e44; }
 .form-badge.D { background:#f5a623; }
 .form-badge.L { background:#e74c3c; }
 
-/* ===== ГРАФИКИ ===== */
 .chart-container { background:#fff; border-radius:16px; padding:18px; border:1px solid var(--border-soft); margin-bottom:15px; overflow-x:auto; }
 :root[data-theme="dark"] .chart-container { background:#222a26; }
 .chart-container h4 { margin-bottom:12px; font-size:1.05rem; color:var(--text-main); }
 
-/* ===== H2H ===== */
 .h2h-match { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 14px; background:var(--input-bg); border-radius:12px; margin-bottom:6px; border-left:3px solid #4a90d9; font-size:0.9rem; }
 .h2h-match .h2h-date { font-size:0.75rem; color:var(--text-light); }
 .h2h-team { font-weight:700; flex:1; }
 .h2h-team.right { text-align:right; }
 .h2h-score { font-weight:800; font-size:1.05rem; padding:0 10px; }
 
-/* ===== ФИЛЬТРЫ ===== */
 .stats-filters { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:15px; align-items:center; padding:12px; background:#f8faf8; border-radius:12px; }
 .stats-filters label { font-size:0.82rem; font-weight:700; color:var(--text-light); }
 .stats-filters select, .stats-filters input { padding:6px 10px; border-radius:10px; border:2px solid var(--border-soft); background:var(--input-bg); color:var(--text-main); font-size:0.85rem; }
 :root[data-theme="dark"] .stats-filters { background:#1a201d; }
 
-/* ===== ЛИЧНЫЕ СООБЩЕНИЯ ===== */
 .dm-thread { max-height:55vh; overflow-y:auto; padding:12px; background:#f8faf8; border-radius:14px; margin-bottom:12px; }
 :root[data-theme="dark"] .dm-thread { background:#1a201d; }
 .dm-msg { background:#fff; border-radius:12px; padding:8px 12px; margin-bottom:8px; max-width:80%; border:1px solid var(--border-soft); font-size:0.9rem; }
@@ -268,7 +263,6 @@ tr:hover td { background:#f0f7f0; }
 .dm-list-item { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px 14px; background:var(--input-bg); border-radius:12px; margin-bottom:8px; border-left:4px solid #4a90d9; cursor:pointer; }
 .dm-list-item:hover { background:#eef6fd; }
 
-/* ===== РЕАКЦИИ ===== */
 .reaction-bar { display:flex; gap:4px; flex-wrap:wrap; margin-top:6px; }
 .reaction-chip { display:inline-flex; align-items:center; gap:4px; padding:3px 8px; background:#eef3ee; border-radius:12px; font-size:0.78rem; cursor:pointer; border:1px solid transparent; transition:0.15s; }
 .reaction-chip:hover { background:#dfe9df; }
@@ -281,7 +275,6 @@ tr:hover td { background:#f0f7f0; }
 .reaction-picker button:hover { background:#eef3ee; }
 :root[data-theme="dark"] .reaction-picker button:hover { background:#2a3330; }
 
-/* ===== ОПРОСЫ ===== */
 .poll-card { background:#f8faf8; border-radius:14px; padding:14px 16px; margin-bottom:10px; border-left:4px solid #9b59b6; }
 .poll-question { font-weight:700; color:var(--text-main); margin-bottom:10px; font-size:0.98rem; }
 .poll-option { display:flex; align-items:center; gap:10px; padding:8px 10px; background:#fff; border-radius:10px; margin-bottom:6px; cursor:pointer; border:2px solid transparent; transition:0.15s; }
@@ -295,12 +288,10 @@ tr:hover td { background:#f0f7f0; }
 .poll-meta { font-size:0.75rem; color:var(--text-light); margin-top:6px; }
 .poll-new-btn { display:inline-flex; align-items:center; gap:6px; padding:8px 14px; background:#9b59b6; color:#fff; border:none; border-radius:20px; font-weight:700; cursor:pointer; font-size:0.85rem; min-height:40px; }
 
-/* ===== ВЛОЖЕНИЕ МАТЧА ===== */
 .match-embed { background:linear-gradient(135deg,#f0f7f0,#e8f5e9); border-radius:12px; padding:12px 14px; margin-top:6px; border-left:3px solid #2e9e44; cursor:pointer; display:block; }
 .match-embed:hover { background:linear-gradient(135deg,#e0f0e0,#d0ecd0); }
 .match-embed-score { font-size:1.05rem; font-weight:800; text-align:center; }
 
-/* ===== ИТОГИ / НАГРАДЫ ===== */
 .awards-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:14px; margin-top:15px; }
 .award-card { background:linear-gradient(135deg,#fffbea 0%,#fff3cd 100%); border-radius:16px; padding:18px; text-align:center; border:2px solid #f5a623; box-shadow:0 6px 18px rgba(245,166,35,0.25); }
 .award-card .award-emoji { font-size:2.5rem; line-height:1; }
@@ -308,7 +299,6 @@ tr:hover td { background:#f0f7f0; }
 .award-card .award-name { font-size:1.15rem; font-weight:800; color:var(--text-main); margin-top:6px; }
 .award-card .award-val { font-size:0.9rem; color:#7a5a1a; margin-top:4px; font-weight:700; }
 
-/* ===== АУДИТ ===== */
 .audit-item { display:flex; gap:10px; align-items:flex-start; padding:10px 14px; background:var(--input-bg); border-radius:10px; margin-bottom:6px; border-left:3px solid #4a90d9; font-size:0.88rem; }
 .audit-icon { font-size:1.2rem; }
 .audit-body { flex:1; }
@@ -316,13 +306,11 @@ tr:hover td { background:#f0f7f0; }
 
 .anon-notice { background:#f5eafc; border:1px solid #c39bd3; border-radius:12px; padding:10px 14px; color:#6a2c8a; font-size:0.85rem; margin-bottom:12px; }
 
-/* ===== НОВОЕ: Хлебные крошки ===== */
 .breadcrumbs { display:flex; align-items:center; gap:6px; font-size:0.82rem; color:var(--text-light); margin-bottom:14px; flex-wrap:wrap; }
 .breadcrumbs span.sep { color:#c0c8c0; }
 .breadcrumbs a { color:#2e9e44; text-decoration:none; font-weight:700; cursor:pointer; }
 .breadcrumbs a:hover { text-decoration:underline; }
 
-/* ===== НОВОЕ: Скелетоны ===== */
 .skeleton { background:linear-gradient(90deg, #eef3ee 25%, #dde5dd 50%, #eef3ee 75%); background-size:200% 100%; animation:skeletonLoad 1.4s ease infinite; border-radius:12px; }
 :root[data-theme="dark"] .skeleton { background:linear-gradient(90deg, #2a3330 25%, #334038 50%, #2a3330 75%); background-size:200% 100%; }
 @keyframes skeletonLoad { 0%{background-position:200% 0;} 100%{background-position:-200% 0;} }
@@ -330,52 +318,32 @@ tr:hover td { background:#f0f7f0; }
 .skeleton-card { height:80px; margin-bottom:12px; border-radius:16px; }
 .skeleton-title { height:28px; width:40%; margin-bottom:20px; }
 
-/* ===== НОВОЕ: Undo ===== */
-.undo-bar { position:fixed; bottom:calc(20px + env(safe-area-inset-bottom)); left:50%; transform:translateX(-50%) translateY(120%); background:#1e2a1e; color:#fff; padding:12px 16px; border-radius:14px; box-shadow:0 10px 40px rgba(0,0,0,0.4); display:flex; align-items:center; gap:14px; z-index:2500; transition:transform 0.3s ease; font-weight:600; font-size:0.9rem; max-width:92vw; }
-.undo-bar.show { transform:translateX(-50%) translateY(0); }
 .undo-bar { display:none !important; }
-.undo-bar button { background:#2e9e44; color:#fff; border:none; padding:8px 16px; border-radius:20px; font-weight:700; cursor:pointer; min-height:38px; }
-.undo-bar button.dismiss { background:transparent; color:#9aab9a; padding:8px; min-height:38px; }
-@media (max-width:700px) { .undo-bar { bottom:calc(70px + env(safe-area-inset-bottom)); } }
 
-/* ===== НОВОЕ: Зал славы ===== */
 .hall-card { background:linear-gradient(135deg,#fffbea 0%,#fff3cd 100%); border-radius:16px; padding:20px; margin-bottom:12px; border:2px solid #f5a623; box-shadow:0 4px 14px rgba(245,166,35,0.2); }
 .hall-card .hc-icon { font-size:2.4rem; line-height:1; text-align:center; margin-bottom:8px; }
 .hall-card .hc-cat { font-size:0.78rem; text-transform:uppercase; letter-spacing:1px; color:#b87333; font-weight:700; text-align:center; }
 .hall-card .hc-name { font-size:1.25rem; font-weight:800; color:var(--text-main); text-align:center; margin-top:6px; }
 .hall-card .hc-val { font-size:0.9rem; color:#7a5a1a; text-align:center; margin-top:4px; font-weight:700; }
 
-/* ===== НОВОЕ: CSV экспорт ===== */
 .export-bar { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
 .export-btn { display:inline-flex; align-items:center; gap:6px; padding:8px 14px; border-radius:20px; background:#eef3ee; color:#1e2a1e; border:none; font-weight:700; cursor:pointer; font-size:0.85rem; min-height:40px; }
 .export-btn:hover { background:#dde5dd; }
 :root[data-theme="dark"] .export-btn { background:#2a3330; color:#dce8dc; }
 
-/* ===== НОВОЕ: Аватары команд ===== */
 .team-avatar { display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; border-radius:50%; background:#eef3ee; color:#1e2a1e; font-weight:800; font-size:0.85rem; overflow:hidden; vertical-align:middle; margin-right:6px; border:2px solid currentColor; flex-shrink:0; }
 .team-avatar img { width:100%; height:100%; object-fit:cover; }
-.team-avatar-edit { display:inline-flex; align-items:center; justify-content:center; width:48px; height:48px; border-radius:50%; background:#eef3ee; overflow:hidden; cursor:pointer; border:2px dashed #b0c0b0; }
 
-/* ===== НОВОЕ: Фото игроков ===== */
 .player-photo { display:inline-flex; align-items:center; justify-content:center; width:36px; height:36px; border-radius:50%; background:#eef3ee; color:#1e2a1e; font-weight:800; overflow:hidden; vertical-align:middle; margin-right:8px; border:2px solid #2e9e44; flex-shrink:0; }
 .player-photo img { width:100%; height:100%; object-fit:cover; }
 .player-photo-lg { width:80px; height:80px; font-size:1.8rem; }
 
-/* ===== НОВОЕ: @упоминания ===== */
 .mention { color:#4a90d9; font-weight:700; background:#eef6fd; padding:1px 6px; border-radius:8px; }
 :root[data-theme="dark"] .mention { background:#1f3040; }
 
-.mention-dropdown { position:absolute; bottom:100%; left:0; right:0; background:var(--panel-bg); border-radius:12px 12px 0 0; border:1px solid var(--border-soft); max-height:200px; overflow-y:auto; z-index:60; box-shadow:0 -4px 20px rgba(0,0,0,0.15); display:none; }
-.mention-dropdown.open { display:block; }
-.mention-item { padding:10px 14px; cursor:pointer; font-size:0.9rem; border-bottom:1px solid var(--border-soft); }
-.mention-item:hover, .mention-item.active { background:#eef6fd; }
-:root[data-theme="dark"] .mention-item:hover, :root[data-theme="dark"] .mention-item.active { background:#1f3040; }
-
-/* ===== НОВОЕ: Файлы в чате ===== */
 .chat-img { max-width:200px; max-height:200px; border-radius:8px; margin-top:6px; cursor:pointer; display:block; }
 .audio-player { width:100%; max-width:240px; margin-top:6px; }
 
-/* Мобильное */
 .mobile-header { display:none; }
 .mobile-nav { display:none; }
 .fab { display:none; }
@@ -494,7 +462,7 @@ tr:hover td { background:#f0f7f0; }
 
     <nav class="mobile-nav" id="mobileNav">
         <button class="mobile-nav-item active" data-mnav="home"><span class="mni-icon">🏠</span><span>Главная</span></button>
-        <button class="mobile-nav-item" data-mnav="settings"><span class="mni-icon">⚙️</span><span>Настройки</span></button>
+        <button class="mobile-nav-item" data-mnav="players"><span class="mni-icon">👥</span><span>Игроки</span></button>
         <button class="mobile-nav-item" data-mnav="stats"><span class="mni-icon">📊</span><span>Стата</span></button>
         <button class="mobile-nav-item" data-mnav="chat" id="mobileChatBtn"><span class="mni-icon">💬</span><span>Чат</span></button>
         <button class="mobile-nav-item" data-mnav="more"><span class="mni-icon">☰</span><span>Ещё</span></button>
@@ -506,6 +474,7 @@ tr:hover td { background:#f0f7f0; }
     <div class="drawer" id="drawer">
         <h3>📚 Ещё</h3>
         <button class="drawer-item" id="drawerSwitchTournamentBtn"><span class="di-icon">🏆</span> Сменить турнир</button>
+        <button class="drawer-item" data-drawer="settings"><span class="di-icon">⚙️</span> Настройки турнира</button>
         <button class="drawer-item" data-drawer="combinedHistory"><span class="di-icon">📚</span> История</button>
         <button class="drawer-item" data-drawer="players"><span class="di-icon">👥</span> База игроков</button>
         <button class="drawer-item" data-drawer="overall"><span class="di-icon">🏅</span> Общий рейтинг</button>
@@ -541,7 +510,7 @@ tr:hover td { background:#f0f7f0; }
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <script>
-(function() {
+    (function() {
     // ================= КОНСТАНТЫ =================
     const API_URL = 'https://script.google.com/macros/s/AKfycbxrxo4AQuw6Re-41kEdxom5epgXPIg-oJZJGC3WnwuimMnMgkypIY5LvZLuD7ywKI3y5A/exec';
     const POLL_MS = 30000;
@@ -746,7 +715,7 @@ tr:hover td { background:#f0f7f0; }
         wrap.innerHTML = h;
     }
     
-// ================= ЭКСПОРТ-БАР (универсальный) =================
+// ================= ЭКСПОРТ-БАР =================
 function renderExportBar(kind){
     let h = `<div class="export-bar">`;
     if(kind === 'home') h += `<button class="export-btn" id="expTableBtn">📥 Таблица (CSV)</button><button class="export-btn" id="expMatchesBtn">📥 Матчи (CSV)</button>`;
@@ -1283,11 +1252,8 @@ function saveToLocal(){try{localStorage.setItem(LOCAL_STATE_KEY,JSON.stringify({
 function loadFromLocal(){try{const s=localStorage.getItem(LOCAL_STATE_KEY);if(s){const p=JSON.parse(s);serverState.tournaments=p.tournaments||[];serverState.data=p.data||{};serverState.playersDb=p.playersDb||[];knownVersion=parseInt(localStorage.getItem(LOCAL_VERSION_KEY)||'0',10);tournamentsList=serverState.tournaments;playersDatabase=serverState.playersDb;currentTournamentId=localStorage.getItem(CURRENT_TOURNAMENT_KEY)||null;if(tournamentsList.length&&(!currentTournamentId||!tournamentsList.some(t=>t.id===currentTournamentId)))currentTournamentId=tournamentsList[0].id;loadTournamentData(currentTournamentId);}}catch(e){}}
 function setStatus(st){const el=document.getElementById('syncStatus');if(!el)return;const m={online:'🟢 Онлайн',saving:'🟡 Сохранение…',saved:'🟢 Сохранено',offline:'🔴 Нет связи',conflict:'🟠 Синхронизация…'};el.textContent=m[st]||'';}
 function scheduleSave(){hasUnsavedChanges=true;clearTimeout(saveTimer);setStatus('saving');saveToLocal();saveTimer=setTimeout(pushToServer,500);}
-
 async function pushToServer(){try{const real=Object.keys(serverState.data||{}).some(k=>k!==ADMINS_KEY&&k!==ASSIGNERS_KEY&&k!==CHAT_KEY&&k!==PASSWORDS_KEY&&k!==AUDIT_KEY&&k!==DM_KEY&&k!==POLLS_KEY&&k!==TEMPLATES_KEY)||(serverState.tournaments&&serverState.tournaments.length>0)||(serverState.playersDb&&serverState.playersDb.length>0);if(knownVersion===0&&!real){hasUnsavedChanges=false;setStatus('online');return;}const payload={tournaments:serverState.tournaments||[],data:serverState.data||{},playersDb:serverState.playersDb||[],baseVersion:knownVersion};try{localStorage.setItem(BACKUP_PREFIX+Date.now(),JSON.stringify(payload));}catch(e){}const r=await fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(payload)});if(r.status===409){setStatus('conflict');hasUnsavedChanges=false;const fr=await fetch(API_URL+'?_='+Date.now(),{cache:'no-store'});if(fr.ok){const f=await fr.json();serverState={tournaments:f.tournaments||[],data:f.data||{},playersDb:f.playersDb||[],version:f.version||0};knownVersion=serverState.version;tournamentsList=serverState.tournaments;playersDatabase=serverState.playersDb;if(tournamentsList.length){if(!currentTournamentId||!tournamentsList.some(t=>t.id===currentTournamentId))currentTournamentId=tournamentsList[0].id;}else currentTournamentId=null;loadTournamentData(currentTournamentId);updateTournamentSelect();saveToLocal();render();}alert('⚠️ Данные устарели, перезагружены.');setStatus('online');return;}if(!r.ok)throw new Error('HTTP '+r.status);const j=await r.json();if(j.error)throw new Error(j.error);knownVersion=j.version;serverState.version=j.version;localStorage.setItem(LOCAL_VERSION_KEY,String(knownVersion));hasUnsavedChanges=false;lastSaveTime=Date.now();setStatus('saved');}catch(e){setStatus('offline');}}
-
 async function pullFromServer(initial){if(syncInFlight)return;if(!initial&&Date.now()-lastSaveTime<1500)return;syncInFlight=true;try{const r=await fetch(API_URL+'?_='+Date.now(),{cache:'no-store'});if(!r.ok)throw new Error('HTTP '+r.status);const rem=await r.json();const rv=rem.version||0;if(!initial&&rv===knownVersion){setStatus('online');syncInFlight=false;return;}if(!initial&&hasUnsavedChanges&&rv>knownVersion){setStatus('conflict');clearTimeout(saveTimer);hasUnsavedChanges=false;syncInFlight=false;await pushToServer();return;}if(!initial&&rv<knownVersion){setStatus('conflict');clearTimeout(saveTimer);syncInFlight=false;await pushToServer();return;}serverState={tournaments:rem.tournaments||[],data:rem.data||{},playersDb:rem.playersDb||[],version:rv};knownVersion=rv;tournamentsList=serverState.tournaments;playersDatabase=serverState.playersDb;if(tournamentsList.length){if(!currentTournamentId||!tournamentsList.some(t=>t.id===currentTournamentId))currentTournamentId=tournamentsList[0].id;}else currentTournamentId=null;loadTournamentData(currentTournamentId);updateTournamentSelect();saveToLocal();render();checkForNewMessages();setStatus('online');}catch(e){setStatus('offline');}syncInFlight=false;}
-
 function loadTournamentData(id){if(!id||!serverState.data[id]){appData=emptyTournament();return;}appData=serverState.data[id];appData.teams=appData.teams||[];appData.matches=appData.matches||[];appData.players=appData.players||[];appData.votes=appData.votes||{};appData.changeLog=appData.changeLog||[];const bt=Date.now()-1000*60*60*24*365;appData.players.forEach((p,i)=>{if(!p.addedAt)p.addedAt=new Date(bt+i*1000).toISOString();if(!p.status)p.status='confirmed';p.goals=p.goals||0;p.assists=p.assists||0;p.matchesPlayed=p.matchesPlayed||0;p.goalsConceded=p.goalsConceded||0;p.cleanSheets=p.cleanSheets||0;p.goalkeeperMatches=p.goalkeeperMatches||0;});appData.matches.forEach(m=>{if(!m.goalsA)m.goalsA=[];if(!m.goalsB)m.goalsB=[];if(!m.substitutionsA)m.substitutionsA=[];if(!m.substitutionsB)m.substitutionsB=[];});}
 function saveCurrentData(){if(currentTournamentId)serverState.data[currentTournamentId]=appData;scheduleSave();}
 function savePlayersDatabase(){serverState.playersDb=playersDatabase;scheduleSave();}
@@ -1446,8 +1412,6 @@ function shareMatch(matchId){
                 goals: p ? (p.goals||0) : 0,
                 assists: p ? (p.assists||0) : 0,
                 matches: p ? (p.matchesPlayed||0) : 0,
-                gkMatches: p ? (p.goalkeeperMatches||0) : 0,
-                conceded: p ? (p.goalsConceded||0) : 0,
                 team: p && p.teamId ? (getTeamById(p.teamId)?.name || '—') : '—'
             };
         };
@@ -1493,7 +1457,6 @@ function shareMatch(matchId){
             const myB = aIsA ? sb : sa;
             if(myA > myB) winsA++; else if(myA < myB) winsB++; else draws++;
         });
-        // Также учитываем форму и рейтинг
         const ratingA = calcTeamRating(teamAId, appData);
         const ratingB = calcTeamRating(teamBId, appData);
         const formA = getTeamForm(teamAId, 5);
@@ -1506,14 +1469,12 @@ function shareMatch(matchId){
             pA = (winsA + draws*0.5) / total;
             pB = (winsB + draws*0.5) / total;
         } else {
-            // Нет истории — по рейтингу и форме
             const scoreA = ratingA * 0.6 + formScoreA * 5;
             const scoreB = ratingB * 0.6 + formScoreB * 5;
             const s = scoreA + scoreB;
             pA = s > 0 ? scoreA / s : 0.5;
             pB = s > 0 ? scoreB / s : 0.5;
         }
-        // Нормируем
         const sum = pA + pB;
         pA = sum > 0 ? pA/sum : 0.5;
         pB = sum > 0 ? pB/sum : 0.5;
@@ -1526,11 +1487,10 @@ function shareMatch(matchId){
         const cA = getTeamColor(tA), cB = getTeamColor(tB);
         let h = `<h2>🔮 Прогноз на матч</h2>`;
         h += `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:20px;"><div style="font-weight:800;color:${escapeHtml(cA)};font-size:1.1rem;">${escapeHtml(tA.name)}</div><div style="color:var(--text-light);">vs</div><div style="font-weight:800;color:${escapeHtml(cB)};font-size:1.1rem;text-align:right;">${escapeHtml(tB.name)}</div></div>`;
-        const bar = `<div style="display:flex;height:40px;border-radius:12px;overflow:hidden;margin-bottom:10px;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+        h += `<div style="display:flex;height:40px;border-radius:12px;overflow:hidden;margin-bottom:10px;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
             <div style="background:linear-gradient(135deg,${escapeHtml(cA)},${escapeHtml(cA)}cc);width:${p.pA}%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;">${p.pA}%</div>
             <div style="background:linear-gradient(135deg,${escapeHtml(cB)}cc,${escapeHtml(cB)});width:${p.pB}%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;">${p.pB}%</div>
         </div>`;
-        h += bar;
         h += `<div style="display:flex;justify-content:space-between;font-size:0.85rem;color:var(--text-light);margin-bottom:16px;"><span>${escapeHtml(tA.name)}</span><span>${escapeHtml(tB.name)}</span></div>`;
         h += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">`;
         h += `<div class="tournament-stat-box"><div class="label">Рейтинг</div><div class="value">${p.ratingA} / ${p.ratingB}</div></div>`;
@@ -1604,8 +1564,7 @@ function shareMatch(matchId){
             name: p.name,
             gpm: p.goals / p.matchesPlayed,
             apm: p.assists / p.matchesPlayed,
-            ppm: (p.goals + p.assists) / p.matchesPlayed,
-            matches: p.matchesPlayed
+            ppm: (p.goals + p.assists) / p.matchesPlayed
         })).sort((a,b) => b.ppm - a.ppm);
         let h = `<h2>📈 Средние показатели за матч</h2>`;
         h += `<table style="width:100%;border-collapse:collapse;margin-top:12px;">`;
@@ -1627,11 +1586,11 @@ function shareMatch(matchId){
         if(wins.bestGoalkeeper > 0) out.push({icon:'🧤', label:`Вратарь турнира × ${wins.bestGoalkeeper}`});
         if(wins.mvp > 0) out.push({icon:'🏅', label:`MVP турнира × ${wins.mvp}`});
         if(wins.bestVoted > 0) out.push({icon:'🗳️', label:`Победа в голосовании × ${wins.bestVoted}`});
-        let totalGoals = 0, totalAssists = 0, totalMatches = 0, totalTournaments = 0;
+        let totalGoals = 0, totalMatches = 0, totalTournaments = 0;
         tournamentsList.forEach(t => {
             const d = getTournamentData(t.id);
             const p = (d.players||[]).find(x => x.name === name);
-            if(p){ totalTournaments++; totalGoals += p.goals||0; totalAssists += p.assists||0; totalMatches += p.matchesPlayed||0; }
+            if(p){ totalTournaments++; totalGoals += p.goals||0; totalMatches += p.matchesPlayed||0; }
         });
         if(totalGoals >= 100) out.push({icon:'💯', label:`100+ голов (${totalGoals})`});
         else if(totalGoals >= 50) out.push({icon:'🔥', label:`50+ голов (${totalGoals})`});
@@ -1692,6 +1651,62 @@ function shareMatch(matchId){
         input.click();
     }
 
+    // ================= МОДАЛКА СОСТАВА КОМАНДЫ =================
+    function openTeamModal(teamId){
+        const team = getTeamById(teamId);
+        if(!team) return;
+        const players = appData.players
+            .filter(p => p.teamId === teamId)
+            .sort((a,b) => calcRatingForPlayerInTournament(b.name, appData) - calcRatingForPlayerInTournament(a.name, appData));
+        const tc = getTeamColor(team);
+        const teamRating = calcTeamRating(teamId, appData);
+        const trs = getRatingStyle(teamRating);
+        let h = `<h2 style="display:flex;align-items:center;gap:10px;justify-content:center;">`;
+        if(team.avatar) h += `<span class="team-avatar" style="color:${escapeHtml(tc)};width:36px;height:36px;"><img src="${team.avatar}"></span>`;
+        h += `<span style="color:${escapeHtml(tc)};">${escapeHtml(team.name)}</span></h2>`;
+        h += `<div style="display:flex;justify-content:center;margin-bottom:8px;">
+            <div style="display:inline-flex;align-items:center;justify-content:center;min-width:80px;height:80px;padding:0 16px;border:4px solid ${trs.border};border-radius:20px;background:${trs.bg};box-shadow:0 4px 14px ${trs.shadow};">
+                <span style="font-size:2rem;font-weight:800;color:${trs.color};">${teamRating}</span>
+            </div>
+        </div>`;
+        h += `<p style="text-align:center;color:${trs.color};font-weight:700;margin-bottom:20px;font-size:0.9rem;">${trs.medal} ${trs.label} · Средний рейтинг</p>`;
+        const table = calculateTable();
+        const row = table.find(x => x.id === teamId);
+        if(row){
+            h += `<div class="tournament-stats-grid" style="margin-bottom:16px;">
+                <div class="tournament-stat-box"><div class="label">Игр</div><div class="value">${row.games}</div></div>
+                <div class="tournament-stat-box"><div class="label">Победы</div><div class="value">${row.wins}</div></div>
+                <div class="tournament-stat-box"><div class="label">Ничьи</div><div class="value">${row.draws}</div></div>
+                <div class="tournament-stat-box"><div class="label">Очки</div><div class="value">${row.points}</div></div>
+                <div class="tournament-stat-box"><div class="label">ГЗ / ГП</div><div class="value">${row.goalsFor} : ${row.goalsAgainst}</div></div>
+                <div class="tournament-stat-box"><div class="label">Форма</div><div class="value">${renderFormBadges(getTeamForm(teamId, 5))}</div></div>
+            </div>`;
+        }
+        h += `<h3 style="margin-bottom:12px;">👥 Состав (${players.length})</h3>`;
+        if(!players.length){
+            h += `<p style="color:#9aab9a;text-align:center;padding:20px 0;">Нет игроков в команде.</p>`;
+        } else {
+            players.forEach(p => {
+                const r = calcRatingForPlayerInTournament(p.name, appData);
+                const rs = getRatingStyle(r);
+                const photo = p.photo ? `<span class="player-photo"><img src="${p.photo}"></span>` : `<span class="player-photo">${escapeHtml(p.name.charAt(0))}</span>`;
+                const statusIcon = p.status === 'pending' ? '🟡' : (p.status === 'reserve' ? '🔴' : '🟢');
+                h += `<div data-player-profile="${escapeHtml(p.name)}" style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--input-bg);border-radius:12px;margin-bottom:8px;border-left:4px solid ${rs.border};cursor:pointer;">
+                    ${photo}
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-weight:700;color:var(--text-main);">${statusIcon} ${escapeHtml(p.name)}</div>
+                        <div style="font-size:0.78rem;color:var(--text-light);margin-top:2px;">И:${p.matchesPlayed} · Г:${p.goals} · П:${p.assists}</div>
+                    </div>
+                    <div style="display:inline-flex;align-items:center;justify-content:center;min-width:52px;height:44px;padding:0 10px;border:3px solid ${rs.border};border-radius:12px;background:${rs.bg};flex-shrink:0;">
+                        <span style="font-size:1.15rem;font-weight:800;color:${rs.color};">${r}</span>
+                    </div>
+                </div>`;
+            });
+        }
+        document.getElementById('modalContent').innerHTML = h;
+        document.getElementById('playerModal').style.display = 'flex';
+    }
+
     // ================= РЕНДЕР ВКЛАДОК =================
     function renderHomeTab(){
         if(!currentTournamentId) return '';
@@ -1707,7 +1722,7 @@ function shareMatch(matchId){
                 const rb = tr > 0 ? `<div style="display:inline-flex;align-items:center;justify-content:center;min-width:46px;height:38px;padding:0 8px;border:3px solid ${rs.border};border-radius:12px;background:${rs.bg};"><span style="font-size:1.05rem;font-weight:800;color:${rs.color};">${tr}</span></div>` : `<span style="color:#9aab9a;">—</span>`;
                 const team = getTeamById(row.id);
                 const avatar = team && team.avatar ? `<span class="team-avatar" style="color:${escapeHtml(row.color)};"><img src="${team.avatar}"></span>` : `<span class="team-avatar" style="color:${escapeHtml(row.color)};background:${escapeHtml(row.color)}20;">${escapeHtml(row.name.charAt(0))}</span>`;
-                h += `<tr class="${i===0?'highlight-row':''}"><td>${i+1}</td><td>${rb}</td><td class="team-name">${avatar}<span style="color:${escapeHtml(row.color)};">${escapeHtml(row.name)}</span></td><td><strong>${row.points}</strong></td><td>${row.games}</td><td>${row.wins}</td><td>${row.draws}</td><td>${row.losses}</td><td>${row.goalsFor}</td><td>${row.goalsAgainst}</td><td>${row.goalsFor-row.goalsAgainst}</td><td>${renderFormBadges(getTeamForm(row.id,5))}</td></tr>`;
+                h += `<tr class="${i===0?'highlight-row':''}"><td>${i+1}</td><td>${rb}</td><td class="team-name"><span class="team-name-link" data-team-open="${row.id}" style="cursor:pointer;">${avatar}<span style="color:${escapeHtml(row.color)};">${escapeHtml(row.name)}</span></span></td><td><strong>${row.points}</strong></td><td>${row.games}</td><td>${row.wins}</td><td>${row.draws}</td><td>${row.losses}</td><td>${row.goalsFor}</td><td>${row.goalsAgainst}</td><td>${row.goalsFor-row.goalsAgainst}</td><td>${renderFormBadges(getTeamForm(row.id,5))}</td></tr>`;
             });
             h += `</tbody></table></div>`;
             if(appData.teams.length >= 2){
@@ -1785,11 +1800,7 @@ function shareMatch(matchId){
             let t = `<div class="table-container"><table><thead><tr>`;
             heads.forEach(x => t += `<th>${x}</th>`);
             t += `</tr></thead><tbody>`;
-            rows.forEach((r,i) => {
-                t += `<tr class="${i===0?'highlight-row':''}">`;
-                r.forEach(c => { t += `<td>${c}</td>`; });
-                t += `</tr>`;
-            });
+            rows.forEach((r,i) => { t += `<tr class="${i===0?'highlight-row':''}">`; r.forEach(c => { t += `<td>${c}</td>`; }); t += `</tr>`; });
             t += `</tbody></table></div>`;
             return t;
         };
@@ -2641,7 +2652,7 @@ function shareMatch(matchId){
 
     // ================= СВАЙПЫ / PTR =================
     let tsX=0,tsY=0,tsT=0;
-    const MAIN_TABS = ['home','settings','stats','chat'];
+    const MAIN_TABS = ['home','players','stats','chat'];
     document.addEventListener('touchstart', function(e){ if(e.touches.length!==1) return; tsX=e.touches[0].clientX; tsY=e.touches[0].clientY; tsT=Date.now(); }, {passive:true});
     document.addEventListener('touchend', function(e){
         if(!e.changedTouches||!e.changedTouches.length) return;
@@ -2682,9 +2693,6 @@ function shareMatch(matchId){
     document.addEventListener('click', async function(e){
         const bc = e.target.closest('[data-bc-tab]');
         if(bc){ currentTab = bc.dataset.bcTab; document.querySelectorAll('.nav-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === currentTab)); render(); return; }
-
-        if(e.target.id === 'undoBtn'){ performUndo(); return; }
-        if(e.target.id === 'undoDismissBtn'){ document.getElementById('undoBar').classList.remove('show'); return; }
 
         if(e.target.id === 'expTableBtn'){ exportTable(); return; }
         if(e.target.id === 'expMatchesBtn'){ exportMatches(); return; }
@@ -2752,8 +2760,8 @@ function shareMatch(matchId){
         }
         const pc = e.target.closest('[data-poll-close]');
         if(pc){ e.preventDefault(); closePoll(pc.dataset.pollClose); return; }
-        const pd = e.target.closest('[data-poll-delete]');
-        if(pd){ e.preventDefault(); deletePoll(pd.dataset.pollDelete); return; }
+        const pdd = e.target.closest('[data-poll-delete]');
+        if(pdd){ e.preventDefault(); deletePoll(pdd.dataset.pollDelete); return; }
 
         const me = e.target.closest('[data-open-match]');
         if(me){ shareMatch(me.dataset.openMatch); return; }
@@ -2781,6 +2789,11 @@ function shareMatch(matchId){
         const uploadTeamBtn = e.target.closest('.upload-team-avatar-btn');
         if(uploadTeamBtn){ uploadTeamAvatar(uploadTeamBtn.dataset.id); return; }
         if(e.target.id === 'uploadMyPhotoBtn'){ const me = getCurrentUser(); if(me) uploadPlayerPhoto(me); return; }
+
+        const teamOpen = e.target.closest('[data-team-open]');
+        if(teamOpen){ openTeamModal(teamOpen.dataset.teamOpen); return; }
+        const playerFromTeam = e.target.closest('[data-player-profile]');
+        if(playerFromTeam){ document.getElementById('playerModal').style.display = 'none'; openPlayerProfile(playerFromTeam.dataset.playerProfile); return; }
 
         const pl = e.target.closest('.player-link'); if(pl){ openPlayerProfile(pl.dataset.player); return; }
         const chatUser = e.target.closest('[data-chat-user]');
