@@ -333,6 +333,7 @@ tr:hover td { background:#f0f7f0; }
 /* ===== НОВОЕ: Undo ===== */
 .undo-bar { position:fixed; bottom:calc(20px + env(safe-area-inset-bottom)); left:50%; transform:translateX(-50%) translateY(120%); background:#1e2a1e; color:#fff; padding:12px 16px; border-radius:14px; box-shadow:0 10px 40px rgba(0,0,0,0.4); display:flex; align-items:center; gap:14px; z-index:2500; transition:transform 0.3s ease; font-weight:600; font-size:0.9rem; max-width:92vw; }
 .undo-bar.show { transform:translateX(-50%) translateY(0); }
+.undo-bar { display:none !important; }
 .undo-bar button { background:#2e9e44; color:#fff; border:none; padding:8px 16px; border-radius:20px; font-weight:700; cursor:pointer; min-height:38px; }
 .undo-bar button.dismiss { background:transparent; color:#9aab9a; padding:8px; min-height:38px; }
 @media (max-width:700px) { .undo-bar { bottom:calc(70px + env(safe-area-inset-bottom)); } }
