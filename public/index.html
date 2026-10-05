@@ -592,7 +592,6 @@ function renderGuestBanner(){const w=document.getElementById('guestBannerWrap');
 function renderNoTournamentBanner(){const w=document.getElementById('noTournamentBannerWrap');if(!w)return;if(currentTournamentId){w.innerHTML='';return;}const adm=isCurrentUserAdmin();w.innerHTML=`<div class="no-tournament-banner"><span class="nt-emoji">⏳</span><span class="nt-text"><strong>Активного турнира нет.</strong> ${adm?'Создайте турнир кнопкой «➕ Новый».':'Подача заявок откроется после создания турнира.'}</span></div>`;}
 function renderNavTabs(){const c=document.getElementById('navTabsContainer');const adm=isCurrentUserAdmin();const old=c.querySelector('.admin-tab');if(old)old.remove();if(adm){const b=document.createElement('button');b.className='nav-tab admin-tab';b.dataset.tab='admin';const pc=getPending().length;b.innerHTML=`<span>👑</span> Админ${pc>0?`<span class="admin-badge">${pc}</span>`:''}`;if(currentTab==='admin')b.classList.add('active');c.appendChild(b);}if(currentTab==='admin'&&!adm)currentTab='home';}
 
-// Защищённый renderMobileUI — не падает, если currentUser не в базе
 function renderMobileUI(){
   try{
     const mhTitle=document.getElementById('mhTitle');
@@ -627,7 +626,21 @@ function getBestAssister(d){const p=(d.players||[]).filter(x=>x.matchesPlayed>0)
 function getBestGoalkeeper(d){const g=(d.players||[]).filter(x=>x.goalkeeperMatches>0);return g.length?g.reduce((m,x)=>x.goalsConceded<m.goalsConceded?x:m,g[0]):null;}
 function getMVPTournament(d){const p=(d.players||[]).filter(x=>x.matchesPlayed>0);return p.length?p.reduce((m,x)=>(x.goals+x.assists)>(m.goals+m.assists)?x:m,p[0]):null;}
 function getBestVoted(d){const v=d.votes||{};let b=null,mx=0;Object.keys(v).forEach(n=>{if(v[n]>mx){mx=v[n];b=n;}});return b?{name:b,votes:mx}:null;}
-function getBestTeamTournament(d){const t=(d.teams||[]);if(!t.length)return null;const r=t.map(x=>{const pl=(d.players||[]).filter(p=>p.teamId===x.id);const a=pl.length?Math.round(pl.reduce((s,p)=>s+calcRatingForPlayerInTournament(p.name,d),0)/pl.length):0;return{name:x.name,color:x.color,avatar:x.avatar,rating:a,players:pl.map(p=>p.name)};}).filter(x=>x.rating>0&&x.players.length>0);if(!r.length)return null;r.sort((a,b)=>b.rating-a.rating);return r[0];}
+
+// ✅ ИСПРАВЛЕНО: вызываем calcRatingForPlayerInTournament с skipBtBonus=true — иначе бесконечная рекурсия
+function getBestTeamTournament(d){
+  const t=(d.teams||[]);
+  if(!t.length)return null;
+  const r=t.map(x=>{
+    const pl=(d.players||[]).filter(p=>p.teamId===x.id);
+    const a=pl.length?Math.round(pl.reduce((s,p)=>s+calcRatingForPlayerInTournament(p.name,d,true),0)/pl.length):0;
+    return{name:x.name,color:x.color,avatar:x.avatar,rating:a,players:pl.map(p=>p.name)};
+  }).filter(x=>x.rating>0&&x.players.length>0);
+  if(!r.length)return null;
+  r.sort((a,b)=>b.rating-a.rating);
+  return r[0];
+}
+
 function countPlayerAwards(name){
   let bs=0,ba=0,bg=0,mv=0,bv=0,bt=0;
   tournamentsList.forEach(t=>{
@@ -646,7 +659,9 @@ function addChangeLog(a,d){if(!appData.changeLog)appData.changeLog=[];appData.ch
 function getPlayerResults(playerName,matches,players){const p=players.find(x=>x.name===playerName);if(!p||!p.teamId)return{wins:0,draws:0,losses:0};let wins=0,draws=0,losses=0;(matches||[]).forEach(m=>{const isA=m.teamA===p.teamId;const isB=m.teamB===p.teamId;if(!isA&&!isB)return;const sa=parseInt(m.scoreA,10)||0;const sb=parseInt(m.scoreB,10)||0;const my=isA?sa:sb;const opp=isA?sb:sa;if(my>opp)wins++;else if(my<opp)losses++;else draws++;});return{wins,draws,losses};}
 function calcRatingFromStats(matches,goals,assists,aw,wins,draws,losses,btBonus){if(matches===0)return 0;const P=matches*2+(wins||0)*3+(draws||0)*1+(losses||0)*(-1)+goals*5+assists*4+aw*10+(btBonus||0);let r=Math.round(P/1.28);if(r>99)r=99;if(r<0)r=0;return r;}
 function calcRatingForPlayer(name){let total=0,count=0;tournamentsList.forEach(t=>{const d=getTournamentData(t.id);const p=(d.players||[]).find(x=>x.name===name);if(!p||!(p.matchesPlayed>0))return;total+=calcRatingForPlayerInTournament(name,d);count++;});if(count===0)return 0;return Math.round(total/count);}
-function calcRatingForPlayerInTournament(name,d){
+
+// ✅ ИСПРАВЛЕНО: добавлен третий параметр skipBtBonus. При true — НЕ вызываем getBestTeamTournament (устраняет рекурсию).
+function calcRatingForPlayerInTournament(name,d,skipBtBonus){
   const p=(d.players||[]).find(x=>x.name===name);if(!p)return 0;
   const m=p.matchesPlayed||0,g=p.goals||0,a=p.assists||0;
   let tot=0;
@@ -656,8 +671,11 @@ function calcRatingForPlayerInTournament(name,d){
   const mv=getMVPTournament(d); if(mv&&mv.name===name)tot++;
   const v=getBestVoted(d); if(v&&v.name===name)tot++;
   const res=getPlayerResults(name,d.matches||[],d.players||[]);
-  const bti=getBestTeamTournament(d);
-  const btBonus=(bti&&bti.players&&bti.players.includes(name))?15:0;
+  let btBonus=0;
+  if(!skipBtBonus){
+    const bti=getBestTeamTournament(d);
+    btBonus=(bti&&bti.players&&bti.players.includes(name))?15:0;
+  }
   return calcRatingFromStats(m,g,a,tot,res.wins,res.draws,res.losses,btBonus);
 }
 function calcTeamRating(tid,d){const p=(d.players||[]).filter(x=>x.teamId===tid);if(!p.length)return 0;return Math.round(p.reduce((s,x)=>s+calcRatingForPlayerInTournament(x.name,d),0)/p.length);}
@@ -932,8 +950,6 @@ function renderDMTab(){const me=getCurrentUser();if(!me)return`<div class="empty
 function renderRecordsTab(){let h=`<div class="panel-title"><span class="icon">🏆</span> Рекорды</div><p style="color:var(--text-light);font-size:0.92rem;margin-bottom:20px;">Лучшие достижения за всё время.</p>`;h+=`<button class="btn btn-secondary btn-sm" id="recordsHallBtn" style="margin-bottom:15px;">🏛️ Зал славы</button>`;if(!tournamentsList.length){h+=`<div class="empty-state"><span class="emoji">🏆</span><p>Нет данных.</p></div>`;return h;}const r=calcRecords();if(r.bestRating){const rs=getRatingStyle(r.bestRating.rating);h+=`<div class="record-hero" style="border-color:${rs.border};background:${rs.bg};"><div class="rec-medal">${rs.medal}</div><div class="rec-name">👤 ${escapeHtml(r.bestRating.name)}</div><div class="rec-value" style="color:${rs.color};">Рейтинг: ${r.bestRating.rating}</div><div class="rec-sub">${rs.label}</div></div>`;}h+=`<div class="stats-summary">`;const sc=(t,v,c)=>`<div class="stat-card"><h4>${t}</h4>${v?`<div style="${c||'color:#1a7a2e;font-weight:700;'}">${escapeHtml(v.name)}</div>`:'<div style="color:#9aab9a;">Нет данных</div>'}</div>`;h+=sc('🏅 MVP',r.bestMVP?{name:'🌟 '+r.bestMVP.name}:'');h+=sc('⚽ Бомбардир',r.bestScorer?{name:'🏆 '+r.bestScorer.name}:'');h+=sc('🎯 Ассистент',r.bestAssister?{name:'🏆 '+r.bestAssister.name}:'');h+=sc('🧤 Вратарь',r.bestGK?{name:'🏆 '+r.bestGK.name}:'');h+=sc('⭐ Лучший игрок (голосование)',r.bestVoted?{name:'🏆 '+r.bestVoted.name}:'');if(r.bestTeam){const rs=getRatingStyle(r.bestTeam.rating);let playersHtml='';const tFound=tournamentsList.find(t=>t.name===r.bestTeam.tournamentName);if(tFound){const td=getTournamentData(tFound.id);const teamObj=(td.teams||[]).find(t=>t.name===r.bestTeam.name);if(teamObj){const players=(td.players||[]).filter(p=>p.teamId===teamObj.id).sort((a,b)=>calcRatingForPlayerInTournament(b.name,td)-calcRatingForPlayerInTournament(a.name,td));playersHtml=players.map(p=>{const pR=calcRatingForPlayerInTournament(p.name,td);const pRs=getRatingStyle(pR);return`<span class="player-chip" style="border:2px solid ${pRs.border};">👤 ${escapeHtml(p.name)} · <strong style="color:${pRs.color};">${pR}</strong></span>`;}).join('');}}if(!playersHtml)playersHtml=renderPlayerChips(r.bestTeam.players);h+=`<div class="stat-card" style="grid-column:1/-1;"><h4>🏆 Лучшая команда</h4><div style="color:#1a7a2e;font-weight:700;">🥇 ${escapeHtml(r.bestTeam.name)}</div><div style="font-size:1.2rem;font-weight:800;color:${rs.color};margin-top:8px;">${r.bestTeam.rating} ${rs.medal}</div><div style="font-size:0.85rem;color:#7a8a7a;margin-top:6px;">${escapeHtml(r.bestTeam.tournamentName)}</div><div style="margin-top:10px;">${playersHtml}</div></div>`;}h+=`</div>`;return h;}
 function calcRecords(){const aa=aggregateAllPlayers();const r=aa.map(p=>({name:p.name,rating:calcRatingForPlayer(p.name)})).filter(x=>x.rating>0).sort((a,b)=>b.rating-a.rating);const bR=r[0]||null;const mS=[...aa].filter(p=>p.matchesPlayed>0).sort((a,b)=>(b.goals+b.assists)-(a.goals+a.assists));const bM=mS[0]||null;const sS=[...aa].filter(p=>p.matchesPlayed>0).sort((a,b)=>b.goals-a.goals);const bS=sS[0]||null;const aS=[...aa].filter(p=>p.matchesPlayed>0).sort((a,b)=>b.assists-a.assists);const bA=aS[0]||null;const gs=aa.filter(p=>p.goalkeeperMatches>0).sort((a,b)=>a.goalsConceded-b.goalsConceded);const bG=gs[0]||null;const vS={};tournamentsList.forEach(t=>{const d=getTournamentData(t.id);const v=d.votes||{};Object.keys(v).forEach(n=>{if(!vS[n])vS[n]=0;vS[n]+=v[n];});});const vE=Object.entries(vS).sort((a,b)=>b[1]-a[1]);const bV=vE[0]?{name:vE[0][0],votes:vE[0][1]}:null;let bt=null;tournamentsList.forEach(t=>{const d=getTournamentData(t.id);const b=getBestTeamTournament(d);if(b&&(!bt||b.rating>bt.rating))bt={...b,tournamentName:t.name};});return{bestRating:bR,bestMVP:bM,bestScorer:bS,bestAssister:bA,bestGK:bG,bestVoted:bV,bestTeam:bt};}
 function renderAdminTab(){if(!isCurrentUserAdmin())return`<div class="empty-state"><span class="emoji">🔒</span><p>Только для админов</p></div>`;let h=`<div class="panel-title"><span class="icon">👑</span> Админ-панель</div><div class="sub-tabs"><button class="sub-tab ${adminSubTab==='pending'?'active':''}" data-admin="pending">⏳ Заявки (${getPending().length})</button><button class="sub-tab ${adminSubTab==='admins'?'active':''}" data-admin="admins">👑 Админы (${getAdmins().length})</button><button class="sub-tab ${adminSubTab==='assigners'?'active':''}" data-admin="assigners">🎯 Команды (${getAssigners().length})</button><button class="sub-tab ${adminSubTab==='audit'?'active':''}" data-admin="audit">📋 Аудит</button><button class="sub-tab ${adminSubTab==='settings'?'active':''}" data-admin="settings">⚙️ Настройки</button></div>`;if(adminSubTab==='pending'){const p=getPending();h+=`<div class="admin-section"><h3>⏳ Заявки</h3>`;if(!p.length)h+=`<p style="color:#7a8a7a;">Нет заявок.</p>`;else p.forEach(x=>{h+=`<div class="pending-item"><div class="pending-info"><div class="pending-name">👤 ${escapeHtml(x.name)}</div><div class="pending-time">${fmtDate(x.requestedAt)}</div></div><div style="display:flex;gap:6px;flex-wrap:wrap;"><button class="btn btn-primary btn-sm approve-pending" data-name="${escapeHtml(x.name)}">✅ Одобрить</button><button class="btn btn-danger btn-sm reject-pending" data-name="${escapeHtml(x.name)}">❌ Отклонить</button></div></div>`;});h+=`</div>`;}else if(adminSubTab==='admins'){const a=getAdmins();h+=`<div class="admin-section"><h3>👑 Админы</h3>`;a.forEach(n=>{const ip=n===PRIMARY_ADMIN;h+=`<div class="admin-list-item"><div class="admin-name">${ip?'👑':'⭐'} ${escapeHtml(n)}${ip?' <span style="font-size:0.75rem;color:#b87333;">(главный)</span>':''}</div>${!ip?`<button class="btn btn-danger btn-sm demote-admin" data-name="${escapeHtml(n)}">Снять</button>`:''}</div>`;});h+=`</div><div class="admin-section"><h3>➕ Назначить админом</h3>`;const c=playersDatabase.filter(n=>!a.includes(n));if(!c.length)h+=`<p style="color:#7a8a7a;">Нет кандидатов.</p>`;else c.forEach(n=>{h+=`<button class="btn btn-secondary btn-sm promote-admin" data-name="${escapeHtml(n)}" style="margin:3px;">👤 ${escapeHtml(n)}</button>`;});h+=`</div>`;}else if(adminSubTab==='assigners'){const a=getAssigners();h+=`<div class="admin-section"><h3>🎯 Могут назначать</h3>`;if(!a.length)h+=`<p style="color:#7a8a7a;">Никого.</p>`;else a.forEach(n=>{h+=`<div class="admin-list-item"><div class="admin-name">🎯 ${escapeHtml(n)}</div><button class="btn btn-danger btn-sm remove-assigner" data-name="${escapeHtml(n)}">Снять</button></div>`;});h+=`</div><div class="admin-section"><h3>➕ Разрешить</h3>`;const c=playersDatabase.filter(n=>!a.includes(n)&&!isAdmin(n));if(!c.length)h+=`<p style="color:#7a8a7a;">Нет кандидатов.</p>`;else c.forEach(n=>{h+=`<button class="btn btn-secondary btn-sm add-assigner" data-name="${escapeHtml(n)}" style="margin:3px;">👤 ${escapeHtml(n)}</button>`;});h+=`</div>`;}else if(adminSubTab==='audit'){const a=getAudit().slice().reverse().slice(0,150);h+=`<div class="admin-section"><h3>📋 Журнал (150)</h3>`;if(!a.length)h+=`<p style="color:#7a8a7a;">Пока пусто.</p>`;else a.forEach(item=>{const icons={auth:'🔐',admin:'👑',user:'👤',tournament:'🏆',team:'🎨',assigner:'🎯',match:'⚽',poll:'📊',template:'📋',undo:'↩️',dm:'✉️'};const i=icons[item.category]||'📝';h+=`<div class="audit-item"><span class="audit-icon">${i}</span><div class="audit-body"><div><span class="audit-author">${escapeHtml(item.author)}</span> · <b>${item.category}</b> · ${escapeHtml(item.action)}</div><div style="font-size:0.85rem;color:var(--text-light);margin-top:2px;">${escapeHtml(item.details||'')}</div><div style="font-size:0.75rem;color:#9aab9a;margin-top:2px;">${fmtDate(item.timestamp)}</div></div></div>`;});h+=`</div>`;}else{h+=`<div class="admin-section"><h3>📋 Шаблоны</h3>`;const tpls=serverState.data[TEMPLATES_KEY]||[];if(!tpls.length)h+=`<p style="color:#7a8a7a;">Нет шаблонов.</p>`;else tpls.forEach((tpl,i)=>{h+=`<div class="admin-list-item" style="border-left-color:#9b59b6;"><div class="admin-name">📋 ${escapeHtml(tpl.name)} <span style="font-size:0.75rem;color:#7a8a7a;">(${tpl.teams.length} ком., ${tpl.players.length} игр.)</span></div><div style="display:flex; gap:6px;"><button class="btn btn-primary btn-sm" data-apply-tpl="${i}">Применить</button><button class="btn btn-danger btn-sm" data-del-tpl="${i}">🗑️</button></div></div>`;});h+=`</div><div class="admin-section"><h3>⚙️ Настройки</h3><label style="display:flex;align-items:center;gap:10px;font-size:0.95rem;margin-bottom:8px;"><input type="checkbox" id="anonVoteToggle" ${isAnonVote()?'checked':''}> 🔒 Анонимное голосование</label><hr style="margin:15px 0; border:none; border-top:1px solid var(--border-soft);"><button class="btn btn-primary" id="adminAwardsBtn" style="width:100%;justify-content:center;">🏆 Показать итоги</button></div>`;}return h;}
-
-// 🔧 render() с защитой от падений — при ошибке покажет жёлтую плашку
 function render(){
   try{
     const panel=document.getElementById('contentPanel');
@@ -971,8 +987,6 @@ function render(){
     </div>`;
   }
 }
-
-// Профиль игрока — одинаковый из любой точки входа
 function openPlayerProfile(name){
   const me=getCurrentUser()===name,hp=!!(getPasswords()[name]),adm=isAdmin(name),ass=!adm&&getAssigners().includes(name);
   const b=getRosterBadge(name);
@@ -1209,89 +1223,24 @@ function cleanupBadPlayers(){
   let changed=false;
   try{
     BAD_PLAYERS_TO_DELETE.forEach(bad=>{
-      // Из базы игроков
-      if(playersDatabase.includes(bad)){
-        playersDatabase=playersDatabase.filter(x=>x!==bad);
-        serverState.playersDb=playersDatabase;
-        changed=true;
-      }
-      // Из всех турниров (заявки, голоса, матчи — ссылки по имени)
+      if(playersDatabase.includes(bad)){playersDatabase=playersDatabase.filter(x=>x!==bad);serverState.playersDb=playersDatabase;changed=true;}
       tournamentsList.forEach(t=>{
         const d=getTournamentData(t.id);
-        if(d.players){
-          const before=d.players.length;
-          d.players=d.players.filter(p=>p && p.name!==bad);
-          if(d.players.length!==before)changed=true;
-        }
-        if(d.votes && d.votes[bad]!==undefined){
-          delete d.votes[bad];
-          changed=true;
-        }
+        if(d.players){const before=d.players.length;d.players=d.players.filter(p=>p && p.name!==bad);if(d.players.length!==before)changed=true;}
+        if(d.votes && d.votes[bad]!==undefined){delete d.votes[bad];changed=true;}
       });
-      // Из фото
-      if(serverState.data[PHOTOS_KEY] && serverState.data[PHOTOS_KEY][bad]){
-        delete serverState.data[PHOTOS_KEY][bad];
-        changed=true;
-      }
-      // Из паролей
-      if(serverState.data[PASSWORDS_KEY] && serverState.data[PASSWORDS_KEY][bad]){
-        delete serverState.data[PASSWORDS_KEY][bad];
-        changed=true;
-      }
-      // Из админов / назначающих
-      if(serverState.data[ADMINS_KEY]){
-        const before=serverState.data[ADMINS_KEY].length;
-        serverState.data[ADMINS_KEY]=serverState.data[ADMINS_KEY].filter(x=>x!==bad);
-        if(serverState.data[ADMINS_KEY].length!==before)changed=true;
-      }
-      if(serverState.data[ASSIGNERS_KEY]){
-        const before=serverState.data[ASSIGNERS_KEY].length;
-        serverState.data[ASSIGNERS_KEY]=serverState.data[ASSIGNERS_KEY].filter(x=>x!==bad);
-        if(serverState.data[ASSIGNERS_KEY].length!==before)changed=true;
-      }
-      // Из pending
-      if(serverState.data[PENDING_KEY]){
-        const before=serverState.data[PENDING_KEY].length;
-        serverState.data[PENDING_KEY]=serverState.data[PENDING_KEY].filter(p=>p && p.name!==bad);
-        if(serverState.data[PENDING_KEY].length!==before)changed=true;
-      }
-      // Если текущий пользователь — этот забаненный, разлогинить
-      if(localStorage.getItem(CURRENT_USER_KEY)===bad){
-        localStorage.removeItem(CURRENT_USER_KEY);
-        changed=true;
-      }
-      // localStorage vote
-      tournamentsList.forEach(t=>{
-        const k=VOTE_KEY_PREFIX+t.id;
-        if(localStorage.getItem(k)===bad){localStorage.removeItem(k);changed=true;}
-      });
+      if(serverState.data[PHOTOS_KEY] && serverState.data[PHOTOS_KEY][bad]){delete serverState.data[PHOTOS_KEY][bad];changed=true;}
+      if(serverState.data[PASSWORDS_KEY] && serverState.data[PASSWORDS_KEY][bad]){delete serverState.data[PASSWORDS_KEY][bad];changed=true;}
+      if(serverState.data[ADMINS_KEY]){const before=serverState.data[ADMINS_KEY].length;serverState.data[ADMINS_KEY]=serverState.data[ADMINS_KEY].filter(x=>x!==bad);if(serverState.data[ADMINS_KEY].length!==before)changed=true;}
+      if(serverState.data[ASSIGNERS_KEY]){const before=serverState.data[ASSIGNERS_KEY].length;serverState.data[ASSIGNERS_KEY]=serverState.data[ASSIGNERS_KEY].filter(x=>x!==bad);if(serverState.data[ASSIGNERS_KEY].length!==before)changed=true;}
+      if(serverState.data[PENDING_KEY]){const before=serverState.data[PENDING_KEY].length;serverState.data[PENDING_KEY]=serverState.data[PENDING_KEY].filter(p=>p && p.name!==bad);if(serverState.data[PENDING_KEY].length!==before)changed=true;}
+      if(localStorage.getItem(CURRENT_USER_KEY)===bad){localStorage.removeItem(CURRENT_USER_KEY);changed=true;}
+      tournamentsList.forEach(t=>{const k=VOTE_KEY_PREFIX+t.id;if(localStorage.getItem(k)===bad){localStorage.removeItem(k);changed=true;}});
     });
-
-    // 🔧 Дополнительно: если currentUser не в базе и не админ — разлогинить (защита от "залётных")
     const cu=getCurrentUser();
-    if(cu && !playersDatabase.includes(cu) && !getAdmins().includes(cu)){
-      localStorage.removeItem(CURRENT_USER_KEY);
-      changed=true;
-    }
-
-    // 🔧 Почистим игроков с пустым/битым именем во всех турнирах
-    tournamentsList.forEach(t=>{
-      const d=getTournamentData(t.id);
-      if(d.players){
-        const before=d.players.length;
-        d.players=d.players.filter(p=>p && typeof p.name==='string' && p.name.trim());
-        if(d.players.length!==before)changed=true;
-      }
-    });
-
-    // Если что-то менялось — сохраняем и обновляем UI
-    if(changed){
-      saveCurrentData();
-      updateTournamentSelect();
-      renderUserBox();
-      renderGuestBanner();
-      renderNavTabs();
-    }
+    if(cu && !playersDatabase.includes(cu) && !getAdmins().includes(cu)){localStorage.removeItem(CURRENT_USER_KEY);changed=true;}
+    tournamentsList.forEach(t=>{const d=getTournamentData(t.id);if(d.players){const before=d.players.length;d.players=d.players.filter(p=>p && typeof p.name==='string' && p.name.trim());if(d.players.length!==before)changed=true;}});
+    if(changed){saveCurrentData();updateTournamentSelect();renderUserBox();renderGuestBanner();renderNavTabs();}
   }catch(e){console.error('cleanupBadPlayers error:',e);}
   return changed;
 }
@@ -1318,10 +1267,7 @@ async function init(){
   if(!serverState.data[TEMPLATES_KEY]){serverState.data[TEMPLATES_KEY]=[];ns=true;}
   if(!serverState.data[PHOTOS_KEY]){serverState.data[PHOTOS_KEY]={};ns=true;}
   if(ns&&knownVersion>0)scheduleSave();
-
-  // 🔧 Очистка мусорных игроков (Dim@sikZol и др.)
   cleanupBadPlayers();
-
   updateTournamentSelect();render();
   setInterval(()=>pullFromServer(false),POLL_MS);
   setInterval(cleanupOldBackups,60000);
