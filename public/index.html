@@ -286,9 +286,9 @@ tr:hover td{background:#f0f7f0;}
 .export-bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
 .export-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:20px;background:#eef3ee;color:#1e2a1e;border:none;font-weight:700;cursor:pointer;font-size:0.85rem;min-height:40px;}
 .export-btn:hover{background:#dde5dd;}
-.team-avatar{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:50%;background:#eef3ee;color:#1e2a1e;font-weight:800;font-size:0.85rem;overflow:hidden;vertical-align:middle;border:2px solid currentColor;flex-shrink:0;}
+.team-avatar{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:50%;background:#eef3ee;color:#1e2a1e;font-weight:800;font-size:0.85rem;overflow:hidden;vertical-align:middle;border:2px solid currentColor;flex-shrink:0;box-sizing:border-box;}
 .team-avatar img{width:100%;height:100%;object-fit:cover;}
-.player-photo{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:50%;background:#eef3ee;color:#1e2a1e;font-weight:800;overflow:hidden;vertical-align:middle;border:2px solid #2e9e44;flex-shrink:0;}
+.player-photo{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:50%;background:#eef3ee;color:#1e2a1e;font-weight:800;overflow:hidden;vertical-align:middle;border:2px solid #2e9e44;flex-shrink:0;box-sizing:border-box;}
 .player-photo img{width:100%;height:100%;object-fit:cover;}
 .player-photo-lg{width:80px;height:80px;font-size:1.8rem;}
 .mention{color:#4a90d9;font-weight:700;background:#eef6fd;padding:1px 6px;border-radius:8px;}
@@ -786,13 +786,29 @@ function approvePending(name){if(!isCurrentUserAdmin()){alert('🔒 Только
 function rejectPending(name){if(!isCurrentUserAdmin()){alert('🔒 Только админ');return;}if(!confirm(`Отклонить заявку "${name}"?`))return;const pd=getPending();const i=pd.findIndex(p=>p.name===name);if(i<0)return;pd.splice(i,1);audit('user','reject',name);scheduleSave();render();alert(`❌ Заявка "${name}" отклонена`);}
 function promoteToAdmin(n){if(!isCurrentUserAdmin()){alert('🔒 Только админ');return;}if(!playersDatabase.includes(n)){alert('Нет в базе');return;}const a=getAdmins();if(a.includes(n))return;if(!confirm(`Назначить "${n}" админом?`))return;a.push(n);audit('admin','promote',n);scheduleSave();render();alert(`👑 ${n} теперь админ`);}
 function demoteAdmin(n){if(!isCurrentUserAdmin()){alert('🔒 Только админ');return;}if(n===PRIMARY_ADMIN){alert('Нельзя снять главного');return;}if(!confirm(`Снять "${n}"?`))return;const a=getAdmins();const i=a.indexOf(n);if(i>=0)a.splice(i,1);audit('admin','demote',n);scheduleSave();render();}
-function applyAccent(preset){if(!preset){const stored=localStorage.getItem(ACCENT_KEY);if(stored){try{preset=JSON.parse(stored);}catch(e){}}}let styleTag=document.getElementById('accent-override');if(!preset){document.documentElement.style.removeProperty('--accent-main');document.documentElement.style.removeProperty('--accent-dark');if(styleTag)styleTag.textContent='';return;}document.documentElement.style.setProperty('--accent-main',preset.main);document.documentElement.style.setProperty('--accent-dark',preset.dark);localStorage.setItem(ACCENT_KEY,JSON.stringify(preset));if(!styleTag){styleTag=document.createElement('style');styleTag.id='accent-override';document.head.appendChild(styleTag);}styleTag.textContent=`.btn-primary{background:${preset.main}!important}.btn-primary:hover{background:${preset.dark}!important}.nav-tab.active{color:${preset.dark}!important}th{background:${preset.main}!important}.mobile-nav-item.active{background:${preset.main}!important}.add-player-btn{background:${preset.main}!important}.fab{background:linear-gradient(135deg,${preset.main},${preset.dark})!important}.sub-tab.active{background:${preset.main}!important}.team-avatar{border-color:${preset.main}!important}.player-photo{border-color:${preset.main}!important}`;}
+
+// ✅ applyAccent — без !important для team-avatar и player-photo
+function applyAccent(preset){
+  if(!preset){const stored=localStorage.getItem(ACCENT_KEY);if(stored){try{preset=JSON.parse(stored);}catch(e){}}}
+  let styleTag=document.getElementById('accent-override');
+  if(!preset){
+    document.documentElement.style.removeProperty('--accent-main');
+    document.documentElement.style.removeProperty('--accent-dark');
+    if(styleTag)styleTag.textContent='';
+    return;
+  }
+  document.documentElement.style.setProperty('--accent-main',preset.main);
+  document.documentElement.style.setProperty('--accent-dark',preset.dark);
+  localStorage.setItem(ACCENT_KEY,JSON.stringify(preset));
+  if(!styleTag){styleTag=document.createElement('style');styleTag.id='accent-override';document.head.appendChild(styleTag);}
+  styleTag.textContent=`.btn-primary{background:${preset.main}!important}.btn-primary:hover{background:${preset.dark}!important}.nav-tab.active{color:${preset.dark}!important}th{background:${preset.main}!important}.mobile-nav-item.active{background:${preset.main}!important}.add-player-btn{background:${preset.main}!important}.fab{background:linear-gradient(135deg,${preset.main},${preset.dark})!important}.sub-tab.active{background:${preset.main}!important}`;
+}
 function pickAccent(idx){const p=ACCENT_PRESETS[idx];if(!p)return;applyAccent(p);document.querySelectorAll('.accent-opt').forEach((o,i)=>o.classList.toggle('selected',i===idx));audit('settings','accent',p.name);}
 function openAccentModal(){const list=document.getElementById('accentPickerList');if(list){list.innerHTML=ACCENT_PRESETS.map((p,i)=>`<div class="accent-opt" data-accent-idx="${i}" style="background:${p.main};" title="${p.name}"></div>`).join('');}const stored=localStorage.getItem(ACCENT_KEY);if(stored){try{const cur=JSON.parse(stored);document.querySelectorAll('.accent-opt').forEach((o,i)=>{o.classList.toggle('selected',ACCENT_PRESETS[i].main===cur.main);});}catch(e){}}document.getElementById('accentModal').style.display='flex';}
 function togglePitchBg(){const cur=document.body.classList.contains('pitch-bg');if(cur){document.body.classList.remove('pitch-bg');localStorage.setItem(PITCH_BG_KEY,'0');}else{document.body.classList.add('pitch-bg');localStorage.setItem(PITCH_BG_KEY,'1');}render();}
 function applyPitchBg(){if(localStorage.getItem(PITCH_BG_KEY)==='1')document.body.classList.add('pitch-bg');}
 
-// 📸 Карточка матча для экспорта — обалденный вид
+// 📸 Карточка матча для экспорта
 function buildMatchCardHTML(m){
   const t1=getTeamById(m.teamA),t2=getTeamById(m.teamB);
   if(!t1||!t2)return'';
@@ -945,7 +961,6 @@ function massAssign(){const ids=getMassSelected();if(!ids.length){alert('Нич�
 function massSetStatus(){const ids=getMassSelected();if(!ids.length){alert('Ничего не выбрано');return;}const wrapper=document.createElement('div');wrapper.className='modal-overlay';wrapper.style.display='flex';wrapper.innerHTML=`<div class="modal" style="max-width:400px;"><button class="close-btn">&times;</button><h2>🟢 Статус для ${ids.length} игроков</h2><button class="btn btn-primary" data-mass-status="confirmed" style="width:100%; justify-content:center; margin:4px 0;">🟢 Точно</button><button class="btn btn-warning" data-mass-status="pending" style="width:100%; justify-content:center; margin:4px 0;">🟡 Под вопросом</button><button class="btn btn-danger" data-mass-status="reserve" style="width:100%; justify-content:center; margin:4px 0;">🔴 Резерв</button></div>`;document.body.appendChild(wrapper);const close=()=>wrapper.remove();wrapper.querySelector('.close-btn').onclick=close;wrapper.addEventListener('click',ev=>{if(ev.target===wrapper){close();return;}const b=ev.target.closest('[data-mass-status]');if(b){const st=b.dataset.massStatus;ids.forEach(id=>{const p=appData.players.find(x=>x.id===id);if(p)p.status=st;});audit('user','mass_status',`${ids.length} → ${st}`);saveCurrentData();close();document.getElementById('playerModal').style.display='none';render();}});}
 function massDelete(){const ids=getMassSelected();if(!ids.length){alert('Ничего не выбрано');return;}if(!confirm(`Удалить ${ids.length} игроков из заявки?`))return;const backup=ids.map(id=>JSON.parse(JSON.stringify(appData.players.find(x=>x.id===id)))).filter(Boolean);appData.players=appData.players.filter(p=>!ids.includes(p.id));ids.forEach(id=>{const p=backup.find(x=>x.id===id);if(p&&appData.votes&&appData.votes[p.name])delete appData.votes[p.name];});audit('user','mass_delete',`${ids.length} игроков`);pushUndo(`Удалено ${ids.length} игроков`,()=>backup,(snap)=>{snap.forEach(p=>appData.players.push(p));});saveCurrentData();document.getElementById('playerModal').style.display='none';render();}
 function openDashboardModal(){if(!currentTournamentId){alert('Выберите турнир');return;}const table=calculateTable();const totalMatches=appData.matches.length,totalPlayers=appData.players.length,totalTeams=appData.teams.length;let totalGoals=0;appData.matches.forEach(m=>{totalGoals+=(parseInt(m.scoreA,10)||0)+(parseInt(m.scoreB,10)||0);});const avgGoals=totalMatches>0?(totalGoals/totalMatches).toFixed(2):'0.00';const topScorer=[...appData.players].filter(p=>p.matchesPlayed>0).sort((a,b)=>b.goals-a.goals)[0];const topAssister=[...appData.players].filter(p=>p.matchesPlayed>0).sort((a,b)=>b.assists-a.assists)[0];const topRated=[...appData.players].filter(p=>p.matchesPlayed>0).map(p=>({...p,rating:calcRatingForPlayerInTournament(p.name,appData)})).sort((a,b)=>b.rating-a.rating)[0];const leaderTeam=table[0];const recent=[...appData.matches].sort((a,b)=>(b.id>a.id?1:-1)).slice(0,5);let h=`<h2>📊 Дашборд турнира</h2><p style="color:var(--text-light); font-size:0.85rem; margin-bottom:16px;">${escapeHtml(tournamentsList.find(t=>t.id===currentTournamentId)?.name||'')}</p><div class="dash-grid"><div class="dash-card"><div class="dash-icon">⚽</div><div class="dash-value">${totalMatches}</div><div class="dash-label">Матчей</div></div><div class="dash-card"><div class="dash-icon">🥅</div><div class="dash-value">${totalGoals}</div><div class="dash-label">Голов</div></div><div class="dash-card"><div class="dash-icon">📈</div><div class="dash-value">${avgGoals}</div><div class="dash-label">Голов/матч</div></div><div class="dash-card"><div class="dash-icon">👥</div><div class="dash-value">${totalPlayers}</div><div class="dash-label">Игроков</div></div><div class="dash-card"><div class="dash-icon">🎨</div><div class="dash-value">${totalTeams}</div><div class="dash-label">Команд</div></div></div>`;if(leaderTeam){h+=`<div class="dash-section-title">🥇 Лидер турнира</div><div class="dash-list-item"><span class="dli-name" style="color:${escapeHtml(getTeamColor(getTeamById(leaderTeam.id)))};">${escapeHtml(leaderTeam.name)}</span><span class="dli-value">${leaderTeam.points} очк. (${leaderTeam.wins} П)</span></div>`;}h+=`<div class="dash-section-title">⭐ Лидеры</div>`;if(topRated)h+=`<div class="dash-list-item"><span class="dli-name">⭐ Рейтинг: ${escapeHtml(topRated.name)}</span><span class="dli-value">${topRated.rating}</span></div>`;if(topScorer)h+=`<div class="dash-list-item"><span class="dli-name">⚽ Бомбардир: ${escapeHtml(topScorer.name)}</span><span class="dli-value">${topScorer.goals} гол.</span></div>`;if(topAssister)h+=`<div class="dash-list-item"><span class="dli-name">🎯 Ассистент: ${escapeHtml(topAssister.name)}</span><span class="dli-value">${topAssister.assists} пас.</span></div>`;
-// 🎯 Последние матчи с цветными точками
 if(recent.length){
   h+=`<div class="dash-section-title">🕒 Последние матчи</div>`;
   recent.forEach(m=>{
@@ -1133,13 +1148,13 @@ function renderCombinedHistoryTab(){
         if(!ta||!tb)return;
         const ca=getTeamColor(ta),cb=getTeamColor(tb),mt=getMatchTime(m);
 
-        // 🖼 Эмблема команды
+        // 🖼 Эмблема команды (толщина 3px, box-sizing)
         const teamBadge=(team,color,size)=>{
           const s=size||28;
           if(team.avatar){
-            return `<span style="display:inline-flex;align-items:center;justify-content:center;width:${s}px;height:${s}px;border-radius:50%;border:2px solid ${color};overflow:hidden;background:${color}20;flex-shrink:0;"><img src="${team.avatar}" style="width:100%;height:100%;object-fit:cover;"></span>`;
+            return `<span style="display:inline-flex;align-items:center;justify-content:center;width:${s}px;height:${s}px;border-radius:50%;border:3px solid ${color};overflow:hidden;background:${color}20;flex-shrink:0;box-sizing:border-box;"><img src="${team.avatar}" style="width:100%;height:100%;object-fit:cover;display:block;"></span>`;
           }
-          return `<span style="display:inline-flex;align-items:center;justify-content:center;width:${s}px;height:${s}px;border-radius:50%;border:2px solid ${color};background:${color}20;color:${color};font-weight:800;font-size:${Math.round(s*0.45)}px;flex-shrink:0;">${escapeHtml(team.name.charAt(0))}</span>`;
+          return `<span style="display:inline-flex;align-items:center;justify-content:center;width:${s}px;height:${s}px;border-radius:50%;border:3px solid ${color};background:${color}20;color:${color};font-weight:800;font-size:${Math.round(s*0.42)}px;flex-shrink:0;box-sizing:border-box;">${escapeHtml(team.name.charAt(0))}</span>`;
         };
 
         // 🎯 Голы с цветными точками
@@ -1172,15 +1187,15 @@ function renderCombinedHistoryTab(){
         }
 
         h+=`<div class="match-history-card">
-          <div style="display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:12px;flex-wrap:wrap;">
-            <div style="display:flex;align-items:center;gap:8px;flex:1;justify-content:flex-end;min-width:120px;">
-              <span style="font-weight:800;font-size:1.05rem;color:${escapeHtml(ca)};text-align:right;">${escapeHtml(ta.name)}</span>
-              ${teamBadge(ta,ca,32)}
+          <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;margin-bottom:12px;">
+            <div style="display:flex;align-items:center;gap:6px;justify-content:flex-end;min-width:0;">
+              <span style="font-weight:800;font-size:0.95rem;color:${escapeHtml(ca)};text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(ta.name)}</span>
+              ${teamBadge(ta,ca,30)}
             </div>
-            <span style="font-weight:900;font-size:1.3rem;padding:5px 16px;background:#f0f7f0;border-radius:12px;color:var(--text-main);flex-shrink:0;">${m.scoreA} : ${m.scoreB}</span>
-            <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:120px;">
-              ${teamBadge(tb,cb,32)}
-              <span style="font-weight:800;font-size:1.05rem;color:${escapeHtml(cb)};">${escapeHtml(tb.name)}</span>
+            <span style="font-weight:900;font-size:1.15rem;padding:4px 14px;background:#f0f7f0;border-radius:12px;color:var(--text-main);flex-shrink:0;white-space:nowrap;">${m.scoreA} : ${m.scoreB}</span>
+            <div style="display:flex;align-items:center;gap:6px;justify-content:flex-start;min-width:0;">
+              ${teamBadge(tb,cb,30)}
+              <span style="font-weight:800;font-size:0.95rem;color:${escapeHtml(cb)};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(tb.name)}</span>
             </div>
           </div>
           ${mh?`<div class="match-time" style="text-align:center;">${mh}</div>`:''}
@@ -1189,14 +1204,14 @@ function renderCombinedHistoryTab(){
             <div class="match-scorers-col">
               <div class="col-team-name" style="color:${escapeHtml(ca)};display:flex;align-items:center;gap:6px;">
                 ${teamBadge(ta,ca,20)}
-                <span>${escapeHtml(ta.name)}</span>
+                <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(ta.name)}</span>
               </div>
               ${goals1||'<div class="col-empty">Голов нет</div>'}
             </div>
             <div class="match-scorers-col">
               <div class="col-team-name" style="color:${escapeHtml(cb)};display:flex;align-items:center;gap:6px;">
                 ${teamBadge(tb,cb,20)}
-                <span>${escapeHtml(tb.name)}</span>
+                <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(tb.name)}</span>
               </div>
               ${goals2||'<div class="col-empty">Голов нет</div>'}
             </div>
@@ -1638,4 +1653,4 @@ init();
 })();
 </script>
 </body>
-                                                                                                                                                                                                                                                                                                  </html>
+  </html>
