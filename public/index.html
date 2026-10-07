@@ -534,6 +534,8 @@ let statsFilterTeam='all',statsFilterMin=1,statsFilterDateFrom='',statsFilterDat
 let pendingPlayerToAdd=null,currentTab='home',dmTarget=null,undoStack=[];const UNDO_LIMIT=10;
 let pendingRemoteRender=false;
 let deferredRenderTimer=null;
+let _addingMatch=false;
+const _appliedMatches=new WeakSet();
 
 function generateId(){return Date.now().toString(36)+Math.random().toString(36).substr(2,5);}
 function escapeHtml(t){const d=document.createElement('div');d.textContent=t==null?'':String(t);return d.innerHTML;}
@@ -1503,7 +1505,9 @@ function clearMatchDraft(){
   try{localStorage.removeItem(MATCH_DRAFT_KEY);}catch(e){}
   if(serverState.data){
     serverState.data[MATCH_DRAFT_SERVER_KEY]=null;
-    scheduleSave();
+    if(saveTimer){clearTimeout(saveTimer);saveTimer=null;}
+    hasUnsavedChanges=true;
+    pushToServer();
   }
   updateDraftBadge();
 }
@@ -1630,6 +1634,7 @@ function updateDraftBadge(){
 function addGoalRow(c,t){if(!requireMatchRights())return;if(!t)return alert('Выберите команду');const p=getPlayersByTeam(t);if(!p.length)return alert('Нет игроков');const r=document.createElement('div');r.className='goal-row';r.innerHTML=`<select class="scorer-select"><option value="">Бомбардир</option>${p.map(x=>`<option value="${x.id}">${escapeHtml(x.name)}</option>`).join('')}</select><select class="assist-select"><option value="">Ассистент</option>${p.map(x=>`<option value="${x.id}">${escapeHtml(x.name)}</option>`).join('')}</select><button class="btn btn-danger btn-sm remove-goal" type="button">✕</button>`;c.appendChild(r);r.querySelector('.remove-goal').addEventListener('click',()=>{r.remove();syncScoreFromGoals();saveMatchDraft();});}
 
 function handleAddMatch(){
+  if(_addingMatch)return;
   if(!requireMatchRights())return;
   const tA=document.getElementById('matchTeamA').value,tB=document.getElementById('matchTeamB').value;
   const sA=document.getElementById('matchScoreA').value,sB=document.getElementById('matchScoreB').value;
@@ -1639,23 +1644,71 @@ function handleAddMatch(){
   document.querySelectorAll('#goalsA .goal-row').forEach(r=>{const s=r.querySelector('.scorer-select').value,a=r.querySelector('.assist-select').value;if(s)gA.push({scorerId:s,assistId:a||null});});
   document.querySelectorAll('#goalsB .goal-row').forEach(r=>{const s=r.querySelector('.scorer-select').value,a=r.querySelector('.assist-select').value;if(s)gB.push({scorerId:s,assistId:a||null});});
   if(gA.length!==parseInt(sA,10)||gB.length!==parseInt(sB,10))return alert('Голы не совпадают');
-  const sA2=[],sB2=[];
-  document.querySelectorAll('#substitutionsA .sub-row').forEach(r=>{const o=r.querySelector('.sub-out-select').value,i=r.querySelector('.sub-in-select').value;if(o&&i)sA2.push({outId:o,inId:i});});
-  document.querySelectorAll('#substitutionsB .sub-row').forEach(r=>{const o=r.querySelector('.sub-out-select').value,i=r.querySelector('.sub-in-select').value;if(o&&i)sB2.push({outId:o,inId:i});});
-  const u=getCurrentUser();
-  const m={id:generateId(),createdAt:new Date().toISOString(),createdBy:u,teamA:tA,teamB:tB,scoreA:sA,scoreB:sB,goalsA:gA,goalsB:gB,goalkeeperA:gkA||null,goalkeeperB:gkB||null,substitutionsA:sA2,substitutionsB:sB2};
-  appData.matches.push(m);applyMatchStats(m);
-  const ta=getTeamById(tA),tb=getTeamById(tB);
-  addChangeLog('add',`${ta.name} ${sA}:${sB} ${tb.name}`);
-  audit('match','add',`${ta.name} ${sA}:${sB} ${tb.name}`);
-  saveCurrentData();
-  clearMatchDraft();
-  render();
-  setTimeout(()=>{if(confirm('Прикрепить матч в чат?')){currentTab='chat';render();setTimeout(()=>{const i=document.getElementById('chatMessageInput');if(i){i.value=`#m_${m.id} `;i.focus();}},80);}},200);
+  const now=Date.now();
+  const sig=[tA,tB,sA,sB,JSON.stringify(gA),JSON.stringify(gB)].join('|');
+  const isDup=appData.matches.some(mm=>{
+    if(!mm.createdAt)return false;
+    const t=new Date(mm.createdAt).getTime();
+    if(!t||now-t>15000)return false;
+    const s=[mm.teamA,mm.teamB,mm.scoreA,mm.scoreB,JSON.stringify(mm.goalsA||[]),JSON.stringify(mm.goalsB||[])].join('|');
+    return s===sig;
+  });
+  if(isDup){alert('Такой матч уже был добавлен несколько секунд назад');return;}
+  _addingMatch=true;
+  try{
+    const sA2=[],sB2=[];
+    document.querySelectorAll('#substitutionsA .sub-row').forEach(r=>{const o=r.querySelector('.sub-out-select').value,i=r.querySelector('.sub-in-select').value;if(o&&i)sA2.push({outId:o,inId:i});});
+    document.querySelectorAll('#substitutionsB .sub-row').forEach(r=>{const o=r.querySelector('.sub-out-select').value,i=r.querySelector('.sub-in-select').value;if(o&&i)sB2.push({outId:o,inId:i});});
+    const u=getCurrentUser();
+    const m={id:generateId(),createdAt:new Date().toISOString(),createdBy:u,teamA:tA,teamB:tB,scoreA:sA,scoreB:sB,goalsA:gA,goalsB:gB,goalkeeperA:gkA||null,goalkeeperB:gkB||null,substitutionsA:sA2,substitutionsB:sB2};
+    appData.matches.push(m);applyMatchStats(m);
+    const ta=getTeamById(tA),tb=getTeamById(tB);
+    addChangeLog('add',`${ta.name} ${sA}:${sB} ${tb.name}`);
+    audit('match','add',`${ta.name} ${sA}:${sB} ${tb.name}`);
+    saveCurrentData();
+    clearMatchDraft();
+    const tA_=document.getElementById('matchTeamA');if(tA_)tA_.value='';
+    const tB_=document.getElementById('matchTeamB');if(tB_)tB_.value='';
+    const scA_=document.getElementById('matchScoreA');if(scA_)scA_.value=0;
+    const scB_=document.getElementById('matchScoreB');if(scB_)scB_.value=0;
+    const gA_=document.getElementById('goalsA');if(gA_)gA_.innerHTML='';
+    const gB_=document.getElementById('goalsB');if(gB_)gB_.innerHTML='';
+    const sA_=document.getElementById('substitutionsA');if(sA_)sA_.innerHTML='';
+    const sB_=document.getElementById('substitutionsB');if(sB_)sB_.innerHTML='';
+    const gkA_=document.getElementById('goalkeeperA');if(gkA_)gkA_.innerHTML='<option value="">-- нет --</option>';
+    const gkB_=document.getElementById('goalkeeperB');if(gkB_)gkB_.innerHTML='<option value="">-- нет --</option>';
+    render();
+    setTimeout(()=>{if(confirm('Прикрепить матч в чат?')){currentTab='chat';render();setTimeout(()=>{const i=document.getElementById('chatMessageInput');if(i){i.value=`#m_${m.id} `;i.focus();}},80);}},200);
+  }finally{
+    _addingMatch=false;
+  }
 }
 
-function applyMatchStats(m){const ex=new Set();(m.substitutionsA||[]).forEach(s=>{ex.add(s.outId);ex.add(s.inId);});(m.substitutionsB||[]).forEach(s=>{ex.add(s.outId);ex.add(s.inId);});const all=[...getPlayersByTeam(m.teamA),...getPlayersByTeam(m.teamB)].filter(p=>!ex.has(p.id));all.forEach(p=>p.matchesPlayed=(p.matchesPlayed||0)+1);(m.goalsA||[]).forEach(g=>{if(ex.has(g.scorerId))return;const s=getPlayerById(g.scorerId);if(s)s.goals++;if(g.assistId&&!ex.has(g.assistId)){const a=getPlayerById(g.assistId);if(a)a.assists++;}});(m.goalsB||[]).forEach(g=>{if(ex.has(g.scorerId))return;const s=getPlayerById(g.scorerId);if(s)s.goals++;if(g.assistId&&!ex.has(g.assistId)){const a=getPlayerById(g.assistId);if(a)a.assists++;}});if(m.goalkeeperA&&!ex.has(m.goalkeeperA)){const g=getPlayerById(m.goalkeeperA);if(g){g.goalkeeperMatches=(g.goalkeeperMatches||0)+1;g.goalsConceded+=parseInt(m.scoreB,10)||0;}}if(m.goalkeeperB&&!ex.has(m.goalkeeperB)){const g=getPlayerById(m.goalkeeperB);if(g){g.goalkeeperMatches=(g.goalkeeperMatches||0)+1;g.goalsConceded+=parseInt(m.scoreA,10)||0;}}}
-function revertMatchStats(m){const ex=new Set();(m.substitutionsA||[]).forEach(s=>{ex.add(s.outId);ex.add(s.inId);});(m.substitutionsB||[]).forEach(s=>{ex.add(s.outId);ex.add(s.inId);});const all=[...getPlayersByTeam(m.teamA),...getPlayersByTeam(m.teamB)].filter(p=>!ex.has(p.id));all.forEach(p=>p.matchesPlayed=Math.max(0,p.matchesPlayed-1));(m.goalsA||[]).forEach(g=>{if(ex.has(g.scorerId))return;const s=getPlayerById(g.scorerId);if(s)s.goals=Math.max(0,s.goals-1);if(g.assistId&&!ex.has(g.assistId)){const a=getPlayerById(g.assistId);if(a)a.assists=Math.max(0,a.assists-1);}});(m.goalsB||[]).forEach(g=>{if(ex.has(g.scorerId))return;const s=getPlayerById(g.scorerId);if(s)s.goals=Math.max(0,s.goals-1);if(g.assistId&&!ex.has(g.assistId)){const a=getPlayerById(g.assistId);if(a)a.assists=Math.max(0,a.assists-1);}});if(m.goalkeeperA&&!ex.has(m.goalkeeperA)){const g=getPlayerById(m.goalkeeperA);if(g){g.goalkeeperMatches=Math.max(0,g.goalkeeperMatches-1);g.goalsConceded=Math.max(0,g.goalsConceded-(parseInt(m.scoreB,10)||0));}}if(m.goalkeeperB&&!ex.has(m.goalkeeperB)){const g=getPlayerById(m.goalkeeperB);if(g){g.goalkeeperMatches=Math.max(0,g.goalkeeperMatches-1);g.goalsConceded=Math.max(0,g.goalsConceded-(parseInt(m.scoreA,10)||0));}}}
+function applyMatchStats(m){
+  if(_appliedMatches.has(m))return;
+  _appliedMatches.add(m);
+  const ex=new Set();
+  (m.substitutionsA||[]).forEach(s=>{ex.add(s.outId);ex.add(s.inId);});
+  (m.substitutionsB||[]).forEach(s=>{ex.add(s.outId);ex.add(s.inId);});
+  const all=[...getPlayersByTeam(m.teamA),...getPlayersByTeam(m.teamB)].filter(p=>!ex.has(p.id));
+  all.forEach(p=>p.matchesPlayed=(p.matchesPlayed||0)+1);
+  (m.goalsA||[]).forEach(g=>{if(ex.has(g.scorerId))return;const s=getPlayerById(g.scorerId);if(s)s.goals++;if(g.assistId&&!ex.has(g.assistId)){const a=getPlayerById(g.assistId);if(a)a.assists++;}});
+  (m.goalsB||[]).forEach(g=>{if(ex.has(g.scorerId))return;const s=getPlayerById(g.scorerId);if(s)s.goals++;if(g.assistId&&!ex.has(g.assistId)){const a=getPlayerById(g.assistId);if(a)a.assists++;}});
+  if(m.goalkeeperA&&!ex.has(m.goalkeeperA)){const g=getPlayerById(m.goalkeeperA);if(g){g.goalkeeperMatches=(g.goalkeeperMatches||0)+1;g.goalsConceded+=parseInt(m.scoreB,10)||0;}}
+  if(m.goalkeeperB&&!ex.has(m.goalkeeperB)){const g=getPlayerById(m.goalkeeperB);if(g){g.goalkeeperMatches=(g.goalkeeperMatches||0)+1;g.goalsConceded+=parseInt(m.scoreA,10)||0;}}
+}
+function revertMatchStats(m){
+  _appliedMatches.delete(m);
+  const ex=new Set();
+  (m.substitutionsA||[]).forEach(s=>{ex.add(s.outId);ex.add(s.inId);});
+  (m.substitutionsB||[]).forEach(s=>{ex.add(s.outId);ex.add(s.inId);});
+  const all=[...getPlayersByTeam(m.teamA),...getPlayersByTeam(m.teamB)].filter(p=>!ex.has(p.id));
+  all.forEach(p=>p.matchesPlayed=Math.max(0,p.matchesPlayed-1));
+  (m.goalsA||[]).forEach(g=>{if(ex.has(g.scorerId))return;const s=getPlayerById(g.scorerId);if(s)s.goals=Math.max(0,s.goals-1);if(g.assistId&&!ex.has(g.assistId)){const a=getPlayerById(g.assistId);if(a)a.assists=Math.max(0,a.assists-1);}});
+  (m.goalsB||[]).forEach(g=>{if(ex.has(g.scorerId))return;const s=getPlayerById(g.scorerId);if(s)s.goals=Math.max(0,s.goals-1);if(g.assistId&&!ex.has(g.assistId)){const a=getPlayerById(g.assistId);if(a)a.assists=Math.max(0,a.assists-1);}});
+  if(m.goalkeeperA&&!ex.has(m.goalkeeperA)){const g=getPlayerById(m.goalkeeperA);if(g){g.goalkeeperMatches=Math.max(0,g.goalkeeperMatches-1);g.goalsConceded=Math.max(0,g.goalsConceded-(parseInt(m.scoreB,10)||0));}}
+  if(m.goalkeeperB&&!ex.has(m.goalkeeperB)){const g=getPlayerById(m.goalkeeperB);if(g){g.goalkeeperMatches=Math.max(0,g.goalkeeperMatches-1);g.goalsConceded=Math.max(0,g.goalsConceded-(parseInt(m.scoreA,10)||0));}}
+}
 
 function openVoteModal(){if(!currentTournamentId)return;const c=canVote();if(!c.ok){alert(c.reason);return;}const p=(appData.players||[]).filter(x=>(x.matchesPlayed||0)>0);if(!p.length){alert('Нет игроков');return;}const vf=localStorage.getItem(VOTE_KEY_PREFIX+currentTournamentId);const s=[...p].sort((a,b)=>a.name.localeCompare(b.name));const tName=tournamentsList.find(t=>t.id===currentTournamentId)?.name||'';let h=`<h2>⭐ Лучший игрок --- ${escapeHtml(tName)}</h2><div class="vote-modal-list">`;s.forEach(x=>{const t=getTeamById(x.teamId),tc=getTeamColor(t),mine=vf===x.name;h+=`<button class="vote-modal-item" data-player="${escapeHtml(x.name)}" style="${mine?'border-color:#2e9e44;':''}"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;"><div style="text-align:left;"><div style="font-weight:700;">${mine?'✅ ':''}${escapeHtml(x.name)}</div><div style="font-size:0.8rem;color:${escapeHtml(tc)};font-weight:700;">${t?escapeHtml(t.name):'Без команды'}</div></div><div style="font-size:0.78rem;color:var(--text-light);white-space:nowrap;text-align:right;">И:${x.matchesPlayed}<br>Г:${x.goals} П:${x.assists}</div></div></button>`;});h+=`</div><button class="btn btn-secondary" id="cancelVoteModalBtn" style="width:100%;justify-content:center;margin-top:15px;">Отмена</button>`;document.getElementById('voteModalContent').innerHTML=h;document.getElementById('voteModal').style.display='flex';}
 
@@ -1915,4 +1968,4 @@ init();
 })();
 </script>
 </body>
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   </html>
+                                                                 </html>
