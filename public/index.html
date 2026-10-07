@@ -536,6 +536,8 @@ let pendingRemoteRender=false;
 let deferredRenderTimer=null;
 let _addingMatch=false;
 const _appliedMatches=new WeakSet();
+let _restoringDraft=false;
+let _lastDraftHash='';
 
 function generateId(){return Date.now().toString(36)+Math.random().toString(36).substr(2,5);}
 function escapeHtml(t){const d=document.createElement('div');d.textContent=t==null?'':String(t);return d.innerHTML;}
@@ -1475,7 +1477,19 @@ function syncScoreFromGoals(){
   if(sB)sB.value=nB;
 }
 
+function _draftBodyToHash(d){
+  return JSON.stringify({
+    teamA:d.teamA||'',teamB:d.teamB||'',
+    gkA:d.gkA||'',gkB:d.gkB||'',
+    goalsA:(d.goalsA||[]).map(g=>({s:g.scorerId||'',a:g.assistId||''})),
+    goalsB:(d.goalsB||[]).map(g=>({s:g.scorerId||'',a:g.assistId||''})),
+    subsA:(d.subsA||[]).map(s=>({o:s.outId||'',i:s.inId||''})),
+    subsB:(d.subsB||[]).map(s=>({o:s.outId||'',i:s.inId||''}))
+  });
+}
+
 function saveMatchDraft(){
+  if(_restoringDraft)return;
   try{
     const tA=document.getElementById('matchTeamA');
     if(!tA)return;
@@ -1493,6 +1507,9 @@ function saveMatchDraft(){
       savedBy:getCurrentUser()||'Гость',
       savedAt:new Date().toISOString()
     };
+    const hash=_draftBodyToHash(draft);
+    if(hash===_lastDraftHash)return;
+    _lastDraftHash=hash;
     localStorage.setItem(MATCH_DRAFT_KEY,JSON.stringify(draft));
     if(!serverState.data)serverState.data={};
     serverState.data[MATCH_DRAFT_SERVER_KEY]=draft;
@@ -1503,6 +1520,7 @@ function saveMatchDraft(){
 
 function clearMatchDraft(){
   try{localStorage.removeItem(MATCH_DRAFT_KEY);}catch(e){}
+  _lastDraftHash='';
   if(serverState.data){
     serverState.data[MATCH_DRAFT_SERVER_KEY]=null;
     if(saveTimer){clearTimeout(saveTimer);saveTimer=null;}
@@ -1512,7 +1530,12 @@ function clearMatchDraft(){
   updateDraftBadge();
 }
 
+function _draftHasContent(d){
+  return !!(d.teamA||d.teamB||(d.goalsA||[]).some(g=>g.scorerId)||(d.goalsB||[]).some(g=>g.scorerId)||(d.subsA||[]).length||(d.subsB||[]).length);
+}
+
 function restoreMatchDraft(){
+  if(_restoringDraft)return;
   let draft=null;
   const serverHas=serverState.data && (MATCH_DRAFT_SERVER_KEY in serverState.data);
   if(serverHas){
@@ -1525,68 +1548,81 @@ function restoreMatchDraft(){
     }catch(e){return;}
   }
   if(!draft)return;
+  if(!_draftHasContent(draft))return;
 
   const tA=document.getElementById('matchTeamA');
   const tB=document.getElementById('matchTeamB');
   if(!tA||!tB)return;
-  if(draft.teamA&&[...tA.options].some(o=>o.value===draft.teamA))tA.value=draft.teamA;
-  if(draft.teamB&&[...tB.options].some(o=>o.value===draft.teamB))tB.value=draft.teamB;
-  if(typeof updateMatchFormLists==='function')updateMatchFormLists();
-  const gkA=document.getElementById('goalkeeperA');
-  const gkB=document.getElementById('goalkeeperB');
-  if(gkA&&draft.gkA)gkA.value=draft.gkA;
-  if(gkB&&draft.gkB)gkB.value=draft.gkB;
-  const cA=document.getElementById('goalsA');
-  if(cA){
-    cA.innerHTML='';
-    (draft.goalsA||[]).forEach(g=>{
-      if(!tA.value)return;
-      const players=getPlayersByTeam(tA.value);
-      const row=document.createElement('div');
-      row.className='goal-row';
-      row.innerHTML=buildGoalRowHtml(g.scorerId,g.assistId,players);
-      cA.appendChild(row);
-      row.querySelector('.remove-goal').addEventListener('click',()=>{row.remove();syncScoreFromGoals();saveMatchDraft();});
-    });
+
+  // 🆕 Если на ЭТОМ устройстве форма уже заполнена, не восстанавливаем поверх
+  const formHasTeam=tA.value||tB.value;
+  const formHasGoal=[...document.querySelectorAll('#goalsA .scorer-select, #goalsB .scorer-select')].some(s=>s.value);
+  if(formHasTeam||formHasGoal)return;
+
+  _restoringDraft=true;
+  try{
+    if(draft.teamA&&[...tA.options].some(o=>o.value===draft.teamA))tA.value=draft.teamA;
+    if(draft.teamB&&[...tB.options].some(o=>o.value===draft.teamB))tB.value=draft.teamB;
+    updateMatchFormLists();
+    const gkA=document.getElementById('goalkeeperA');
+    const gkB=document.getElementById('goalkeeperB');
+    if(gkA&&draft.gkA)gkA.value=draft.gkA;
+    if(gkB&&draft.gkB)gkB.value=draft.gkB;
+    const cA=document.getElementById('goalsA');
+    if(cA){
+      while(cA.firstChild)cA.removeChild(cA.firstChild);
+      (draft.goalsA||[]).forEach(g=>{
+        if(!tA.value)return;
+        const players=getPlayersByTeam(tA.value);
+        const row=document.createElement('div');
+        row.className='goal-row';
+        row.innerHTML=buildGoalRowHtml(g.scorerId,g.assistId,players);
+        cA.appendChild(row);
+        row.querySelector('.remove-goal').addEventListener('click',()=>{row.remove();syncScoreFromGoals();saveMatchDraft();});
+      });
+    }
+    const cB=document.getElementById('goalsB');
+    if(cB){
+      while(cB.firstChild)cB.removeChild(cB.firstChild);
+      (draft.goalsB||[]).forEach(g=>{
+        if(!tB.value)return;
+        const players=getPlayersByTeam(tB.value);
+        const row=document.createElement('div');
+        row.className='goal-row';
+        row.innerHTML=buildGoalRowHtml(g.scorerId,g.assistId,players);
+        cB.appendChild(row);
+        row.querySelector('.remove-goal').addEventListener('click',()=>{row.remove();syncScoreFromGoals();saveMatchDraft();});
+      });
+    }
+    const sAC=document.getElementById('substitutionsA');
+    if(sAC){
+      while(sAC.firstChild)sAC.removeChild(sAC.firstChild);
+      (draft.subsA||[]).forEach(s=>{
+        if(!tA.value)return;
+        const row=document.createElement('div');
+        row.className='sub-row';
+        row.innerHTML=buildSubRowInner(tA.value,s.outId,s.inId);
+        sAC.appendChild(row);
+        row.querySelector('.remove-sub').addEventListener('click',()=>{row.remove();saveMatchDraft();});
+      });
+    }
+    const sBC=document.getElementById('substitutionsB');
+    if(sBC){
+      while(sBC.firstChild)sBC.removeChild(sBC.firstChild);
+      (draft.subsB||[]).forEach(s=>{
+        if(!tB.value)return;
+        const row=document.createElement('div');
+        row.className='sub-row';
+        row.innerHTML=buildSubRowInner(tB.value,s.outId,s.inId);
+        sBC.appendChild(row);
+        row.querySelector('.remove-sub').addEventListener('click',()=>{row.remove();saveMatchDraft();});
+      });
+    }
+    syncScoreFromGoals();
+    _lastDraftHash=_draftBodyToHash(draft);
+  }finally{
+    _restoringDraft=false;
   }
-  const cB=document.getElementById('goalsB');
-  if(cB){
-    cB.innerHTML='';
-    (draft.goalsB||[]).forEach(g=>{
-      if(!tB.value)return;
-      const players=getPlayersByTeam(tB.value);
-      const row=document.createElement('div');
-      row.className='goal-row';
-      row.innerHTML=buildGoalRowHtml(g.scorerId,g.assistId,players);
-      cB.appendChild(row);
-      row.querySelector('.remove-goal').addEventListener('click',()=>{row.remove();syncScoreFromGoals();saveMatchDraft();});
-    });
-  }
-  const sAC=document.getElementById('substitutionsA');
-  if(sAC){
-    sAC.innerHTML='';
-    (draft.subsA||[]).forEach(s=>{
-      if(!tA.value)return;
-      const row=document.createElement('div');
-      row.className='sub-row';
-      row.innerHTML=buildSubRowInner(tA.value,s.outId,s.inId);
-      sAC.appendChild(row);
-      row.querySelector('.remove-sub').addEventListener('click',()=>{row.remove();saveMatchDraft();});
-    });
-  }
-  const sBC=document.getElementById('substitutionsB');
-  if(sBC){
-    sBC.innerHTML='';
-    (draft.subsB||[]).forEach(s=>{
-      if(!tB.value)return;
-      const row=document.createElement('div');
-      row.className='sub-row';
-      row.innerHTML=buildSubRowInner(tB.value,s.outId,s.inId);
-      sBC.appendChild(row);
-      row.querySelector('.remove-sub').addEventListener('click',()=>{row.remove();saveMatchDraft();});
-    });
-  }
-  syncScoreFromGoals();
 }
 
 function renderDraftBadge(){
@@ -1601,8 +1637,7 @@ function renderDraftBadge(){
     }catch(e){}
   }
   if(!d||!d.savedBy)return'';
-  const hasContent=d.teamA||d.teamB||(d.goalsA||[]).some(g=>g.scorerId)||(d.goalsB||[]).some(g=>g.scorerId)||(d.subsA||[]).length||(d.subsB||[]).length;
-  if(!hasContent)return'';
+  if(!_draftHasContent(d))return'';
   const me=getCurrentUser();
   const isMine=me&&d.savedBy===me;
   const name=isMine?'вы':d.savedBy;
@@ -1968,4 +2003,4 @@ init();
 })();
 </script>
 </body>
-                                                                 </html>
+</html>
