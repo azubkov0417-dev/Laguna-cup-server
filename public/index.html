@@ -536,10 +536,7 @@ let pendingRemoteRender=false;
 let deferredRenderTimer=null;
 let _addingMatch=false;
 const _appliedMatches=new WeakSet();
-let _restoringDraft=false;
 let _lastDraftHash='';
-let _draftCycleLock=false;
-let _draftCycleUnlockTimer=null;
 
 function generateId(){return Date.now().toString(36)+Math.random().toString(36).substr(2,5);}
 function escapeHtml(t){const d=document.createElement('div');d.textContent=t==null?'':String(t);return d.innerHTML;}
@@ -1320,7 +1317,6 @@ function calcRecords(){const aa=aggregateAllPlayers();const r=aa.map(p=>({name:p
 function renderAdminTab(){if(!isCurrentUserAdmin())return`<div class="empty-state"><span class="emoji">🔒</span><p>Только для админов</p></div>`;let h=`<div class="panel-title"><span class="icon">👑</span> Админ-панель</div><div class="sub-tabs"><button class="sub-tab ${adminSubTab==='pending'?'active':''}" data-admin="pending">⏳ Заявки (${getPending().length})</button><button class="sub-tab ${adminSubTab==='admins'?'active':''}" data-admin="admins">👑 Админы (${getAdmins().length})</button><button class="sub-tab ${adminSubTab==='assigners'?'active':''}" data-admin="assigners">🎯 Команды (${getAssigners().length})</button><button class="sub-tab ${adminSubTab==='audit'?'active':''}" data-admin="audit">📋 Аудит</button><button class="sub-tab ${adminSubTab==='congrats'?'active':''}" data-admin="congrats">🎉 Поздравление</button><button class="sub-tab ${adminSubTab==='settings'?'active':''}" data-admin="settings">⚙️ Настройки</button></div>`;if(adminSubTab==='pending'){const p=getPending();h+=`<div class="admin-section"><h3>⏳ Заявки</h3>`;if(!p.length)h+=`<p style="color:#7a8a7a;">Нет заявок.</p>`;else p.forEach(x=>{h+=`<div class="pending-item"><div class="pending-info"><div class="pending-name">👤 ${escapeHtml(x.name)}</div><div class="pending-time">${fmtDate(x.requestedAt)}</div></div><div style="display:flex;gap:6px;flex-wrap:wrap;"><button class="btn btn-primary btn-sm approve-pending" data-name="${escapeHtml(x.name)}">✅ Одобрить</button><button class="btn btn-danger btn-sm reject-pending" data-name="${escapeHtml(x.name)}">❌ Отклонить</button></div></div>`;});h+=`</div>`;}else if(adminSubTab==='admins'){const a=getAdmins();h+=`<div class="admin-section"><h3>👑 Админы</h3>`;a.forEach(n=>{const ip=n===PRIMARY_ADMIN;h+=`<div class="admin-list-item"><div class="admin-name">${ip?'👑':'⭐'} ${escapeHtml(n)}${ip?' <span style="font-size:0.75rem;color:#b87333;">(главный)</span>':''}</div>${!ip?`<button class="btn btn-danger btn-sm demote-admin" data-name="${escapeHtml(n)}">Снять</button>`:''}</div>`;});h+=`</div><div class="admin-section"><h3>➕ Назначить админом</h3>`;const c=playersDatabase.filter(n=>!a.includes(n));if(!c.length)h+=`<p style="color:#7a8a7a;">Нет кандидатов.</p>`;else c.forEach(n=>{h+=`<button class="btn btn-secondary btn-sm promote-admin" data-name="${escapeHtml(n)}" style="margin:3px;">👤 ${escapeHtml(n)}</button>`;});h+=`</div>`;}else if(adminSubTab==='assigners'){const a=getAssigners();h+=`<div class="admin-section"><h3>🎯 Могут назначать</h3>`;if(!a.length)h+=`<p style="color:#7a8a7a;">Никого.</p>`;else a.forEach(n=>{h+=`<div class="admin-list-item"><div class="admin-name">🎯 ${escapeHtml(n)}</div><button class="btn btn-danger btn-sm remove-assigner" data-name="${escapeHtml(n)}">Снять</button></div>`;});h+=`</div><div class="admin-section"><h3>➕ Разрешить</h3>`;const c=playersDatabase.filter(n=>!a.includes(n)&&!isAdmin(n));if(!c.length)h+=`<p style="color:#7a8a7a;">Нет кандидатов.</p>`;else c.forEach(n=>{h+=`<button class="btn btn-secondary btn-sm add-assigner" data-name="${escapeHtml(n)}" style="margin:3px;">👤 ${escapeHtml(n)}</button>`;});h+=`</div>`;}else if(adminSubTab==='audit'){const a=getAudit().slice().reverse().slice(0,150);h+=`<div class="admin-section"><h3>📋 Журнал (150)</h3>`;if(!a.length)h+=`<p style="color:#7a8a7a;">Пока пусто.</p>`;else a.forEach(item=>{const icons={auth:'🔐',admin:'👑',user:'👤',tournament:'🏆',team:'🎨',assigner:'🎯',match:'⚽',poll:'📊',template:'📋',undo:'↩️',dm:'✉️'};const i=icons[item.category]||'📝';h+=`<div class="audit-item"><span class="audit-icon">${i}</span><div class="audit-body"><div><span class="audit-author">${escapeHtml(item.author)}</span> · <b>${item.category}</b> · ${escapeHtml(item.action)}</div><div style="font-size:0.85rem;color:var(--text-light);margin-top:2px;">${escapeHtml(item.details||'')}</div><div style="font-size:0.75rem;color:#9aab9a;margin-top:2px;">${fmtDate(item.timestamp)}</div></div></div>`;});h+=`</div>`;}else if(adminSubTab==='congrats'){h+=`<div class="admin-section"><h3>🎉 Поздравление</h3><p style="color:#7a8a7a;font-size:0.85rem;margin-bottom:12px;">Выбери номинацию --- победителю в личные сообщения от «🔔 Система» придёт персональное поздравление. Кнопка «🏆 Лучшая команда» отправит сообщение всему составу.</p><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;"><button class="btn btn-primary" data-congrats="rating" style="margin:0;justify-content:center;">⭐ Рейтинг</button><button class="btn btn-primary" data-congrats="mvp" style="margin:0;justify-content:center;">🏅 MVP</button><button class="btn btn-primary" data-congrats="bombardier" style="margin:0;justify-content:center;">⚽ Бомбардир</button><button class="btn btn-primary" data-congrats="assist" style="margin:0;justify-content:center;">🎯 Ассистент</button><button class="btn btn-primary" data-congrats="gk" style="margin:0;justify-content:center;">🧤 Вратарь</button><button class="btn btn-primary" data-congrats="bestteam" style="margin:0;justify-content:center;">🏆 Лучшая команда</button><button class="btn btn-primary" data-congrats="bestvoted" style="margin:0;justify-content:center;">⭐ Лучший игрок</button></div><button class="btn btn-warning" data-congrats="all" style="width:100%;justify-content:center;margin-top:12px;">🎉 Все сразу</button></div>`;}else{h+=`<div class="admin-section"><h3>📋 Шаблоны</h3>`;const tpls=serverState.data[TEMPLATES_KEY]||[];if(!tpls.length)h+=`<p style="color:#7a8a7a;">Нет шаблонов.</p>`;else tpls.forEach((tpl,i)=>{h+=`<div class="admin-list-item" style="border-left-color:#9b59b6;"><div class="admin-name">📋 ${escapeHtml(tpl.name)} <span style="font-size:0.75rem;color:#7a8a7a;">(${tpl.teams.length} ком., ${tpl.players.length} игр.)</span></div><div style="display:flex; gap:6px;"><button class="btn btn-primary btn-sm" data-apply-tpl="${i}">Применить</button><button class="btn btn-danger btn-sm" data-del-tpl="${i}">🗑️</button></div></div>`;});h+=`</div><div class="admin-section"><h3>⚙️ Настройки</h3><label style="display:flex;align-items:center;gap:10px;font-size:0.95rem;margin-bottom:8px;"><input type="checkbox" id="anonVoteToggle" ${isAnonVote()?'checked':''}> 🔒 Анонимное голосование</label><hr style="margin:15px 0; border:none; border-top:1px solid var(--border-soft);"><button class="btn btn-primary" id="adminAwardsBtn" style="width:100%;justify-content:center;">🏆 Показать итоги</button></div>`;}return h;}
 
 function isUserEditing(){
-  if(_draftCycleLock)return true;
   const ae=document.activeElement;
   if(ae&&['INPUT','SELECT','TEXTAREA'].includes(ae.tagName))return true;
   const EDIT_MODALS=['editMatchModal','addPlayerBaseModal','newPollModal','voteModal','accentModal','loginModal','selectTeamModal'];
@@ -1354,10 +1350,6 @@ function showDeferBanner(){const b=ensureDeferBanner();b.style.display='flex';}
 function hideDeferBanner(){const b=document.getElementById('deferUpdateBanner');if(b)b.style.display='none';}
 
 function renderSmart(){
-  if(_draftCycleLock){
-    pendingRemoteRender=true;
-    return;
-  }
   if(isUserEditing()){
     pendingRemoteRender=true;
     showDeferBanner();
@@ -1378,16 +1370,7 @@ function render(){
     }
     switch(currentTab){
       case'home':panel.innerHTML=renderHomeTab();break;
-      case'settings':
-        _draftCycleLock=true;
-        clearTimeout(_draftCycleUnlockTimer);
-        panel.innerHTML=renderSettingsTab();
-        setTimeout(()=>{
-          try{restoreMatchDraft();}catch(e){console.error('restore:',e);}
-          clearTimeout(_draftCycleUnlockTimer);
-          _draftCycleUnlockTimer=setTimeout(()=>{_draftCycleLock=false;},500);
-        },0);
-        break;
+      case'settings':panel.innerHTML=renderSettingsTab();break;
       case'combinedHistory':panel.innerHTML=renderCombinedHistoryTab();break;
       case'players':panel.innerHTML=renderPlayersTab();break;
       case'stats':panel.innerHTML=renderStatsTab();break;
@@ -1505,8 +1488,6 @@ function _draftBodyToHash(d){
 }
 
 function saveMatchDraft(){
-  if(_restoringDraft)return;
-  if(_draftCycleLock)return;
   try{
     const tA=document.getElementById('matchTeamA');
     if(!tA)return;
@@ -1552,14 +1533,12 @@ function _draftHasContent(d){
 }
 
 function restoreMatchDraft(){
-  if(_restoringDraft)return;
-  if(_draftCycleLock!==true)return;
   let draft=null;
   const serverHas=serverState.data && (MATCH_DRAFT_SERVER_KEY in serverState.data);
   if(serverHas){
     draft=serverState.data[MATCH_DRAFT_SERVER_KEY];
-    if(!draft)return;
-  } else {
+  }
+  if(!draft){
     try{
       const s=localStorage.getItem(MATCH_DRAFT_KEY);
       if(s)draft=JSON.parse(s);
@@ -1567,79 +1546,79 @@ function restoreMatchDraft(){
   }
   if(!draft)return;
   if(!_draftHasContent(draft))return;
-
   const tA=document.getElementById('matchTeamA');
   const tB=document.getElementById('matchTeamB');
   if(!tA||!tB)return;
 
-  const formHasTeam=tA.value||tB.value;
-  const formHasGoal=[...document.querySelectorAll('#goalsA .scorer-select, #goalsB .scorer-select')].some(s=>s.value);
-  if(formHasTeam||formHasGoal)return;
+  // Очищаем поля формы перед загрузкой
+  tA.value='';
+  tB.value='';
+  const gkA=document.getElementById('goalkeeperA');
+  const gkB=document.getElementById('goalkeeperB');
+  if(gkA)gkA.innerHTML='<option value="">-- нет --</option>';
+  if(gkB)gkB.innerHTML='<option value="">-- нет --</option>';
+  const cA=document.getElementById('goalsA');if(cA)cA.innerHTML='';
+  const cB=document.getElementById('goalsB');if(cB)cB.innerHTML='';
+  const sAC=document.getElementById('substitutionsA');if(sAC)sAC.innerHTML='';
+  const sBC=document.getElementById('substitutionsB');if(sBC)sBC.innerHTML='';
+  const scA=document.getElementById('matchScoreA');if(scA)scA.value=0;
+  const scB=document.getElementById('matchScoreB');if(scB)scB.value=0;
 
-  _restoringDraft=true;
-  try{
-    if(draft.teamA&&[...tA.options].some(o=>o.value===draft.teamA))tA.value=draft.teamA;
-    if(draft.teamB&&[...tB.options].some(o=>o.value===draft.teamB))tB.value=draft.teamB;
-    updateMatchFormLists();
-    const gkA=document.getElementById('goalkeeperA');
-    const gkB=document.getElementById('goalkeeperB');
-    if(gkA&&draft.gkA)gkA.value=draft.gkA;
-    if(gkB&&draft.gkB)gkB.value=draft.gkB;
-    const cA=document.getElementById('goalsA');
-    if(cA){
-      while(cA.firstChild)cA.removeChild(cA.firstChild);
-      (draft.goalsA||[]).forEach(g=>{
-        if(!tA.value)return;
-        const players=getPlayersByTeam(tA.value);
-        const row=document.createElement('div');
-        row.className='goal-row';
-        row.innerHTML=buildGoalRowHtml(g.scorerId,g.assistId,players);
-        cA.appendChild(row);
-        row.querySelector('.remove-goal').addEventListener('click',()=>{row.remove();syncScoreFromGoals();saveMatchDraft();});
-      });
-    }
-    const cB=document.getElementById('goalsB');
-    if(cB){
-      while(cB.firstChild)cB.removeChild(cB.firstChild);
-      (draft.goalsB||[]).forEach(g=>{
-        if(!tB.value)return;
-        const players=getPlayersByTeam(tB.value);
-        const row=document.createElement('div');
-        row.className='goal-row';
-        row.innerHTML=buildGoalRowHtml(g.scorerId,g.assistId,players);
-        cB.appendChild(row);
-        row.querySelector('.remove-goal').addEventListener('click',()=>{row.remove();syncScoreFromGoals();saveMatchDraft();});
-      });
-    }
-    const sAC=document.getElementById('substitutionsA');
-    if(sAC){
-      while(sAC.firstChild)sAC.removeChild(sAC.firstChild);
-      (draft.subsA||[]).forEach(s=>{
-        if(!tA.value)return;
-        const row=document.createElement('div');
-        row.className='sub-row';
-        row.innerHTML=buildSubRowInner(tA.value,s.outId,s.inId);
-        sAC.appendChild(row);
-        row.querySelector('.remove-sub').addEventListener('click',()=>{row.remove();saveMatchDraft();});
-      });
-    }
-    const sBC=document.getElementById('substitutionsB');
-    if(sBC){
-      while(sBC.firstChild)sBC.removeChild(sBC.firstChild);
-      (draft.subsB||[]).forEach(s=>{
-        if(!tB.value)return;
-        const row=document.createElement('div');
-        row.className='sub-row';
-        row.innerHTML=buildSubRowInner(tB.value,s.outId,s.inId);
-        sBC.appendChild(row);
-        row.querySelector('.remove-sub').addEventListener('click',()=>{row.remove();saveMatchDraft();});
-      });
-    }
-    syncScoreFromGoals();
-    _lastDraftHash=_draftBodyToHash(draft);
-  }finally{
-    _restoringDraft=false;
+  if(draft.teamA&&[...tA.options].some(o=>o.value===draft.teamA))tA.value=draft.teamA;
+  if(draft.teamB&&[...tB.options].some(o=>o.value===draft.teamB))tB.value=draft.teamB;
+  updateMatchFormLists();
+  if(gkA&&draft.gkA)gkA.value=draft.gkA;
+  if(gkB&&draft.gkB)gkB.value=draft.gkB;
+  if(cA){
+    (draft.goalsA||[]).forEach(g=>{
+      if(!tA.value)return;
+      const players=getPlayersByTeam(tA.value);
+      const row=document.createElement('div');
+      row.className='goal-row';
+      row.innerHTML=buildGoalRowHtml(g.scorerId,g.assistId,players);
+      cA.appendChild(row);
+      row.querySelector('.remove-goal').addEventListener('click',()=>{row.remove();syncScoreFromGoals();saveMatchDraft();});
+    });
   }
+  if(cB){
+    (draft.goalsB||[]).forEach(g=>{
+      if(!tB.value)return;
+      const players=getPlayersByTeam(tB.value);
+      const row=document.createElement('div');
+      row.className='goal-row';
+      row.innerHTML=buildGoalRowHtml(g.scorerId,g.assistId,players);
+      cB.appendChild(row);
+      row.querySelector('.remove-goal').addEventListener('click',()=>{row.remove();syncScoreFromGoals();saveMatchDraft();});
+    });
+  }
+  if(sAC){
+    (draft.subsA||[]).forEach(s=>{
+      if(!tA.value)return;
+      const row=document.createElement('div');
+      row.className='sub-row';
+      row.innerHTML=buildSubRowInner(tA.value,s.outId,s.inId);
+      sAC.appendChild(row);
+      row.querySelector('.remove-sub').addEventListener('click',()=>{row.remove();saveMatchDraft();});
+    });
+  }
+  if(sBC){
+    (draft.subsB||[]).forEach(s=>{
+      if(!tB.value)return;
+      const row=document.createElement('div');
+      row.className='sub-row';
+      row.innerHTML=buildSubRowInner(tB.value,s.outId,s.inId);
+      sBC.appendChild(row);
+      row.querySelector('.remove-sub').addEventListener('click',()=>{row.remove();saveMatchDraft();});
+    });
+  }
+  syncScoreFromGoals();
+  _lastDraftHash=_draftBodyToHash({
+    teamA:tA.value,teamB:tB.value,gkA:gkA?gkA.value:'',gkB:gkB?gkB.value:'',
+    goalsA:[...document.querySelectorAll('#goalsA .goal-row')].map(r=>({scorerId:r.querySelector('.scorer-select')?.value||'',assistId:r.querySelector('.assist-select')?.value||''})),
+    goalsB:[...document.querySelectorAll('#goalsB .goal-row')].map(r=>({scorerId:r.querySelector('.scorer-select')?.value||'',assistId:r.querySelector('.assist-select')?.value||''})),
+    subsA:[...document.querySelectorAll('#substitutionsA .sub-row')].map(r=>({outId:r.querySelector('.sub-out-select')?.value||'',inId:r.querySelector('.sub-in-select')?.value||''})),
+    subsB:[...document.querySelectorAll('#substitutionsB .sub-row')].map(r=>({outId:r.querySelector('.sub-out-select')?.value||'',inId:r.querySelector('.sub-in-select')?.value||''}))
+  });
 }
 
 function renderDraftBadge(){
@@ -1670,12 +1649,23 @@ function renderDraftBadge(){
       else timeStr=dt.toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
     }catch(e){}
   }
-  return `<div id="draftBadge" style="display:flex;align-items:center;gap:8px;background:linear-gradient(135deg,#fff8e1,#fff3cd);border:1px solid #f5a623;border-radius:12px;padding:10px 14px;margin-bottom:14px;color:#7a5a1a;font-size:0.85rem;flex-wrap:wrap;"><span style="font-size:1.2rem;">📝</span><span>Черновик матча заполнил <strong>${escapeHtml(name)}</strong>${timeStr?' · '+timeStr:''}</span><button class="btn btn-secondary btn-sm" id="clearDraftBtn" style="margin-left:auto;margin:0;padding:4px 12px;font-size:0.8rem;">Очистить</button></div>`;
+  const teamA=d.teamA?(getTeamById(d.teamA)?.name||'?'):'?';
+  const teamB=d.teamB?(getTeamById(d.teamB)?.name||'?'):'?';
+  const gA=(d.goalsA||[]).filter(g=>g.scorerId).length;
+  const gB=(d.goalsB||[]).filter(g=>g.scorerId).length;
+  return `<div id="draftBadge" style="display:flex;align-items:center;gap:8px;background:linear-gradient(135deg,#fff8e1,#fff3cd);border:1px solid #f5a623;border-radius:12px;padding:10px 14px;margin-bottom:14px;color:#7a5a1a;font-size:0.85rem;flex-wrap:wrap;"><span style="font-size:1.2rem;">📝</span><span style="flex:1;min-width:180px;">Черновик матча <strong>${escapeHtml(teamA)} ${gA}:${gB} ${escapeHtml(teamB)}</strong> заполнил <strong>${escapeHtml(name)}</strong>${timeStr?' · '+timeStr:''}</span><button class="btn btn-primary btn-sm" id="applyDraftBtn" style="margin:0;padding:6px 14px;font-size:0.8rem;">Продолжить</button><button class="btn btn-secondary btn-sm" id="clearDraftBtn" style="margin:0;padding:6px 14px;font-size:0.8rem;">Очистить</button></div>`;
 }
 
 function updateDraftBadge(){
   const el=document.getElementById('draftBadge');
-  if(!el)return;
+  if(!el){
+    // Возможно, бейджа нет, а черновик появился — попробуем добавить
+    const panel=document.getElementById('contentPanel');
+    if(!panel||currentTab!=='settings')return;
+    const firstAcc=panel.querySelector('.acc-section');
+    if(firstAcc){const wrap=document.createElement('div');wrap.innerHTML=renderDraftBadge();const newEl=wrap.firstElementChild;if(newEl)panel.insertBefore(newEl,firstAcc);}
+    return;
+  }
   const wrap=document.createElement('div');
   wrap.innerHTML=renderDraftBadge();
   const newEl=wrap.firstElementChild;
@@ -1839,6 +1829,8 @@ document.addEventListener('click',async function(e){
   if(e.target.id==='fabBtn'){currentTab='settings';document.querySelectorAll('.nav-tab').forEach(b=>b.classList.toggle('active',b.dataset.tab==='settings'));render();setTimeout(()=>{const s=document.querySelector('[data-acc="add-match"]');if(s)s.classList.add('open');},50);return;}
   if(e.target.id==='drawerNotifyBtn'){toggleNotifications();renderMobileUI();return;}
   if(e.target.id==='drawerLogoutBtn'){closeDrawer();if(getCurrentUser())logout();else openLoginModal();return;}
+  if(e.target.id==='applyDraftBtn'){restoreMatchDraft();render();return;}
+  if(e.target.id==='clearDraftBtn'){if(confirm('Очистить черновик?')){clearMatchDraft();render();}return;}
   const accH=e.target.closest('.acc-header');if(accH){const s=accH.parentElement;s.classList.toggle('open');return;}
   const ro=e.target.closest('[data-react-open]');if(ro){const picker=document.getElementById('rp_'+ro.dataset.reactOpen);if(picker){document.querySelectorAll('.reaction-picker').forEach(p=>{if(p!==picker)p.classList.remove('open');});picker.classList.toggle('open');}return;}
   const rx=e.target.closest('[data-react]');if(rx){toggleReaction(rx.dataset.react,rx.dataset.emoji);return;}
@@ -1887,7 +1879,6 @@ document.addEventListener('click',async function(e){
   if(t.dataset.admin){adminSubTab=t.dataset.admin;render();return;}
   if(t.classList.contains('sub-tab')){const s=t.dataset.subtab||t.dataset.history||t.dataset.overall;if(t.dataset.overall)overallSubTab=s;else if(['bombardiers','assists','goalkeepers','mvp','votes','rating','bestteam'].includes(s))statsSubTab=s;else if(['games','tournaments','changes'].includes(s))historySubTab=s;render();return;}
   if(t.id==='chatSendBtn'){sendChatMessage();return;}
-  if(t.id==='clearDraftBtn'){if(confirm('Очистить черновик?')){clearMatchDraft();render();}return;}
   if(t.id==='addPlayerToBaseBtn'){if(!requireAdmin('добавлять игроков в базу'))return;document.getElementById('addPlayerBaseModal').style.display='flex';return;}
   if(t.classList.contains('add-to-tournament-btn')){if(!requireLogin('добавлять в заявку'))return;openTeamSelectModal(t.dataset.player);return;}
   if(t.classList.contains('remove-from-base-btn')){if(!requireAdmin('удалять'))return;const n=t.dataset.player;if(!confirm(`Удалить "${n}"?`))return;playersDatabase=playersDatabase.filter(x=>x!==n);savePlayersDatabase();const pw=getPasswords();delete pw[n];const a=getAdmins();const ai=a.indexOf(n);if(ai>=0&&n!==PRIMARY_ADMIN)a.splice(ai,1);const as=getAssigners();const asi=as.indexOf(n);if(asi>=0)as.splice(asi,1);if(serverState.data[PHOTOS_KEY]&&serverState.data[PHOTOS_KEY][n])delete serverState.data[PHOTOS_KEY][n];if(getCurrentUser()===n){setCurrentUser('');renderUserBox();renderGuestBanner();renderNavTabs();}audit('user','remove',n);render();return;}
