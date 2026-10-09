@@ -577,10 +577,6 @@ function getPasswords(){if(!serverState.data[PASSWORDS_KEY])serverState.data[PAS
 function getPlayerPhoto(name){if(!name)return null;if(!serverState.data[PHOTOS_KEY])serverState.data[PHOTOS_KEY]={};return serverState.data[PHOTOS_KEY][name]||null;}
 function setPlayerPhoto(name,dataUrl){if(!name)return;if(!serverState.data[PHOTOS_KEY])serverState.data[PHOTOS_KEY]={};serverState.data[PHOTOS_KEY][name]=dataUrl;scheduleSave();}
 
-// ============================================================
-// ЯДРО ФИКСА: статистика игроков ВЫЧИСЛЯЕТСЯ из матчей, а не хранится.
-// Это устраняет дублирование при синхронизации между устройствами.
-// ============================================================
 function getComputedPlayerStats(name,d){
   d=d||appData;
   const res={goals:0,assists:0,matchesPlayed:0,goalsConceded:0,goalkeeperMatches:0,cleanSheets:0};
@@ -597,19 +593,13 @@ function getComputedPlayerStats(name,d){
     subsA.forEach(s=>{subbedOut.add(s.outId);subbedIn.add(s.inId);});
     subsB.forEach(s=>{subbedOut.add(s.outId);subbedIn.add(s.inId);});
     const myTeamPlayers=(d.players||[]).filter(p=>p.teamId===tid);
-    // Учёт матчей: играли все, кто в основе, минус те, кого заменили (если не выходил обратно), плюс те, кто вышел на замену
     const starterIds=new Set(myTeamPlayers.filter(p=>!subbedIn.has(p.id)).map(p=>p.id));
     subbedIn.forEach(id=>{
       const p=(d.players||[]).find(x=>x.id===id&&x.teamId===tid);
       if(p)starterIds.add(id);
     });
-    // Кто заменил — считается сыгравшим, кого заменили — не считается (упрощение)
-    subbedOut.forEach(id=>{
-      // если игрок вышел на замену и потом снова был заменён — считаем, но это редкий случай
-      if(!subbedIn.has(id))starterIds.delete(id);
-    });
+    subbedOut.forEach(id=>{if(!subbedIn.has(id))starterIds.delete(id);});
     if(starterIds.has(player.id))res.matchesPlayed++;
-    // Голы и ассисты
     const goals=isA?(m.goalsA||[]):(m.goalsB||[]);
     goals.forEach(g=>{
       const scorer=(d.players||[]).find(x=>x.id===g.scorerId);
@@ -617,7 +607,6 @@ function getComputedPlayerStats(name,d){
       if(scorer&&scorer.name===name)res.goals++;
       if(assist&&assist.name===name)res.assists++;
     });
-    // Вратарь
     const gkId=isA?m.goalkeeperA:m.goalkeeperB;
     if(gkId===player.id){
       res.goalkeeperMatches++;
@@ -628,7 +617,6 @@ function getComputedPlayerStats(name,d){
   });
   return res;
 }
-// ============================================================
 
 async function loginOrRegister(name,password){
 name=(name||'').trim();
@@ -690,13 +678,24 @@ function getBestAssister(d){let best=null;let bv=0;(d.players||[]).forEach(p=>{c
 function getBestGoalkeeper(d){let best=null;let bAvg=Infinity;(d.players||[]).forEach(p=>{const st=getComputedPlayerStats(p.name,d);if(st.goalkeeperMatches>0){const avg=st.goalsConceded/st.goalkeeperMatches;if(avg<bAvg){bAvg=avg;best={name:p.name,goalkeeperMatches:st.goalkeeperMatches,goalsConceded:st.goalsConceded};}}});return best;}
 function getMVPTournament(d){let best=null;let bv=-1;(d.players||[]).forEach(p=>{const st=getComputedPlayerStats(p.name,d);if(st.matchesPlayed>0){const v=st.goals+st.assists;if(v>bv){bv=v;best={name:p.name,goals:st.goals,assists:st.assists};}}});return best;}
 function getBestVoted(d){const v=d.votes||{};let b=null,mx=0;Object.keys(v).forEach(n=>{if(v[n]>mx){mx=v[n];b=n;}});return b?{name:b,votes:mx}:null;}
-function getBestTeamTournament(d){const t=(d.teams||[]);if(!t.length)return null;const r=t.map(x=>{const pl=(d.players||[]).filter(p=>p.teamId===x.id);if(!pl.length)return null;const a=Math.round(pl.reduce((s,p)=>{const st=getComputedPlayerStats(p.name,d);return s+calcRatingFromStats(st.matchesPlayed,st.goals,st.assists,0,0,0,0,0);},0)/pl.length);return{name:x.name,color:x.color,avatar:x.avatar,rating:a,players:pl.map(p=>p.name)};}).filter(x=>x&&x.rating>0);if(!r.length)return null;r.sort((a,b)=>b.rating-a.rating);return r[0];}
+
+// ИЗМЕНЕНИЕ 2: getBestTeamTournament теперь использует calcRatingForPlayerInTournament
+function getBestTeamTournament(d){const t=(d.teams||[]);if(!t.length)return null;const r=t.map(x=>{const pl=(d.players||[]).filter(p=>p.teamId===x.id);if(!pl.length)return null;
+// Тот же расчёт, что и в calcTeamRating — среднее по рейтингам всех игроков команды
+const a=Math.round(pl.reduce((s,p)=>s+calcRatingForPlayerInTournament(p.name,d,true),0)/pl.length);
+return{name:x.name,color:x.color,avatar:x.avatar,rating:a,players:pl.map(p=>p.name)};}).filter(x=>x&&x.rating>0);if(!r.length)return null;r.sort((a,b)=>b.rating-a.rating);return r[0];}
+
 function countPlayerAwards(name){let bs=0,ba=0,bg=0,mv=0,bv=0,bt=0;tournamentsList.forEach(t=>{const d=getTournamentData(t.id);const s=getBestScorer(d);if(s&&s.name===name)bs++;const a=getBestAssister(d);if(a&&a.name===name)ba++;const g=getBestGoalkeeper(d);if(g&&g.name===name)bg++;const m=getMVPTournament(d);if(m&&m.name===name)mv++;const v=getBestVoted(d);if(v&&v.name===name)bv++;const bti=getBestTeamTournament(d);if(bti&&bti.players&&bti.players.includes(name))bt++;});return{bestScorer:bs,bestAssister:ba,bestGoalkeeper:bg,mvp:mv,bestVoted:bv,bestTeam:bt};}
 function addChangeLog(a,d){if(!appData.changeLog)appData.changeLog=[];appData.changeLog.push({id:'log_'+generateId(),timestamp:new Date().toISOString(),action:a,description:d,author:getCurrentUser()||'Гость'});}
 function getPlayerResults(playerName,matches,players){const p=players.find(x=>x.name===playerName);if(!p||!p.teamId)return{wins:0,draws:0,losses:0};let wins=0,draws=0,losses=0;(matches||[]).forEach(m=>{const isA=m.teamA===p.teamId;const isB=m.teamB===p.teamId;if(!isA&&!isB)return;const sa=parseInt(m.scoreA,10)||0;const sb=parseInt(m.scoreB,10)||0;const my=isA?sa:sb;const opp=isA?sb:sa;if(my>opp)wins++;else if(my<opp)losses++;else draws++;});return{wins,draws,losses};}
 function calcRatingFromStats(matches,goals,assists,aw,wins,draws,losses,btBonus){if(matches===0)return 0;const P=matches*2+(wins||0)*3+(draws||0)*1+(losses||0)*(-1)+goals*5+assists*4+aw*10+(btBonus||0);let r=Math.round(P/1.28);if(r>99)r=99;if(r<0)r=0;return r;}
 function calcRatingForPlayer(name){let total=0,count=0;tournamentsList.forEach(t=>{const d=getTournamentData(t.id);const p=(d.players||[]).find(x=>x.name===name);if(!p)return;const st=getComputedPlayerStats(name,d);if(st.matchesPlayed<=0)return;total+=calcRatingForPlayerInTournament(name,d);count++;});if(count===0)return 0;return Math.round(total/count);}
-function calcRatingForPlayerInTournament(name,d){const p=(d.players||[]).find(x=>x.name===name);if(!p)return 0;const st=getComputedPlayerStats(name,d);const m=st.matchesPlayed,g=st.goals,a=st.assists;let tot=0;const s=getBestScorer(d);if(s&&s.name===name)tot++;const as=getBestAssister(d);if(as&&as.name===name)tot++;const gk=getBestGoalkeeper(d);if(gk&&gk.name===name)tot++;const mv=getMVPTournament(d);if(mv&&mv.name===name)tot++;const v=getBestVoted(d);if(v&&v.name===name)tot++;const res=getPlayerResults(name,d.matches||[],d.players||[]);return calcRatingFromStats(m,g,a,tot,res.wins,res.draws,res.losses,0);}
+
+// ИЗМЕНЕНИЕ 1: бонус за "лучшую команду" убран полностью
+function calcRatingForPlayerInTournament(name,d,skipBtBonus){const p=(d.players||[]).find(x=>x.name===name);if(!p)return 0;const st=getComputedPlayerStats(name,d);const m=st.matchesPlayed,g=st.goals,a=st.assists;let tot=0;const s=getBestScorer(d);if(s&&s.name===name)tot++;const as=getBestAssister(d);if(as&&as.name===name)tot++;const gk=getBestGoalkeeper(d);if(gk&&gk.name===name)tot++;const mv=getMVPTournament(d);if(mv&&mv.name===name)tot++;const v=getBestVoted(d);if(v&&v.name===name)tot++;const res=getPlayerResults(name,d.matches||[],d.players||[]);
+// Бонус за "лучшую команду" убран — рейтинг игрока должен быть одинаковым везде
+return calcRatingFromStats(m,g,a,tot,res.wins,res.draws,res.losses,0);}
+
 function calcTeamRating(tid,d){const p=(d.players||[]).filter(x=>x.teamId===tid);if(!p.length)return 0;return Math.round(p.reduce((s,x)=>s+calcRatingForPlayerInTournament(x.name,d),0)/p.length);}
 function getRatingStyle(r){if(r>=75)return{border:'#f5a623',bg:'linear-gradient(135deg,#fff8e1 0%,#ffeaa7 100%)',color:'#b87333',shadow:'rgba(245,166,35,0.35)',medal:'🥇',label:'Золото'};if(r>=35)return{border:'#a8a8a8',bg:'linear-gradient(135deg,#f8f8f8 0%,#d0d0d0 100%)',color:'#4a4a4a',shadow:'rgba(168,168,168,0.35)',medal:'🥈',label:'Серебро'};return{border:'#cd7f32',bg:'linear-gradient(135deg,#fbe9d7 0%,#e8b98a 100%)',color:'#7a4a1a',shadow:'rgba(205,127,50,0.35)',medal:'🥉',label:'Бронза'};}
 function getTeamForm(teamId,n){n=n||5;return appData.matches.filter(m=>m.teamA===teamId||m.teamB===teamId).sort((a,b)=>(b.id>a.id?1:-1)).slice(0,n).map(m=>{const isA=m.teamA===teamId;const sa=parseInt(m.scoreA,10)||0,sb=parseInt(m.scoreB,10)||0;const my=isA?sa:sb,opp=isA?sb:sa;if(my>opp)return'W';if(my<opp)return'L';return'D';});}
@@ -870,13 +869,12 @@ const d=appData;
 const tName=tournamentsList.find(t=>t.id===currentTournamentId)?.name||'ЛАГУНА CUP';
 const mvp=getMVPTournament(d),scorer=getBestScorer(d),assister=getBestAssister(d),gk=getBestGoalkeeper(d),bestTeam=getBestTeamTournament(d),voted=getBestVoted(d);
 const TEXTS={
-rating:'Поздравляю с отличным местом в рейтинге! Твоя стабильная игра, высокая самоотдача и красивые действия на поле заслуженно получили высокую оценку.',
-mvp:'Поздравляю с заслуженным титулом MVP! Это признание твоего огромного вклада в команду. Ты — настоящий лидер!',
-bombardier:'Поздравляю с званием лучшего бомбардира! Твоя голевая интуиция приносит команде важнейшие победы!',
-assist:'Поздравляю с наградой лучшего ассистента! Твои голевые передачи — это чистое искусство!',
-gk:'Поздравляю с титулом лучшего вратаря! Твоя надежность — фундамент успеха всей команды. Настоящая стена!',
-bestteam:`Поздравляем! Твоя команда официально стала лучшей на ${tName}! Так держать!`,
-bestvoted:'Поздравляю с победой в голосовании! Ты — народный выбор и настоящий лидер турнира!'
+mvp:'Поздравляю с заслуженным титулом MVP! Это признание твоего огромного вклада в команду.',
+bombardier:'Поздравляю с званием лучшего бомбардира! Твоя голевая интуиция приносит победы!',
+assist:'Поздравляю с наградой лучшего ассистента! Твои голевые передачи — это искусство!',
+gk:'Поздравляю с титулом лучшего вратаря! Настоящая стена!',
+bestteam:`Поздравляем! Твоя команда стала лучшей на ${tName}! Так держать!`,
+bestvoted:'Поздравляю с победой в голосовании! Ты — народный выбор!'
 };
 let sent=0,names=[];
 const sendOne=(name,text)=>{if(!name)return;if(sendSystemDM(name,text)){sent++;if(!names.includes(name))names.push(name);}};
@@ -921,7 +919,6 @@ if(wins.bestVoted>0)out.push({icon:'⭐',label:`Лучший игрок × ${win
 if(wins.bestTeam>0)out.push({icon:'🏆',label:`Лучшая команда × ${wins.bestTeam}`});
 let totalGoals=0,totalMatches=0,totalTournaments=0,totalWins=0,totalAssists=0;
 tournamentsList.forEach(t=>{const d=getTournamentData(t.id);const p=(d.players||[]).find(x=>x.name===name);if(p){totalTournaments++;const st=getComputedPlayerStats(name,d);totalGoals+=st.goals;totalAssists+=st.assists;totalMatches+=st.matchesPlayed;
-  // Победы
   const tid=p.teamId;
   (d.matches||[]).forEach(m=>{const isA=m.teamA===tid,isB=m.teamB===tid;if(!isA&&!isB)return;const sa=parseInt(m.scoreA,10)||0,sb=parseInt(m.scoreB,10)||0;const my=isA?sa:sb,opp=isA?sb:sa;if(my>opp)totalWins++;});
 }});
@@ -1699,9 +1696,6 @@ if(changed){saveCurrentData();updateTournamentSelect();renderUserBox();renderGue
 return changed;
 }
 
-// ============================================================
-// ОДНОРАЗОВАЯ МИГРАЦИЯ: удаляем накопленные поля статистики
-// ============================================================
 function migrateRemoveStatsFromPlayers(){
   let changed=false;
   tournamentsList.forEach(t=>{
@@ -1713,10 +1707,9 @@ function migrateRemoveStatsFromPlayers(){
       }
     });
   });
-  if(changed){scheduleSave();console.log('🧹 Накопленная статистика удалена, теперь вычисляется из матчей.');}
+  if(changed){scheduleSave();console.log('🧹 Накопленная статистика удалена.');}
   return changed;
 }
-// ============================================================
 
 async function init(){
 captureStandardDrawer();
@@ -1733,8 +1726,8 @@ renderUserBox();renderGuestBanner();renderNotifyButton();renderNavTabs();renderM
 await pullFromServer(true);
 let ns=false;
 if(!serverState.data[ADMINS_KEY]){serverState.data[ADMINS_KEY]=[PRIMARY_ADMIN];ns=true;}
-if(!serverState.data[ASSIGNERS_KEY]){serverState.data[ASSIGNERS_KEY]=[];ns=true;}
-if(!serverState.data[AUDIT_KEY]){serverState.data[AUDIT_KEY]=[];ns=true;}
+if(!serverState.data[ASSIGNERS_KEY])serverState.data[ASSIGNERS_KEY]=[];
+if(!serverState.data[AUDIT_KEY])serverState.data[AUDIT_KEY]=[];
 if(!serverState.data[DM_KEY])serverState.data[DM_KEY]={};
 if(!serverState.data[POLLS_KEY])serverState.data[POLLS_KEY]=[];
 if(!serverState.data[TEMPLATES_KEY])serverState.data[TEMPLATES_KEY]=[];
@@ -1752,4 +1745,4 @@ init();
 })();
 </script>
 </body>
-                                           </html>
+  </html>
