@@ -1721,6 +1721,22 @@ let STANDARD_DRAWER_HTML='';
 function captureStandardDrawer(){const el=document.getElementById('drawer');if(el&&!STANDARD_DRAWER_HTML)STANDARD_DRAWER_HTML=el.innerHTML;}
 function openDrawer(){const dr=document.getElementById('drawer');if(STANDARD_DRAWER_HTML)dr.innerHTML=STANDARD_DRAWER_HTML;dr.classList.add('open');document.getElementById('drawerOverlay').classList.add('open');renderMobileUI();}
 function closeDrawer(){document.getElementById('drawer').classList.remove('open');document.getElementById('drawerOverlay').classList.remove('open');}
+  function renderTournamentPicker(){
+  const dr=document.getElementById('drawer');
+  let html='<h3>🏆 Сменить турнир</h3>';
+  if(!tournamentsList.length){
+    html+='<p style="color:var(--text-light);padding:12px 0;text-align:center;">Нет турниров.</p>';
+  }else{
+    html+='<label style="display:block;font-weight:700;color:var(--text-main);margin-bottom:8px;">Выберите турнир:</label>';
+    html+='<select id="drawerTournamentSelect" style="width:100%;padding:14px 12px;border-radius:12px;border:2px solid var(--border-soft);background:var(--input-bg);color:var(--text-main);font-size:1rem;font-weight:700;margin-bottom:12px;cursor:pointer;">';
+    tournamentsList.forEach(t=>{html+='<option value="'+t.id+'" '+(t.id===currentTournamentId?'selected':'')+'>'+escapeHtml(t.name)+'</option>';});
+    html+='</select>';
+  }
+  html+='<hr style="margin:12px 0;border:none;border-top:1px solid var(--border-soft);">';
+  html+='<button class="drawer-item" id="drawerNewTournamentBtn"><span class="di-icon">➕</span> Создать новый турнир</button>';
+  html+='<button class="drawer-item" id="drawerCancelTournamentBtn"><span class="di-icon">↩️</span> Назад</button>';
+  dr.innerHTML=html;
+  }
 
 function applyTheme(t){document.documentElement.dataset.theme=t;localStorage.setItem(THEME_KEY,t);const b=document.getElementById('mhThemeBtn');if(b)b.textContent=t==='dark'?'☀️':'🌙';const m=document.querySelector('meta[name="theme-color"]');if(m)m.content=t==='dark'?'#0d2818':'#1a7a2e';}
 function toggleTheme(){const cur=document.documentElement.dataset.theme||'light';applyTheme(cur==='dark'?'light':'dark');}
