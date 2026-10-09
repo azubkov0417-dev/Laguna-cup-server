@@ -324,11 +324,11 @@ tr:hover td{background:#f0f7f0;}
 .mass-item .mass-team{font-size:0.8rem;color:var(--text-light);}
 .mass-actions-bar{position:sticky;bottom:0;background:var(--panel-bg);padding:12px;border-top:2px solid var(--border-soft);margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
 .mass-count{font-weight:800;color:#2e9e44;}
-.dash-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px;}
-.dash-card{background:linear-gradient(135deg,var(--panel-bg),var(--input-bg));border:1px solid var(--border-soft);border-radius:16px;padding:16px;text-align:center;box-shadow:0 3px 12px rgba(0,0,0,0.06);}
-.dash-card .dash-icon{font-size:1.8rem;line-height:1;margin-bottom:6px;}
-.dash-card .dash-value{font-size:2rem;font-weight:900;color:var(--text-main);line-height:1.1;}
-.dash-card .dash-label{font-size:0.75rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-light);font-weight:700;margin-top:4px;}
+.dash-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:20px;}
+.dash-card{background:linear-gradient(135deg,var(--panel-bg),var(--input-bg));border:1px solid var(--border-soft);border-radius:16px;padding:14px 10px;text-align:center;box-shadow:0 3px 12px rgba(0,0,0,0.06);}
+.dash-card .dash-icon{font-size:1.6rem;line-height:1;margin-bottom:6px;}
+.dash-card .dash-value{font-size:1.7rem;font-weight:900;color:var(--text-main);line-height:1.1;}
+.dash-card .dash-label{font-size:0.7rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-light);font-weight:700;margin-top:4px;}
 .dash-section-title{font-weight:800;font-size:1.05rem;margin:18px 0 10px;color:var(--text-main);display:flex;align-items:center;gap:8px;}
 .dash-list-item{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--input-bg);border-radius:10px;margin-bottom:6px;font-size:0.9rem;gap:10px;}
 .dash-list-item .dli-name{font-weight:700;}
@@ -618,7 +618,6 @@ function getComputedPlayerStats(name,d){
   return res;
 }
 
-// ВРАТАРИ: новая формула рейтинга
 function calcGoalkeeperRating(stats){
   if(!stats||!stats.goalkeeperMatches)return 0;
   const matches=stats.goalkeeperMatches||0;
@@ -945,9 +944,55 @@ function openGoalkeepersModal(){
   document.getElementById('modalContent').innerHTML=h;document.getElementById('playerModal').style.display='flex';
 }
 
-function getPlayerTrend(playerName,n){n=n||5;const allMatches=[...appData.matches].sort((a,b)=>(b.id>a.id?1:-1));const ratings=[];const player=appData.players.find(p=>p.name===playerName);if(!player)return{ratings:[],trend:'flat',diff:0};for(const m of allMatches){const isMyMatch=(player.teamId===m.teamA)||(player.teamId===m.teamB);if(!isMyMatch)continue;const isA=player.teamId===m.teamA;const sa=parseInt(m.scoreA,10)||0,sb=parseInt(m.scoreB,10)||0;const my=isA?sa:sb,opp=isA?sb:sa;let pts=my>opp?3:(my===opp?1:0);const goals=[...(m.goalsA||[]),...(m.goalsB||[])].filter(g=>{const p=getPlayerById(g.scorerId);return p&&p.name===playerName;}).length;pts+=goals*2;ratings.push(pts);if(ratings.length>=n)break;}let trend='flat',diff=0;if(ratings.length>=2){const half=Math.floor(ratings.length/2);const recent=ratings.slice(0,half).reduce((s,x)=>s+x,0)/Math.max(half,1);const older=ratings.slice(half).reduce((s,x)=>s+x,0)/Math.max(ratings.length-half,1);diff=recent-older;if(diff>0.5)trend='up';else if(diff<-0.5)trend='down';}return{ratings,trend,diff};}
+// ИЗМЕНЕНИЕ 1: getPlayerTrend — ассисты + честные половины
+function getPlayerTrend(playerName,n){
+  n=n||5;
+  const allMatches=[...appData.matches].sort((a,b)=>(b.id>a.id?1:-1));
+  const ratings=[];
+  const player=appData.players.find(p=>p.name===playerName);
+  if(!player)return{ratings:[],trend:'flat',diff:0};
+  for(const m of allMatches){
+    const isMyMatch=(player.teamId===m.teamA)||(player.teamId===m.teamB);
+    if(!isMyMatch)continue;
+    const isA=player.teamId===m.teamA;
+    const sa=parseInt(m.scoreA,10)||0,sb=parseInt(m.scoreB,10)||0;
+    const my=isA?sa:sb,opp=isA?sb:sa;
+    let pts=my>opp?3:(my===opp?1:0);
+    const allGoals=[...(m.goalsA||[]),...(m.goalsB||[])];
+    const goals=allGoals.filter(g=>{const p=getPlayerById(g.scorerId);return p&&p.name===playerName;}).length;
+    const assists=allGoals.filter(g=>{const p=g.assistId?getPlayerById(g.assistId):null;return p&&p.name===playerName;}).length;
+    pts+=goals*2+assists*1;
+    ratings.push(pts);
+    if(ratings.length>=n)break;
+  }
+  let trend='flat',diff=0;
+  if(ratings.length>=2){
+    const K=Math.floor(ratings.length/2);
+    const recent=ratings.slice(0,K);
+    const older=ratings.slice(K,K*2);
+    const recentAvg=recent.reduce((s,x)=>s+x,0)/K;
+    const olderAvg=older.reduce((s,x)=>s+x,0)/K;
+    diff=recentAvg-olderAvg;
+    if(diff>0.5)trend='up';else if(diff<-0.5)trend='down';
+  }
+  return{ratings,trend,diff};
+}
+
 function renderTrendBadge(playerName){const t=getPlayerTrend(playerName,5);if(t.ratings.length<2)return'<span class="trend-flat">---</span>';if(t.trend==='up')return`<span class="trend-badge up">📈 +${t.diff.toFixed(1)}</span>`;if(t.trend==='down')return`<span class="trend-badge down">📉 ${t.diff.toFixed(1)}</span>`;return`<span class="trend-badge flat">➖ 0.0</span>`;}
-function openTrendsModal(){const list=[...appData.players].filter(p=>getComputedPlayerStats(p.name,appData).matchesPlayed>0).map(p=>({name:p.name,trend:getPlayerTrend(p.name,5)})).sort((a,b)=>b.trend.diff-a.trend.diff);let h=`<h2>📈 Тренды игроков</h2><p style="color:var(--text-light); font-size:0.85rem; margin-bottom:16px;">Сравнение последних матчей с более ранними.</p><div style="max-height:60vh; overflow-y:auto;">`;list.forEach((it,idx)=>{const t=it.trend;const trendIcon=t.trend==='up'?'📈':(t.trend==='down'?'📉':'➖');const trendColor=t.trend==='up'?'#2e9e44':(t.trend==='down'?'#e74c3c':'#9aab9a');h+=`<div style="display:flex; align-items:center; gap:12px; padding:10px 14px; background:var(--input-bg); border-radius:12px; margin-bottom:8px; border-left:4px solid ${trendColor};"><div style="font-weight:800; width:32px; text-align:center; color:var(--text-light);">${idx+1}</div><div style="flex:1;"><div style="font-weight:700;">${escapeHtml(it.name)}</div><div style="font-size:0.78rem; color:var(--text-light); margin-top:2px;">Последние: ${t.ratings.slice(0,5).map(r=>r+'очк').join(' · ')||'---'}</div></div><div style="text-align:right;"><div style="font-size:1.4rem;">${trendIcon}</div><div style="font-weight:800; color:${trendColor}; font-size:0.9rem;">${t.diff>0?'+':''}${t.diff.toFixed(1)}</div></div></div>`;});h+=`</div>`;document.getElementById('modalContent').innerHTML=h;document.getElementById('playerModal').style.display='flex';}
+
+// ИЗМЕНЕНИЕ 2: openTrendsModal — обновлённая подсказка
+function openTrendsModal(){
+  const list=[...appData.players].filter(p=>getComputedPlayerStats(p.name,appData).matchesPlayed>0).map(p=>({name:p.name,trend:getPlayerTrend(p.name,5)})).sort((a,b)=>b.trend.diff-a.trend.diff);
+  let h=`<h2>📈 Тренды игроков</h2><p style="color:var(--text-light); font-size:0.85rem; margin-bottom:6px;">Сравнение последних матчей с более ранними.</p><p style="color:var(--text-light); font-size:0.78rem; margin-bottom:16px;">Очки за матч: победа +3 · ничья +1 · гол +2 · ассист +1. Сравниваются 2 свежих матча с 2 предыдущими.</p><div style="max-height:60vh; overflow-y:auto;">`;
+  list.forEach((it,idx)=>{
+    const t=it.trend;
+    const trendIcon=t.trend==='up'?'📈':(t.trend==='down'?'📉':'➖');
+    const trendColor=t.trend==='up'?'#2e9e44':(t.trend==='down'?'#e74c3c':'#9aab9a');
+    h+=`<div style="display:flex; align-items:center; gap:12px; padding:10px 14px; background:var(--input-bg); border-radius:12px; margin-bottom:8px; border-left:4px solid ${trendColor};"><div style="font-weight:800; width:32px; text-align:center; color:var(--text-light);">${idx+1}</div><div style="flex:1;"><div style="font-weight:700;">${escapeHtml(it.name)}</div><div style="font-size:0.78rem; color:var(--text-light); margin-top:2px;">Последние: ${t.ratings.slice(0,5).map(r=>r+'очк').join(' · ')||'---'}</div></div><div style="text-align:right;"><div style="font-size:1.4rem;">${trendIcon}</div><div style="font-weight:800; color:${trendColor}; font-size:0.9rem;">${t.diff>0?'+':''}${t.diff.toFixed(1)}</div></div></div>`;
+  });
+  h+=`</div>`;
+  document.getElementById('modalContent').innerHTML=h;document.getElementById('playerModal').style.display='flex';
+}
 
 function getPlayerAchievements(name){
 const out=[];
@@ -990,7 +1035,7 @@ function massAssign(){const ids=getMassSelected();if(!ids.length){alert('Нич�
 function massSetStatus(){const ids=getMassSelected();if(!ids.length){alert('Ничего не выбрано');return;}const wrapper=document.createElement('div');wrapper.className='modal-overlay';wrapper.style.display='flex';wrapper.innerHTML=`<div class="modal" style="max-width:400px;"><button class="close-btn">&times;</button><h2>🟢 Статус для ${ids.length} игроков</h2><button class="btn btn-primary" data-mass-status="confirmed" style="width:100%; justify-content:center; margin:4px 0;">🟢 Точно</button><button class="btn btn-warning" data-mass-status="pending" style="width:100%; justify-content:center; margin:4px 0;">🟡 Под вопросом</button><button class="btn btn-danger" data-mass-status="reserve" style="width:100%; justify-content:center; margin:4px 0;">🔴 Резерв</button></div>`;document.body.appendChild(wrapper);const close=()=>wrapper.remove();wrapper.querySelector('.close-btn').onclick=close;wrapper.addEventListener('click',ev=>{if(ev.target===wrapper){close();return;}const b=ev.target.closest('[data-mass-status]');if(b){const st=b.dataset.massStatus;ids.forEach(id=>{const p=appData.players.find(x=>x.id===id);if(p)p.status=st;});audit('user','mass_status',`${ids.length} → ${st}`);saveCurrentData();close();document.getElementById('playerModal').style.display='none';render();}});}
 function massDelete(){const ids=getMassSelected();if(!ids.length){alert('Ничего не выбрано');return;}if(!confirm(`Удалить ${ids.length} игроков из заявки?`))return;const backup=ids.map(id=>JSON.parse(JSON.stringify(appData.players.find(x=>x.id===id)))).filter(Boolean);appData.players=appData.players.filter(p=>!ids.includes(p.id));ids.forEach(id=>{const p=backup.find(x=>x.id===id);if(p&&appData.votes&&appData.votes[p.name])delete appData.votes[p.name];});audit('user','mass_delete',`${ids.length} игроков`);pushUndo(`Удалено ${ids.length} игроков`,()=>backup,(snap)=>{snap.forEach(p=>appData.players.push(p));});saveCurrentData();document.getElementById('playerModal').style.display='none';render();}
 
-// ДАШБОРД: 8 блоков
+// ДАШБОРД: 8 блоков + средний рейтинг
 function openDashboardModal(){
 if(!currentTournamentId){alert('Выберите турнир');return;}
 const table=calculateTable();
@@ -998,6 +1043,17 @@ const totalMatches=appData.matches.length,totalPlayers=appData.players.length,to
 let totalGoals=0;
 appData.matches.forEach(m=>{totalGoals+=(parseInt(m.scoreA,10)||0)+(parseInt(m.scoreB,10)||0);});
 const avgGoals=totalMatches>0?(totalGoals/totalMatches).toFixed(2):'0.00';
+
+// Средний рейтинг всех игравших
+let ratingSum=0,ratingCount=0;
+appData.players.forEach(p=>{
+  const st=getComputedPlayerStats(p.name,appData);
+  if(st.matchesPlayed>0){
+    ratingSum+=calcRatingForPlayerInTournament(p.name,appData);
+    ratingCount++;
+  }
+});
+const avgRating=ratingCount>0?(ratingSum/ratingCount).toFixed(1):'—';
 
 const topScorer=getBestScorer(appData);
 const topAssister=getBestAssister(appData);
@@ -1047,6 +1103,7 @@ h+=`<div class="dash-grid">
 <div class="dash-card"><div class="dash-icon">⚽</div><div class="dash-value">${totalMatches}</div><div class="dash-label">Матчей</div></div>
 <div class="dash-card"><div class="dash-icon">🥅</div><div class="dash-value">${totalGoals}</div><div class="dash-label">Голов</div></div>
 <div class="dash-card"><div class="dash-icon">📈</div><div class="dash-value">${avgGoals}</div><div class="dash-label">Голов/матч</div></div>
+<div class="dash-card"><div class="dash-icon">⭐</div><div class="dash-value">${avgRating}</div><div class="dash-label">Ср. рейтинг</div></div>
 </div>`;
 
 if(leaderTeam){
@@ -1129,7 +1186,6 @@ h+=`</div>`;
 h+=`</div></div>`;
 return h;
 }
-
 function renderHomeTab(){
 if(!currentTournamentId)return'';
 const table=calculateTable();
@@ -1907,4 +1963,4 @@ init();
 })();
 </script>
 </body>
-                                                                                                              </html>
+</html>
