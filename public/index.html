@@ -944,7 +944,6 @@ function openGoalkeepersModal(){
   document.getElementById('modalContent').innerHTML=h;document.getElementById('playerModal').style.display='flex';
 }
 
-// ИЗМЕНЕНИЕ 1: getPlayerTrend — ассисты + честные половины
 function getPlayerTrend(playerName,n){
   n=n||5;
   const allMatches=[...appData.matches].sort((a,b)=>(b.id>a.id?1:-1));
@@ -980,7 +979,6 @@ function getPlayerTrend(playerName,n){
 
 function renderTrendBadge(playerName){const t=getPlayerTrend(playerName,5);if(t.ratings.length<2)return'<span class="trend-flat">---</span>';if(t.trend==='up')return`<span class="trend-badge up">📈 +${t.diff.toFixed(1)}</span>`;if(t.trend==='down')return`<span class="trend-badge down">📉 ${t.diff.toFixed(1)}</span>`;return`<span class="trend-badge flat">➖ 0.0</span>`;}
 
-// ИЗМЕНЕНИЕ 2: openTrendsModal — обновлённая подсказка
 function openTrendsModal(){
   const list=[...appData.players].filter(p=>getComputedPlayerStats(p.name,appData).matchesPlayed>0).map(p=>({name:p.name,trend:getPlayerTrend(p.name,5)})).sort((a,b)=>b.trend.diff-a.trend.diff);
   let h=`<h2>📈 Тренды игроков</h2><p style="color:var(--text-light); font-size:0.85rem; margin-bottom:6px;">Сравнение последних матчей с более ранними.</p><p style="color:var(--text-light); font-size:0.78rem; margin-bottom:16px;">Очки за матч: победа +3 · ничья +1 · гол +2 · ассист +1. Сравниваются 2 свежих матча с 2 предыдущими.</p><div style="max-height:60vh; overflow-y:auto;">`;
@@ -1035,7 +1033,6 @@ function massAssign(){const ids=getMassSelected();if(!ids.length){alert('Нич�
 function massSetStatus(){const ids=getMassSelected();if(!ids.length){alert('Ничего не выбрано');return;}const wrapper=document.createElement('div');wrapper.className='modal-overlay';wrapper.style.display='flex';wrapper.innerHTML=`<div class="modal" style="max-width:400px;"><button class="close-btn">&times;</button><h2>🟢 Статус для ${ids.length} игроков</h2><button class="btn btn-primary" data-mass-status="confirmed" style="width:100%; justify-content:center; margin:4px 0;">🟢 Точно</button><button class="btn btn-warning" data-mass-status="pending" style="width:100%; justify-content:center; margin:4px 0;">🟡 Под вопросом</button><button class="btn btn-danger" data-mass-status="reserve" style="width:100%; justify-content:center; margin:4px 0;">🔴 Резерв</button></div>`;document.body.appendChild(wrapper);const close=()=>wrapper.remove();wrapper.querySelector('.close-btn').onclick=close;wrapper.addEventListener('click',ev=>{if(ev.target===wrapper){close();return;}const b=ev.target.closest('[data-mass-status]');if(b){const st=b.dataset.massStatus;ids.forEach(id=>{const p=appData.players.find(x=>x.id===id);if(p)p.status=st;});audit('user','mass_status',`${ids.length} → ${st}`);saveCurrentData();close();document.getElementById('playerModal').style.display='none';render();}});}
 function massDelete(){const ids=getMassSelected();if(!ids.length){alert('Ничего не выбрано');return;}if(!confirm(`Удалить ${ids.length} игроков из заявки?`))return;const backup=ids.map(id=>JSON.parse(JSON.stringify(appData.players.find(x=>x.id===id)))).filter(Boolean);appData.players=appData.players.filter(p=>!ids.includes(p.id));ids.forEach(id=>{const p=backup.find(x=>x.id===id);if(p&&appData.votes&&appData.votes[p.name])delete appData.votes[p.name];});audit('user','mass_delete',`${ids.length} игроков`);pushUndo(`Удалено ${ids.length} игроков`,()=>backup,(snap)=>{snap.forEach(p=>appData.players.push(p));});saveCurrentData();document.getElementById('playerModal').style.display='none';render();}
 
-// ДАШБОРД: 8 блоков + средний рейтинг
 function openDashboardModal(){
 if(!currentTournamentId){alert('Выберите турнир');return;}
 const table=calculateTable();
@@ -1044,7 +1041,6 @@ let totalGoals=0;
 appData.matches.forEach(m=>{totalGoals+=(parseInt(m.scoreA,10)||0)+(parseInt(m.scoreB,10)||0);});
 const avgGoals=totalMatches>0?(totalGoals/totalMatches).toFixed(2):'0.00';
 
-// Средний рейтинг всех игравших
 let ratingSum=0,ratingCount=0;
 appData.players.forEach(p=>{
   const st=getComputedPlayerStats(p.name,appData);
@@ -1360,6 +1356,7 @@ h+=`<p style="font-size:0.82rem;color:#7a8a7a;margin-top:15px;">🟢 Точно 
 h+=`</div></div>`;return h;
 }
 
+// ИСТОРИЯ: показываем вратарей + правильная обработка вложенных тегов
 function renderCombinedHistoryTab(){
 let h=`<div class="panel-title"><span class="icon">📚</span> История</div><div class="sub-tabs"><button class="sub-tab ${historySubTab==='games'?'active':''}" data-history="games">📋 Игры</button><button class="sub-tab ${historySubTab==='tournaments'?'active':''}" data-history="tournaments">📜 Турниры</button><button class="sub-tab ${historySubTab==='changes'?'active':''}" data-history="changes">📝 Изменения</button></div>`;
 if(historySubTab==='games'){
@@ -1378,6 +1375,13 @@ let mh='';
 if(mt)mh+=`🕒 ${fmtDate(mt)}`;
 if(m.createdBy)mh+=`${mh?' · ':''}<span class="author-tag">👤 ${escapeHtml(m.createdBy)}</span>`;
 if(m.lastEditedBy)mh+=`${mh?' · ':''}<span class="editor-tag">✏️ ${escapeHtml(m.lastEditedBy)}</span>`;
+// Вратари матча
+const gkAObj=m.goalkeeperA?getPlayerById(m.goalkeeperA):null;
+const gkBjObj=m.goalkeeperB?getPlayerById(m.goalkeeperB):null;
+let gkh='';
+if(gkAObj||gkBjObj){
+  gkh=`<div style="font-size:0.82rem;color:var(--text-light);margin-top:6px;padding:6px 10px;background:var(--input-bg);border-radius:8px;border-left:3px solid #4a90d9;">🧤 <strong>Вратари:</strong> <span style="color:${escapeHtml(ca)};">${escapeHtml(ta.name)}</span> — ${gkAObj?escapeHtml(gkAObj.name):'---'} · <span style="color:${escapeHtml(cb)};">${escapeHtml(tb.name)}</span> — ${gkBjObj?escapeHtml(gkBjObj.name):'---'}</div>`;
+}
 let sh='';
 const allS=[...((m.substitutionsA||[]).map(s=>({...s,team:ta}))),...((m.substitutionsB||[]).map(s=>({...s,team:tb})))];
 if(allS.length){
@@ -1385,7 +1389,7 @@ sh=`<div class="match-subs"><div style="font-weight:700;color:#b87333;margin-bot
 allS.forEach(s=>{const o=getPlayerById(s.outId),i=getPlayerById(s.inId);if(o&&i)sh+=`<div style="font-size:0.85rem;">${escapeHtml(s.team.name)}: <strong>${escapeHtml(o.name)}</strong> → <strong>${escapeHtml(i.name)}</strong></div>`;});
 sh+=`</div>`;
 }
-h+=`<div class="match-history-card"><div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;margin-bottom:12px;"><div style="display:flex;align-items:center;gap:6px;justify-content:flex-end;min-width:0;"><span style="font-weight:800;font-size:0.95rem;color:${escapeHtml(ca)};text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(ta.name)}</span>${teamBadge(ta,ca,30)}</div><span style="font-weight:900;font-size:1.15rem;padding:4px 14px;background:#f0f7f0;border-radius:12px;color:var(--text-main);flex-shrink:0;white-space:nowrap;">${m.scoreA} : ${m.scoreB}</span><div style="display:flex;align-items:center;gap:6px;justify-content:flex-start;min-width:0;">${teamBadge(tb,cb,30)}<span style="font-weight:800;font-size:0.95rem;color:${escapeHtml(cb)};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(tb.name)}</span></div></div>${mh?`<div class="match-time" style="text-align:center;">${mh}</div>`:''}${sh}<div class="match-scorers-grid"><div class="match-scorers-col"><div class="col-team-name" style="color:${escapeHtml(ca)};display:flex;align-items:center;gap:6px;">${teamBadge(ta,ca,20)}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(ta.name)}</span></div>${goals1||'<div class="col-empty">Голов нет</div>'}</div><div class="match-scorers-col"><div class="col-team-name" style="color:${escapeHtml(cb)};display:flex;align-items:center;gap:6px;">${teamBadge(tb,cb,20)}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(tb.name)}</span></div>${goals2||'<div class="col-empty">Голов нет</div>'}</div></div><div class="match-actions"><button class="btn btn-secondary btn-sm share-match" data-id="${m.id}">📸</button><button class="btn btn-secondary btn-sm edit-match" data-id="${m.id}">✏️ Изменить</button><button class="btn btn-danger btn-sm delete-match" data-id="${m.id}">🗑️</button></div></div>`;
+h+=`<div class="match-history-card"><div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;margin-bottom:12px;"><div style="display:flex;align-items:center;gap:6px;justify-content:flex-end;min-width:0;"><span style="font-weight:800;font-size:0.95rem;color:${escapeHtml(ca)};text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(ta.name)}</span>${teamBadge(ta,ca,30)}</div><span style="font-weight:900;font-size:1.15rem;padding:4px 14px;background:#f0f7f0;border-radius:12px;color:var(--text-main);flex-shrink:0;white-space:nowrap;">${m.scoreA} : ${m.scoreB}</span><div style="display:flex;align-items:center;gap:6px;justify-content:flex-start;min-width:0;">${teamBadge(tb,cb,30)}<span style="font-weight:800;font-size:0.95rem;color:${escapeHtml(cb)};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(tb.name)}</span></div></div>${mh?`<div class="match-time" style="text-align:center;">${mh}</div>`:''}${gkh}${sh}<div class="match-scorers-grid"><div class="match-scorers-col"><div class="col-team-name" style="color:${escapeHtml(ca)};display:flex;align-items:center;gap:6px;">${teamBadge(ta,ca,20)}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(ta.name)}</span></div>${goals1||'<div class="col-empty">Голов нет</div>'}</div><div class="match-scorers-col"><div class="col-team-name" style="color:${escapeHtml(cb)};display:flex;align-items:center;gap:6px;">${teamBadge(tb,cb,20)}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(tb.name)}</span></div>${goals2||'<div class="col-empty">Голов нет</div>'}</div></div><div class="match-actions"><button class="btn btn-secondary btn-sm share-match" data-id="${m.id}">📸</button><button class="btn btn-secondary btn-sm edit-match" data-id="${m.id}">✏️ Изменить</button><button class="btn btn-danger btn-sm delete-match" data-id="${m.id}">🗑️</button></div></div>`;
 });
 }
 }
@@ -1729,6 +1733,7 @@ document.addEventListener('touchend',function(e){if(!e.changedTouches||!e.change
 function openTeamSelectModal(pn){if(!requireLogin('добавлять в заявку'))return;if(!currentTournamentId){alert('🔒 Нет турнира.');return;}pendingPlayerToAdd=pn;document.getElementById('teamSelectPlayerName').textContent=pn;document.getElementById('selectTeamModal').style.display='flex';}
 function confirmAddPlayerToTournament(st){if(!requireLogin('добавлять в заявку'))return;if(!currentTournamentId){document.getElementById('selectTeamModal').style.display='none';pendingPlayerToAdd=null;return;}if(!pendingPlayerToAdd)return;if(appData.players.some(p=>p.name===pendingPlayerToAdd)){alert('Уже в заявке');document.getElementById('selectTeamModal').style.display='none';pendingPlayerToAdd=null;return;}appData.players.push({id:generateId(),name:pendingPlayerToAdd,teamId:null,status:st,addedAt:new Date().toISOString()});saveCurrentData();document.getElementById('selectTeamModal').style.display='none';pendingPlayerToAdd=null;render();}
 
+// ИСПРАВЛЕНО: все drawer-кнопки через closest для корректной обработки вложенных span
 document.addEventListener('click',async function(e){
 if(e.target.closest('[data-goto-chat]')){currentTab='chat';document.querySelectorAll('.nav-tab').forEach(b=>b.classList.toggle('active',b.dataset.tab==='chat'));markChatAsRead();render();return;}
 const bc=e.target.closest('[data-bc-tab]');if(bc){currentTab=bc.dataset.bcTab;document.querySelectorAll('.nav-tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===currentTab));render();return;}
@@ -1737,26 +1742,26 @@ const congBtn=e.target.closest('[data-congrats]');
 if(congBtn){e.preventDefault();sendCongratulation(congBtn.dataset.congrats);return;}
 if(e.target.id==='undoBtn'){performUndo();return;}
 if(e.target.id==='undoDismissBtn'){document.getElementById('undoBar').classList.remove('show');return;}
-if(e.target.id==='hallBtn'||e.target.id==='recordsHallBtn'||e.target.id==='drawerHallBtn'){closeDrawer();openHallModal();return;}
+if(e.target.closest('#hallBtn')||e.target.closest('#recordsHallBtn')||e.target.closest('#drawerHallBtn')){closeDrawer();openHallModal();return;}
 if(e.target.closest('#saveTemplateBtn')){saveTournamentTemplate();return;}
-if(e.target.id==='compareBtn'){openCompareModal();return;}
-if(e.target.id==='compareMultiBtn'){openCompareMultiModal();return;}
-if(e.target.id==='hatTricksBtn'){openHatTricksModal();return;}
-if(e.target.id==='averagesBtn'){openAveragesModal();return;}
-if(e.target.id==='trendsBtn'){openTrendsModal();return;}
-if(e.target.id==='goalkeepersBtn'){openGoalkeepersModal();return;}
-if(e.target.id==='dashboardBtn'){openDashboardModal();return;}
-if(e.target.id==='massOpsBtn'){openMassOpsModal();return;}
-if(e.target.id==='pitchBgBtn'){togglePitchBg();return;}
-if(e.target.id==='homeTrendsBtn'){openTrendsModal();return;}
-if(e.target.id==='homeGoalkeepersBtn'){openGoalkeepersModal();return;}
+if(e.target.closest('#compareBtn')){openCompareModal();return;}
+if(e.target.closest('#compareMultiBtn')){openCompareMultiModal();return;}
+if(e.target.closest('#hatTricksBtn')){openHatTricksModal();return;}
+if(e.target.closest('#averagesBtn')){openAveragesModal();return;}
+if(e.target.closest('#trendsBtn')){openTrendsModal();return;}
+if(e.target.closest('#goalkeepersBtn')){openGoalkeepersModal();return;}
+if(e.target.closest('#dashboardBtn')){openDashboardModal();return;}
+if(e.target.closest('#massOpsBtn')){openMassOpsModal();return;}
+if(e.target.closest('#pitchBgBtn')){togglePitchBg();return;}
+if(e.target.closest('#homeTrendsBtn')){openTrendsModal();return;}
+if(e.target.closest('#homeGoalkeepersBtn')){openGoalkeepersModal();return;}
 const applyTpl=e.target.closest('[data-apply-tpl]');if(applyTpl){applyTournamentTemplate(parseInt(applyTpl.dataset.applyTpl,10));return;}
 const delTpl=e.target.closest('[data-del-tpl]');if(delTpl){deleteTemplate(parseInt(delTpl.dataset.delTpl,10));return;}
-if(e.target.id==='autoBalanceBtn'){openAutoBalanceModal();return;}
-if(e.target.id==='drawerAccentBtn'){closeDrawer();openAccentModal();return;}
-if(e.target.id==='resetAccentBtn'){applyAccent(null);document.querySelectorAll('.accent-opt').forEach(o=>o.classList.remove('selected'));return;}
+if(e.target.closest('#autoBalanceBtn')){openAutoBalanceModal();return;}
+if(e.target.closest('#drawerAccentBtn')){closeDrawer();openAccentModal();return;}
+if(e.target.closest('#resetAccentBtn')){applyAccent(null);document.querySelectorAll('.accent-opt').forEach(o=>o.classList.remove('selected'));return;}
 const accOpt=e.target.closest('.accent-opt');if(accOpt){pickAccent(parseInt(accOpt.dataset.accentIdx,10));return;}
-if(e.target.id==='emojiPickerBtn'){e.stopPropagation();toggleEmojiPicker();return;}
+if(e.target.closest('#emojiPickerBtn')){e.stopPropagation();toggleEmojiPicker();return;}
 const emoBtn=e.target.closest('[data-emoji]');if(emoBtn){insertEmoji(emoBtn.dataset.emoji);return;}
 const pinBtn=e.target.closest('[data-pin]');if(pinBtn){togglePin(pinBtn.dataset.pin);return;}
 if(e.target.closest('[data-unpin]')){unpinMessage();return;}
@@ -1768,15 +1773,17 @@ if(e.target.id==='drawerOverlay'){closeDrawer();return;}
 if(e.target.closest('#mhProfileBtn')){const u=getCurrentUser();if(u)openPlayerProfile(u);else openLoginModal();return;}
 if(e.target.closest('#mhDmBtn')){if(!getCurrentUser()){openLoginModal();return;}openDMModal(null);return;}
 if(e.target.closest('#mhThemeBtn')){toggleTheme();return;}
-if(e.target.id==='drawerSwitchTournamentBtn'){renderTournamentPicker();return;}
-if(e.target.id==='drawerCancelTournamentBtn'){openDrawer();return;}
-if(e.target.id==='drawerNewTournamentBtn'){closeDrawer();createNewTournament();return;}
+// ИСПРАВЛЕНО: closest вместо id для вложенных тегов
+if(e.target.closest('#drawerSwitchTournamentBtn')){renderTournamentPicker();return;}
+if(e.target.closest('#drawerCancelTournamentBtn')){openDrawer();return;}
+if(e.target.closest('#drawerNewTournamentBtn')){closeDrawer();createNewTournament();return;}
 const tp=e.target.closest('.tournament-pick');if(tp){switchTournament(tp.dataset.tid);closeDrawer();return;}
 const mnav=e.target.closest('.mobile-nav-item');
 if(mnav){const t=mnav.dataset.mnav;if(t==='more'){openDrawer();}else{currentTab=t;document.querySelectorAll('.nav-tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===t));if(t==='chat')markChatAsRead();render();}return;}
-if(e.target.id==='fabBtn'){currentTab='settings';document.querySelectorAll('.nav-tab').forEach(b=>b.classList.toggle('active',b.dataset.tab==='settings'));render();setTimeout(()=>{const s=document.querySelector('[data-acc="add-match"]');if(s)s.classList.add('open');},50);return;}
-if(e.target.id==='drawerNotifyBtn'){toggleNotifications();renderMobileUI();return;}
-if(e.target.id==='drawerLogoutBtn'){closeDrawer();if(getCurrentUser())logout();else openLoginModal();return;}
+if(e.target.closest('#fabBtn')){currentTab='settings';document.querySelectorAll('.nav-tab').forEach(b=>b.classList.toggle('active',b.dataset.tab==='settings'));render();setTimeout(()=>{const s=document.querySelector('[data-acc="add-match"]');if(s)s.classList.add('open');},50);return;}
+// ИСПРАВЛЕНО: closest для кнопок в drawer
+if(e.target.closest('#drawerNotifyBtn')){toggleNotifications();renderMobileUI();return;}
+if(e.target.closest('#drawerLogoutBtn')){closeDrawer();if(getCurrentUser())logout();else openLoginModal();return;}
 if(e.target.id==='applyDraftBtn'){currentTab='settings';render();setTimeout(function(){const s=document.querySelector('[data-acc="add-match"]');if(s)s.classList.add('open');restoreMatchDraft();},60);return;}
 if(e.target.id==='clearDraftBtn'){if(confirm('Очистить черновик?')){clearMatchDraft();render();}return;}
 const accH=e.target.closest('.acc-header');if(accH){const s=accH.parentElement;s.classList.toggle('open');return;}
@@ -1788,7 +1795,7 @@ if(e.target.id==='pollCreateBtn'){const q=document.getElementById('pollQuestion'
 if(e.target.id==='pollAddOptBtn'){const wrap=document.getElementById('pollOptions');const count=wrap.querySelectorAll('.poll-opt-input').length;if(count>=6){alert('Максимум 6');return;}const inp=document.createElement('input');inp.type='text';inp.className='poll-opt-input';inp.placeholder=`Вариант ${count+1}`;inp.maxLength=100;inp.style.cssText='width:100%;padding:10px;border-radius:10px;border:2px solid var(--border-soft);margin-bottom:8px;background:var(--input-bg);color:var(--text-main);';wrap.appendChild(inp);return;}
 const pcl=e.target.closest('[data-poll-close]');if(pcl){e.preventDefault();closePoll(pcl.dataset.pollClose);return;}
 const pdl=e.target.closest('[data-poll-delete]');if(pdl){e.preventDefault();deletePoll(pdl.dataset.pollDelete);return;}
-const me=e.target.closest('[data-open-match]');if(me){shareMatch(me.dataset.openMatch);return;}
+const me2=e.target.closest('[data-open-match]');if(me2){shareMatch(me2.dataset.openMatch);return;}
 if(e.target.id==='h2hBtn'){const a=document.getElementById('h2hTeamA').value,b=document.getElementById('h2hTeamB').value;if(a===b){alert('Разные команды');return;}openH2HModal(a,b);return;}
 if(e.target.id==='predictBtn'){const a=document.getElementById('h2hTeamA').value,b=document.getElementById('h2hTeamB').value;if(a===b){alert('Разные команды');return;}openPredictionModal(a,b);return;}
 if(e.target.id==='homeAwardsBtn'||e.target.id==='adminAwardsBtn'){openAwardsModal();return;}
