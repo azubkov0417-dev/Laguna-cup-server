@@ -2908,10 +2908,11 @@ const syncEditScore=()=>{
 };
 
 const editModal=document.getElementById('editMatchModal');
-editModal.addEventListener('change', syncEditScore);
-editModal.addEventListener('click', e=>{
+// Заменяем обработчики через onchange/onclick, чтобы не накапливать слушатели
+editModal.onchange = syncEditScore;
+editModal.onclick = function(e){
   if(e.target.closest('.remove-goal')){ setTimeout(syncEditScore, 0); }
-});
+};
 
 setTimeout(syncEditScore, 0);
 
@@ -2927,8 +2928,8 @@ document.getElementById('editAddSubA').onclick=()=>{const r=document.createEleme
 document.getElementById('editAddSubB').onclick=()=>{const r=document.createElement('div');r.className='sub-row';r.innerHTML=buildSubRowInner(m.teamB,null,null);document.getElementById('editSubsB').appendChild(r);};
 document.getElementById('editAddGoalA').onclick=()=>{const r=document.createElement('div');r.className='goal-row';r.innerHTML=buildGoalRowHtml(null,null,pA);document.getElementById('editGoalsA').appendChild(r);r.querySelector('.remove-goal').onclick=function(){r.remove();setTimeout(syncEditScore,0);};};
 document.getElementById('editAddGoalB').onclick=()=>{const r=document.createElement('div');r.className='goal-row';r.innerHTML=buildGoalRowHtml(null,null,pB);document.getElementById('editGoalsB').appendChild(r);r.querySelector('.remove-goal').onclick=function(){r.remove();setTimeout(syncEditScore,0);};};
-document.getElementById('editAddOwnGoalA').onclick=()=>{const r=document.createElement('div');r.className='goal-row own-goal-row';r.innerHTML=buildOwnGoalRowHtml(null,pA);document.getElementById('editOwnGoalsA').appendChild(r);r.querySelector('.remove-goal').onclick=function(){r.remove();setTimeout(syncEditScore,0);};};
-document.getElementById('editAddOwnGoalB').onclick=()=>{const r=document.createElement('div');r.className='goal-row own-goal-row';r.innerHTML=buildOwnGoalRowHtml(null,pB);document.getElementById('editOwnGoalsB').appendChild(r);r.querySelector('.remove-goal').onclick=function(){r.remove();setTimeout(syncEditScore,0);};};
+document.getElementById('editAddOwnGoalA').onclick=()=>{const r=document.createElement('div');r.className='goal-row own-goal-row';r.innerHTML=buildOwnGoalRowHtml(null,pA);document.getElementById('editOwnGoalsA').appendChild(r);r.querySelector('.remove-goal').onclick=function(){r.remove();setTimeout(syncEditScore,0);};setTimeout(syncEditScore,0);};
+document.getElementById('editAddOwnGoalB').onclick=()=>{const r=document.createElement('div');r.className='goal-row own-goal-row';r.innerHTML=buildOwnGoalRowHtml(null,pB);document.getElementById('editOwnGoalsB').appendChild(r);r.querySelector('.remove-goal').onclick=function(){r.remove();setTimeout(syncEditScore,0);};setTimeout(syncEditScore,0);};
 document.getElementById('cancelEditMatchBtn').onclick=()=>{document.getElementById('editMatchModal').style.display='none';};
 document.getElementById('saveEditMatchBtn').onclick=()=>saveEditedMatch(m.id);
 }
@@ -2937,7 +2938,6 @@ function saveEditedMatch(mid){
   if(!requireMatchRights())return;
   const m=appData.matches.find(x=>x.id===mid);if(!m)return;
   const ta=getTeamById(m.teamA),tb=getTeamById(m.teamB);if(!ta||!tb)return;
-  const sA=document.getElementById('editScoreA').value,sB=document.getElementById('editScoreB').value;
   const gA=document.getElementById('editGkA').value||null,gB=document.getElementById('editGkB').value||null;
   const ngA=[],ngB=[];
   document.querySelectorAll('#editGoalsA .goal-row:not(.own-goal-row)').forEach(r=>{const s=r.querySelector('.scorer-select').value,a=r.querySelector('.assist-select').value;if(s)ngA.push({scorerId:s,assistId:a||null});});
@@ -2948,9 +2948,13 @@ function saveEditedMatch(mid){
   const nsA=[],nsB=[];
   document.querySelectorAll('#editSubsA .sub-row').forEach(r=>{const o=r.querySelector('.sub-out-select').value,i=r.querySelector('.sub-in-select').value;if(o&&i)nsA.push({outId:o,inId:i});});
   document.querySelectorAll('#editSubsB .sub-row').forEach(r=>{const o=r.querySelector('.sub-out-select').value,i=r.querySelector('.sub-in-select').value;if(o&&i)nsB.push({outId:o,inId:i});});
+  // 👇 Счёт пересчитывается из голов и автоголов (не доверяем полям sA/sB)
   const finalA=ngA.length+noB.length;
   const finalB=ngB.length+noA.length;
-  if(finalA!==parseInt(sA,10)||finalB!==parseInt(sB,10)){alert('Голы не совпадают со счётом');return;}
+  const sAEl=document.getElementById('editScoreA');
+  const sBEl=document.getElementById('editScoreB');
+  if(sAEl) sAEl.value = finalA;
+  if(sBEl) sBEl.value = finalB;
   const od=`${ta.name} ${m.scoreA}:${m.scoreB} ${tb.name}`;
   m.scoreA=String(finalA);m.scoreB=String(finalB);
   m.goalsA=ngA;m.goalsB=ngB;
@@ -3511,4 +3515,4 @@ init();
 })();
 </script>
 </body>
-                                                                                                                                                                                                                                                                                                                                                                                                      </html>
+  </html>
