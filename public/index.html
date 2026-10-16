@@ -433,7 +433,7 @@ input,select,textarea{font-size:16px !important;}
 <div class="user-box"><div id="userBoxContent"></div></div>
 <button class="btn btn-secondary" id="notifyBtn"></button>
 
-<!-- ✅ ПАТЧ 4: сайдбар — селектор Сезона и Тура -->
+<!-- ✅ ПАТЧ 4: Сезон + Тур в сайдбаре -->
 <div class="tournament-selector">
 <label style="color:#fff;font-weight:600;">Сезон:</label>
 <select id="seasonSelect"></select>
@@ -520,7 +520,7 @@ const LAST_NOTIFIED_MSG_KEY='laguna_last_notified_msg',BACKUP_PREFIX='laguna_bac
 const AUDIT_KEY='__audit__',DM_KEY='__dm__',POLLS_KEY='__polls__',ANON_VOTE_KEY='__anon_vote__',DM_LAST_READ_KEY='laguna_dm_last_read';
 const TEMPLATES_KEY='__templates__',PHOTOS_KEY='__photos__';
 
-// ✅ ПАТЧ 1: константы сезонов
+// ⭐ СЕЗОНЫ: константы
 const SEASONS_KEY='__seasons__',CURRENT_SEASON_KEY='laguna_current_season';
 
 const SYSTEM_USER='🔔 Система';
@@ -542,21 +542,14 @@ function getFormatLabel(f){return getFormatInfo(f).name;}
 function getRosterLimit(tid){return getFormatInfo(getTournamentFormat(tid)).rosterLimit;}
 
 /* ============================================================
-   ⭐ СЕЗОНЫ: НОВЫЕ ФУНКЦИИ (вставлены ПЕРЕД _getTournamentsByFormat)
+   ⭐ СЕЗОНЫ: 7 новых функций
    ============================================================ */
-// ✅ ПАТЧ 3.1: фильтр по формату, но только внутри сезона
 function _getSeasonToursByFormat(filter){const seasonTours=getCurrentSeasonTours();if(!filter||filter==='all')return seasonTours;return seasonTours.filter(t=>(t.format||'5x3')===filter);}
-// ✅ ПАТЧ 3.2: получить все сезоны
 function getSeasons(){if(!serverState.data[SEASONS_KEY])serverState.data[SEASONS_KEY]=[];return serverState.data[SEASONS_KEY];}
-// ✅ ПАТЧ 3.3: текущий сезон
 function getCurrentSeason(){return getSeasons().find(s=>s.id===currentSeasonId)||null;}
-// ✅ ПАТЧ 3.4: туры текущего сезона
 function getCurrentSeasonTours(){if(!currentSeasonId)return tournamentsList.slice();return tournamentsList.filter(t=>t.seasonId===currentSeasonId);}
-// ✅ ПАТЧ 3.5: создать «Сезон 1», если сезонов нет; привязать все турниры; вернуть true, если были изменения
 function ensureSeasons(){const S=getSeasons();if(!S.length){const s={id:'season_'+generateId(),name:'Сезон 1',createdAt:new Date().toISOString(),createdBy:getCurrentUser()||''};S.push(s);currentSeasonId=s.id;localStorage.setItem(CURRENT_SEASON_KEY,s.id);tournamentsList.forEach(t=>{if(!t.seasonId)t.seasonId=s.id;});if(tournamentsList.length&&!currentTournamentId)currentTournamentId=tournamentsList[0].id;return true;}if(!currentSeasonId||!S.some(x=>x.id===currentSeasonId)){currentSeasonId=S[0].id;localStorage.setItem(CURRENT_SEASON_KEY,currentSeasonId);}let changed=false;tournamentsList.forEach(t=>{if(!t.seasonId){t.seasonId=currentSeasonId;changed=true;}});return changed;}
-// ✅ ПАТЧ 3.6: переключение сезона
 function switchSeason(id){currentSeasonId=id;localStorage.setItem(CURRENT_SEASON_KEY,id);const tours=getCurrentSeasonTours();if(tours.length){if(!tours.some(t=>t.id===currentTournamentId)){currentTournamentId=tours[0].id;loadTournamentData(currentTournamentId);}}else{currentTournamentId=null;appData=emptyTournament();}updateTournamentSelect();render();}
-// ✅ ПАТЧ 3.7: модалка создания сезона
 function openNewSeasonModal(){if(!requireAdmin('создавать сезоны'))return;const m=document.createElement('div');m.className='modal-overlay';m.style.display='flex';m.innerHTML='<div class="modal" style="max-width:440px;"><button class="close-btn">&times;</button><h2>🏆 Новый сезон</h2><label style="font-weight:700;display:block;margin-bottom:6px;">Название:</label><input type="text" id="newSeasonName" value="Сезон '+(getSeasons().length+1)+'" style="width:100%;padding:12px;border-radius:12px;border:2px solid var(--border-soft);margin-bottom:18px;background:var(--input-bg);color:var(--text-main);font-size:1rem;"><button class="btn btn-primary" id="createSeasonConfirm" style="width:100%;justify-content:center;margin:0;">Создать</button></div>';document.body.appendChild(m);const close=()=>m.remove();m.querySelector('.close-btn').onclick=close;m.addEventListener('click',e=>{if(e.target===m)close();});const inp=m.querySelector('#newSeasonName');setTimeout(()=>{inp.focus();inp.select();},50);m.querySelector('#createSeasonConfirm').onclick=()=>{const n=(inp.value||'').trim();if(!n){alert('Введите название');return;}const s={id:'season_'+generateId(),name:n,createdAt:new Date().toISOString(),createdBy:getCurrentUser()||''};getSeasons().push(s);currentSeasonId=s.id;localStorage.setItem(CURRENT_SEASON_KEY,s.id);currentTournamentId=null;appData=emptyTournament();audit('season','create',n);close();scheduleSave();updateTournamentSelect();render();alert('✅ Сезон «'+n+'» создан');};}
 /* ============================================================
    ⭐ КОНЕЦ БЛОКА СЕЗОНОВ
@@ -570,7 +563,7 @@ let serverState={tournaments:[],data:{},playersDb:[],version:0};
 let appData={teams:[],matches:[],players:[],votes:{},changeLog:[]};
 let currentTournamentId=null,tournamentsList=[],playersDatabase=[],knownVersion=0;
 
-// ✅ ПАТЧ 2: текущий сезон
+// ⭐ СЕЗОНЫ: текущий сезон
 let currentSeasonId=null;
 
 let saveTimer=null,syncInFlight=false,hasUnsavedChanges=false,lastSaveTime=0;
@@ -740,19 +733,13 @@ scheduleSave();audit('auth','register',name);return{error:'⏳ Заявка от
 function logout(){if(!confirm('Выйти?'))return;audit('auth','logout',getCurrentUser());setCurrentUser('');renderUserBox();renderGuestBanner();renderNavTabs();renderMobileUI();render();alert('👋 Вы вышли');}
 function renderUserBox(){const el=document.getElementById('userBoxContent');if(!el)return;const u=getCurrentUser();if(u){const init=u.charAt(0).toUpperCase(),adm=isAdmin(u),ass=!adm&&getAssigners().includes(u);el.innerHTML=`<div class="user-name" data-open-own-profile="1" style="cursor:pointer;" title="Открыть профиль">${adm?'<span class="admin-crown">👑</span>':(ass?'🎯':'')}<span class="user-avatar">${escapeHtml(init)}</span> ${escapeHtml(u)}${adm?' <span style="font-size:0.7rem;color:#f5a623;">(админ)</span>':(ass?' <span style="font-size:0.7rem;color:#f5a623;">(назначает)</span>':'')}</div><button class="btn btn-secondary btn-sm" id="logoutBtn" style="width:100%;justify-content:center;margin:0;padding:6px;">Выйти</button>`;}else{el.innerHTML=`<button class="btn btn-primary btn-sm" id="openLoginBtn" style="width:100%;justify-content:center;margin:0;padding:8px;">👤 Войти / Регистрация</button>`;}}
 function renderGuestBanner(){const w=document.getElementById('guestBannerWrap');if(!w)return;if(getCurrentUser()){w.innerHTML='';return;}w.innerHTML=`<div class="guest-banner"><span class="g-emoji">👀</span><span class="g-text"><strong>Режим просмотра.</strong> Войдите, чтобы вносить изменения.</span><button class="btn btn-primary btn-sm" id="openLoginBtnBanner" style="margin:0;">👤 Войти</button></div>`;}
-
-// ✅ ПАТЧ (небольшой): текст баннера учитывает сезоны
 function renderNoTournamentBanner(){const w=document.getElementById('noTournamentBannerWrap');if(!w)return;if(currentTournamentId){w.innerHTML='';return;}const adm=isCurrentUserAdmin();const hasSeasons=getSeasons().length>0;let msg;if(!hasSeasons){msg=adm?'Создайте <b>сезон</b> и <b>тур</b> кнопками в сайдбаре.':'Турниров ещё нет.';}else{msg=adm?'В этом сезоне нет туров. Создайте тур кнопкой «➕ Тур».':'Подача заявок откроется после создания тура.';}w.innerHTML=`<div class="no-tournament-banner"><span class="nt-emoji">⏳</span><span class="nt-text"><strong>Активного тура нет.</strong> ${msg}</span></div>`;}
-
 function renderNavTabs(){const c=document.getElementById('navTabsContainer');const adm=isCurrentUserAdmin();const old=c.querySelector('.admin-tab');if(old)old.remove();if(adm){const b=document.createElement('button');b.className='nav-tab admin-tab';b.dataset.tab='admin';const pc=getPending().length;b.innerHTML=`<span>👑</span> Админ${pc>0?`<span class="admin-badge">${pc}</span>`:''}`;if(currentTab==='admin')b.classList.add('active');c.appendChild(b);}if(currentTab==='admin'&&!adm)currentTab='home';}
 function renderMobileUI(){
 try{
 const mhTitle=document.getElementById('mhTitle');
 const mhProfile=document.getElementById('mhProfileBtn');
-
-// ✅ ПАТЧ (небольшой): в шапке мобильной — «Сезон · Тур»
 if(mhTitle){const t=tournamentsList.find(x=>x.id===currentTournamentId);const s=getCurrentSeason();const tt=s?s.name+(t?' · '+t.name:''):(t?t.name:'ЛАГУНА CUP');mhTitle.textContent='🏆 '+tt;}
-
 if(mhProfile){
 const u=getCurrentUser();
 const uValid=u&&playersDatabase.includes(u);
@@ -775,8 +762,6 @@ const mb=document.getElementById('mobileChatBtn');if(mb)mb.classList.toggle('has
 }catch(e){console.error('renderMobileUI error:',e);}
 }
 function openLoginModal(){document.getElementById('loginName').value='';document.getElementById('loginPassword').value='';document.getElementById('loginError').style.display='none';document.getElementById('loginModal').style.display='flex';setTimeout(()=>document.getElementById('loginName').focus(),100);}
-
-// ✅ ПАТЧ 5: updateTournamentSelect — селектор сезона + селектор тура внутри сезона
 function updateTournamentSelect(){
 const ss=document.getElementById('seasonSelect');
 if(ss){
@@ -790,7 +775,6 @@ const tours=getCurrentSeasonTours();
 if(!tours.length){s.innerHTML='<option value="">--- нет туров ---</option>';return;}
 s.innerHTML=tours.map(t=>`<option value="${t.id}" ${t.id===currentTournamentId?'selected':''}>${escapeHtml(t.name)} --- ${getFormatLabel(t.format)}</option>`).join('');
 }
-
 function calculateTable(){const tb={};appData.teams.forEach(t=>{tb[t.id]={id:t.id,name:t.name,color:t.color||'#1e2a1e',games:0,wins:0,draws:0,losses:0,goalsFor:0,goalsAgainst:0,points:0};});appData.matches.forEach(m=>{const a=tb[m.teamA],b=tb[m.teamB];if(!a||!b)return;const sa=parseInt(m.scoreA,10)||0,sb=parseInt(m.scoreB,10)||0;a.games++;b.games++;a.goalsFor+=sa;a.goalsAgainst+=sb;b.goalsFor+=sb;b.goalsAgainst+=sa;if(sa>sb){a.wins++;b.losses++;a.points+=3;}else if(sa<sb){b.wins++;a.losses++;b.points+=3;}else{a.draws++;b.draws++;a.points++;b.points++;}});const arr=Object.values(tb);arr.sort((a,b)=>b.points-a.points||(b.goalsFor-b.goalsAgainst)-(a.goalsFor-a.goalsAgainst)||b.goalsFor-a.goalsFor||a.name.localeCompare(b.name));return arr;}
 function aggregateAllPlayers(T){
 T = T || tournamentsList;
@@ -894,8 +878,6 @@ function calcTeamRating(tid,d){const p=(d.players||[]).filter(x=>x.teamId===tid)
 function getRatingStyle(r){if(r>=75)return{border:'#f5a623',bg:'linear-gradient(135deg,#fff8e1 0%,#ffeaa7 100%)',color:'#b87333',shadow:'rgba(245,166,35,0.35)',medal:'🥇',label:'Золото'};if(r>=35)return{border:'#a8a8a8',bg:'linear-gradient(135deg,#f8f8f8 0%,#d0d0d0 100%)',color:'#4a4a4a',shadow:'rgba(168,168,168,0.35)',medal:'🥈',label:'Серебро'};return{border:'#cd7f32',bg:'linear-gradient(135deg,#fbe9d7 0%,#e8b98a 100%)',color:'#7a4a1a',shadow:'rgba(205,127,50,0.35)',medal:'🥉',label:'Бронза'};}
 function getTeamForm(teamId,n){n=n||5;return appData.matches.filter(m=>m.teamA===teamId||m.teamB===teamId).sort((a,b)=>(b.id>a.id?1:-1)).slice(0,n).map(m=>{const isA=m.teamA===teamId;const sa=parseInt(m.scoreA,10)||0,sb=parseInt(m.scoreB,10)||0;const my=isA?sa:sb,opp=isA?sb:sa;if(my>opp)return'W';if(my<opp)return'L';return'D';});}
 function renderFormBadges(form){if(!form.length)return'<span style="color:#9aab9a;font-size:0.8rem;">---</span>';return`<span class="form-row">${form.map(f=>`<span class="form-badge ${f}" title="${f==='W'?'Победа':f==='D'?'Ничья':'Поражение'}">${f==='W'?'В':f==='D'?'Н':'П'}</span>`).join('')}</span>`;}
-
-// ✅ ПАТЧ 13: хлебные крошки с сезоном
 function renderBreadcrumbs(){
 const wrap=document.getElementById('breadcrumbsWrap');if(!wrap)return;
 const labels={home:'Главная',settings:'Настройки',combinedHistory:'История',players:'База игроков',stats:'Статистика',overall:'Общий рейтинг',records:'Рекорды',chat:'Чат',admin:'Админ-панель',dm:'Личные'};
@@ -908,8 +890,6 @@ const t=tournamentsList.find(x=>x.id===currentTournamentId);
 if(t){h+=`<span class="sep">›</span><span>${escapeHtml(t.name)}${t.format?' <span class="format-badge">'+getFormatLabel(t.format)+'</span>':''}</span>`;}
 h+=`</div>`;wrap.innerHTML=h;
 }
-
-// ✅ ПАТЧ 10.1: рекорды/зал славы — по турам текущего сезона
 function openHallModal(){
 const T=_getSeasonToursByFormat(recordsFormatFilter);
 const allT=T.length;
@@ -938,11 +918,55 @@ document.getElementById('hallModal').style.display='flex';
 }
 function openH2HModal(teamAId,teamBId){const teamA=getTeamById(teamAId),teamB=getTeamById(teamBId);if(!teamA||!teamB)return;const matches=appData.matches.filter(m=>(m.teamA===teamAId&&m.teamB===teamBId)||(m.teamA===teamBId&&m.teamB===teamAId)).sort((a,b)=>(b.id>a.id?1:-1));let winsA=0,winsB=0,draws=0,gfA=0,gfB=0;matches.forEach(m=>{const aIsA=m.teamA===teamAId;const sa=parseInt(m.scoreA,10)||0,sb=parseInt(m.scoreB,10)||0;const myA=aIsA?sa:sb,myB=aIsA?sb:sa;gfA+=myA;gfB+=myB;if(myA>myB)winsA++;else if(myA<myB)winsB++;else draws++;});const cA=getTeamColor(teamA),cB=getTeamColor(teamB);let h=`<h2>⚔️ История встреч</h2><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:16px;"><div style="font-weight:800;color:${escapeHtml(cA)};font-size:1.05rem;">${escapeHtml(teamA.name)}</div><div style="font-weight:700;color:var(--text-light);">vs</div><div style="font-weight:800;color:${escapeHtml(cB)};font-size:1.05rem;text-align:right;">${escapeHtml(teamB.name)}</div></div><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px;"><div class="tournament-stat-box"><div class="label">Всего</div><div class="value">${matches.length}</div></div><div class="tournament-stat-box"><div class="label">Победы</div><div class="value">${winsA} : ${winsB}</div></div><div class="tournament-stat-box"><div class="label">Ничьи</div><div class="value">${draws}</div></div><div class="tournament-stat-box"><div class="label">Голы</div><div class="value">${gfA} : ${gfB}</div></div></div>`;if(!matches.length)h+=`<p style="text-align:center;color:#9aab9a;padding:20px 0;">Матчей пока не было.</p>`;else{h+=`<h4 style="margin-bottom:10px;">Все матчи:</h4>`;matches.forEach(m=>{const t1=getTeamById(m.teamA),t2=getTeamById(m.teamB);if(!t1||!t2)return;const date=getMatchTime(m);h+=`<div class="h2h-match"><span class="h2h-team" style="color:${escapeHtml(getTeamColor(t1))};">${escapeHtml(t1.name)}</span><span class="h2h-score">${m.scoreA} : ${m.scoreB}</span><span class="h2h-team right" style="color:${escapeHtml(getTeamColor(t2))};">${escapeHtml(t2.name)}</span>${date?`<span class="h2h-date">${fmtShort(date)}</span>`:''}</div>`;});}document.getElementById('h2hContent').innerHTML=h;document.getElementById('h2hModal').style.display='flex';}
 function renderBarChart(title,data,opts){opts=opts||{};if(!data.length)return'';const W=500,H=200,pad=30;const max=Math.max(...data.map(d=>d.value),1);const barW=(W-pad*2)/data.length*0.7;const gap=(W-pad*2)/data.length*0.3;let svg=`<svg viewBox="0 0 ${W} ${H+30}" preserveAspectRatio="xMidYMid meet" style="width:100%;height:auto;max-height:230px;">`;data.forEach((d,i)=>{const x=pad+i*(barW+gap);const h=(H-pad*2)*(d.value/max);const y=H-pad-h;const color=opts.color||'#2e9e44';svg+=`<rect x="${x}" y="${y}" width="${barW}" height="${h}" rx="6" fill="${color}"/>`;svg+=`<text x="${x+barW/2}" y="${y-6}" text-anchor="middle" font-size="12" font-weight="700" fill="#1e2a1e">${d.value}</text>`;svg+=`<text x="${x+barW/2}" y="${H-pad+18}" text-anchor="middle" font-size="11" fill="#7a8a7a">${escapeHtml(d.label.substring(0,10))}</text>`;});svg+=`</svg>`;return`<div class="chart-container"><h4>${title}</h4>${svg}</div>`;}
-function renderLineChart(title,series){if(!series.length||!series[0].points.length)return'';const W=600,H=220,pad=30;const allVals=series.flatMap(s=>s.points.map(p=>p.y));const max=Math.max(...allVals,1),min=Math.min(...allVals,0);const range=Math.max(max-min,1);const n=series[0].points.length;const colors=['#2e9e44','#4a90d9','#f5a623','#e74c3c','#9b59b6'];let svg=`<svg viewBox="0 0 ${W} ${H+30}" preserveAspectRatio="xMidYMid meet" style="width:100%;height:auto;max-height:250px;">`;series.forEach((s,si)=>{const color=colors[si%colors.length];let d='';s.points.forEach((p,i)=>{const x=pad+(i/Math.max(n-1,1))*(W-pad*2);const y=H-pad-((p.y-min)/range)*(H-pad*2);d+=(i===0?'M':'L')+x+','+y+' ';});svg+=`<path d="${d}" fill="none" stroke="${color}" stroke-width="3" stroke-linejoin="round"/>`;s.points.forEach((p,i)=>{const x=pad+(i/Math.max(n-1,1))*(W-pad*2);const y=H-pad-((p.y-min)/range)*(H-pad*2);svg+=`<circle cx="${x}" cy="${y}" r="4" fill="${color}"/>`;});});series[0].points.forEach((p,i)=>{const x=pad+(i/Math.max(n-1,1))*(W-pad*2);svg+=`<text x="${x}" y="${H-pad+18}" text-anchor="middle" font-size="10" fill="#7a8a7a">${escapeHtml(p.x)}</text>`;});svg+=`</svg>`;const legend=series.map((s,i)=>`<span style="display:inline-flex;align-items:center;gap:4px;margin-right:12px;font-size:0.8rem;"><span style="width:12px;height:12px;background:${colors[i%colors.length]};border-radius:3px;"></span>${escapeHtml(s.name)}</span>`).join('');return`<div class="chart-container"><h4>${title}</h4><div style="margin-bottom:8px;">${legend}</div>${svg}</div>`;}
 function renderChartsSection(){if(!currentTournamentId)return'';let h=`<h3 style="margin:25px 0 12px;">📊 Графики</h3>`;const scorers=[];appData.players.forEach(p=>{const st=getComputedPlayerStats(p.name,appData);if(st.matchesPlayed>0&&st.goals>0)scorers.push({label:p.name,value:st.goals});});scorers.sort((a,b)=>b.value-a.value);if(scorers.length)h+=renderBarChart('⚽ Топ-бомбардиры',scorers.slice(0,8),{color:'#2e9e44'});const assisters=[];appData.players.forEach(p=>{const st=getComputedPlayerStats(p.name,appData);if(st.matchesPlayed>0&&st.assists>0)assisters.push({label:p.name,value:st.assists});});assisters.sort((a,b)=>b.value-a.value);if(assisters.length)h+=renderBarChart('🎯 Топ-ассистенты',assisters.slice(0,8),{color:'#4a90d9'});return h;}
 function applyStatsFilters(list){let r=list;if(statsFilterTeam!=='all')r=r.filter(p=>p.teamId===statsFilterTeam);if(statsFilterMin>1)r=r.filter(p=>getComputedPlayerStats(p.name,appData).matchesPlayed>=statsFilterMin);return r;}
 function renderStatsFilters(){let h=`<div class="stats-filters">`;h+=`<label>Команда:</label><select id="statsFilterTeamSelect"><option value="all">Все</option>${appData.teams.map(t=>`<option value="${t.id}" ${statsFilterTeam===t.id?'selected':''}>${escapeHtml(t.name)}</option>`).join('')}</select>`;h+=`<label>Мин. матчей:</label><input type="number" id="statsFilterMinInput" min="1" value="${statsFilterMin}" style="width:70px;">`;h+=`<button class="btn btn-secondary btn-sm" id="statsResetFilters">↺ Сбросить</button>`;h+=`</div>`;return h;}
 function renderFormatFilter(id,current){return `<div class="stats-filters" style="margin-bottom:12px;"><label>Формат:</label><select id="${id}"><option value="all" ${current==='all'?'selected':''}>Все</option>${FORMATS.map(f=>`<option value="${f.id}" ${current===f.id?'selected':''}>${f.name} --- ${f.desc}</option>`).join('')}</select></div>`;}
+
+/* ============================================================
+   ✅ ПАТЧ 1: renderStatsTab — возвращена пропущенная функция
+   ============================================================ */
+function renderStatsTab(){
+if(!currentTournamentId)return'';
+let h=`<div class="panel-title"><span class="icon">📊</span> Статистика</div>`;
+h+=renderStatsFilters();
+h+=renderFormatFilter('statsFormatFilterSelect',statsFormatFilter);
+h+=`<div class="sub-tabs"><button class="sub-tab ${statsSubTab==='rating'?'active':''}" data-subtab="rating">⭐ Рейтинг</button><button class="sub-tab ${statsSubTab==='mvp'?'active':''}" data-subtab="mvp">🏅 MVP</button><button class="sub-tab ${statsSubTab==='bombardiers'?'active':''}" data-subtab="bombardiers">⚽ Голы</button><button class="sub-tab ${statsSubTab==='assists'?'active':''}" data-subtab="assists">🎯 Пасы</button><button class="sub-tab ${statsSubTab==='goalkeepers'?'active':''}" data-subtab="goalkeepers">🧤 Вратари</button><button class="sub-tab ${statsSubTab==='votes'?'active':''}" data-subtab="votes">🗳️ Голоса</button><button class="sub-tab ${statsSubTab==='bestteam'?'active':''}" data-subtab="bestteam">🏆 Команда</button></div>`;
+const tb=(rows,heads)=>{let t=`<div class="table-container"><table><thead><tr>`;heads.forEach(x=>t+=`<th>${x}</th>`);t+=`</tr></thead><tbody>`;rows.forEach((r,i)=>{t+=`<tr class="${i===0?'highlight-row':''}">`;r.forEach(c=>{t+=`<td>${c}</td>`;});t+=`</tr>`;});t+=`</tbody></table></div>`;return t;};
+const filteredPlayers=applyStatsFilters(appData.players);
+if(statsSubTab==='rating'){
+const withStats=filteredPlayers.map(p=>({p,st:getComputedPlayerStats(p.name,appData),rating:calcRatingForPlayerInTournament(p.name,appData)})).filter(x=>x.st.matchesPlayed>0).sort((a,b)=>b.rating-a.rating||b.st.goals-a.st.goals||a.p.name.localeCompare(b.p.name));
+if(!withStats.length)h+=`<p>Нет данных</p>`;
+else h+=tb(withStats.map((x,i)=>{const rs=getRatingStyle(x.rating);return[i+1+(i===0?' '+rs.medal:''),escapeHtml(x.p.name),`<strong style="color:${rs.color};">${x.rating} ${rs.medal}</strong>`,renderTrendBadge(x.p.name)];}),['#','Игрок','Рейтинг','Тренд']);
+}else if(statsSubTab==='mvp'){
+const withStats=filteredPlayers.map(p=>({p,st:getComputedPlayerStats(p.name,appData)})).filter(x=>x.st.matchesPlayed>0).sort((a,b)=>(b.st.goals+b.st.assists)-(a.st.goals+a.st.assists)||b.st.goals-a.st.goals||a.p.name.localeCompare(b.p.name));
+if(!withStats.length)h+=`<p>Нет данных</p>`;
+else h+=tb(withStats.map((x,i)=>[i+1+(i===0?' 👑':''),escapeHtml(x.p.name),`<strong>${x.st.goals+x.st.assists}</strong>`,x.st.assists,x.st.goals]),['#','Игрок','MVP','Пасы','Голы']);
+}else if(statsSubTab==='bombardiers'){
+const withStats=filteredPlayers.map(p=>({p,st:getComputedPlayerStats(p.name,appData)})).filter(x=>x.st.matchesPlayed>0).sort((a,b)=>b.st.goals-a.st.goals);
+if(!withStats.length)h+=`<p>Нет данных</p>`;
+else h+=tb(withStats.map((x,i)=>[i+1,escapeHtml(x.p.name),x.st.goals,x.st.matchesPlayed]),['#','Игрок','Голы','Матчи']);
+}else if(statsSubTab==='assists'){
+const withStats=filteredPlayers.map(p=>({p,st:getComputedPlayerStats(p.name,appData)})).filter(x=>x.st.matchesPlayed>0).sort((a,b)=>b.st.assists-a.st.assists);
+if(!withStats.length)h+=`<p>Нет данных</p>`;
+else h+=tb(withStats.map((x,i)=>[i+1,escapeHtml(x.p.name),x.st.assists,x.st.matchesPlayed]),['#','Игрок','Пасы','Матчи']);
+}else if(statsSubTab==='goalkeepers'){
+const withStats=filteredPlayers.map(p=>({p,st:getComputedPlayerStats(p.name,appData)})).filter(x=>x.st.goalkeeperMatches>0).map(x=>({...x,avg:x.st.goalsConceded/x.st.goalkeeperMatches,rating:calcGoalkeeperRating(x.st)})).sort((a,b)=>b.rating-a.rating);
+if(!withStats.length)h+=`<p>Нет данных</p>`;
+else{let t=`<div class="table-container"><table><thead><tr><th>#</th><th>Вратарь</th><th>Матчи</th><th>Проп.</th><th>Сухие</th><th>Ср.</th><th>Рейтинг</th></tr></thead><tbody>`;withStats.forEach((x,i)=>{const color=getGoalkeeperRatingColor(x.rating);const medal=i===0?'🥇':(i===1?'🥈':(i===2?'🥉':''));t+=`<tr class="${i===0?'highlight-row':''}"><td>${i+1} ${medal}</td><td>${escapeHtml(x.p.name)}</td><td>${x.st.goalkeeperMatches}</td><td>${x.st.goalsConceded}</td><td>${x.st.cleanSheets}</td><td>${x.avg.toFixed(2)}</td><td><strong style="color:${color};">${x.rating}</strong></td></tr>`;});t+=`</tbody></table></div>`;h+=t;}
+}else if(statsSubTab==='votes'){
+const v=appData.votes||{};let tv=0;Object.keys(v).forEach(k=>{const x=v[k];if(typeof x==='number'&&x>0)tv+=x;});
+const s=[...filteredPlayers].sort((a,b)=>(v[b.name]||0)-(v[a.name]||0)||a.name.localeCompare(b.name));
+if(!s.length||tv===0)h+=`<p>Нет голосов.</p>`;
+else h+=tb(s.map((p,i)=>{const x=v[p.name]||0;return[i+1+(i===0&&x>0?' 👑':''),escapeHtml(p.name),(tv>0?Math.round(x/tv*100):0)+'%',x];}),['#','Игрок','%','Голоса']);
+}else{
+const t=appData.teams.map(x=>{const p=appData.players.filter(y=>y.teamId===x.id);const a=p.length?Math.round(p.reduce((s,y)=>s+calcRatingForPlayerInTournament(y.name,appData),0)/p.length):0;return{name:x.name,color:x.color,cnt:p.length,rating:a,players:p.map(y=>y.name)};}).filter(x=>x.cnt>0).sort((a,b)=>b.rating-a.rating);
+if(!t.length)h+=`<p>Нет данных</p>`;
+else{let tt=`<div class="table-container"><table><thead><tr><th>#</th><th>Команда</th><th>Рейтинг</th><th>Состав</th></tr></thead><tbody>`;t.forEach((x,i)=>{const rs=getRatingStyle(x.rating);tt+=`<tr class="${i===0?'highlight-row':''}"><td>${i+1} ${i===0?rs.medal:''}</td><td><span style="color:${escapeHtml(x.color||'#1e2a1e')};font-weight:700;">${escapeHtml(x.name)}</span></td><td><strong style="color:${rs.color};">${x.rating} ${rs.medal}</strong></td><td style="text-align:left;">${renderPlayerChips(x.players)}</td></tr>`;});tt+=`</tbody></table></div>`;h+=tt;}
+}
+h+=renderChartsSection();return h;
+}
+
 function getChatMessages(){if(!serverState.data[CHAT_KEY])serverState.data[CHAT_KEY]=[];return serverState.data[CHAT_KEY];}
 function getLastReadTime(){return localStorage.getItem(CHAT_LAST_READ_KEY)||'1970-01-01T00:00:00.000Z';}
 function markChatAsRead(){localStorage.setItem(CHAT_LAST_READ_KEY,new Date().toISOString());}
@@ -1037,10 +1061,7 @@ setTimeout(()=>{const el=document.getElementById('dmThread');if(el)el.scrollTop=
 document.getElementById('dmModal').style.display='flex';
 }
 function saveToLocal(){try{localStorage.setItem(LOCAL_STATE_KEY,JSON.stringify({tournaments:serverState.tournaments||[],data:serverState.data||{},playersDb:serverState.playersDb||[]}));localStorage.setItem(LOCAL_VERSION_KEY,String(knownVersion));if(currentTournamentId)localStorage.setItem(CURRENT_TOURNAMENT_KEY,currentTournamentId);if(currentSeasonId)localStorage.setItem(CURRENT_SEASON_KEY,currentSeasonId);}catch(e){}}
-
-// ✅ ПАТЧ 6: при загрузке из localStorage — восстановить currentSeasonId
 function loadFromLocal(){try{const s=localStorage.getItem(LOCAL_STATE_KEY);if(s){const p=JSON.parse(s);serverState.tournaments=p.tournaments||[];serverState.data=p.data||{};serverState.playersDb=p.playersDb||[];knownVersion=parseInt(localStorage.getItem(LOCAL_VERSION_KEY)||'0',10);tournamentsList=serverState.tournaments;playersDatabase=serverState.playersDb;currentTournamentId=localStorage.getItem(CURRENT_TOURNAMENT_KEY)||null;currentSeasonId=localStorage.getItem(CURRENT_SEASON_KEY)||null;if(tournamentsList.length&&(!currentTournamentId||!tournamentsList.some(t=>t.id===currentTournamentId)))currentTournamentId=tournamentsList[0].id;loadTournamentData(currentTournamentId);}}catch(e){}}
-
 function setStatus(st){const el=document.getElementById('syncStatus');if(!el)return;const m={online:'🟢 Онлайн',saving:'🟡 Сохранение...',saved:'🟢 Сохранено',offline:'🔴 Нет связи',conflict:'🟠 Синхронизация...'};el.textContent=m[st]||'';}
 function scheduleSave(){hasUnsavedChanges=true;clearTimeout(saveTimer);setStatus('saving');saveToLocal();saveTimer=setTimeout(pushToServer,500);}
 async function pushToServer(){try{const real=Object.keys(serverState.data||{}).some(k=>k!==ADMINS_KEY&&k!==ASSIGNERS_KEY&&k!==CHAT_KEY&&k!==PASSWORDS_KEY&&k!==AUDIT_KEY&&k!==DM_KEY&&k!==POLLS_KEY&&k!==TEMPLATES_KEY&&k!==PHOTOS_KEY&&k!==MATCH_DRAFT_SERVER_KEY)||(serverState.tournaments&&serverState.tournaments.length>0)||(serverState.playersDb&&serverState.playersDb.length>0);if(knownVersion===0&&!real){hasUnsavedChanges=false;setStatus('online');return;}const payload={tournaments:serverState.tournaments||[],data:serverState.data||{},playersDb:serverState.playersDb||[],baseVersion:knownVersion};try{localStorage.setItem(BACKUP_PREFIX+Date.now(),JSON.stringify(payload));}catch(e){}const r=await fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(payload)});
@@ -1060,8 +1081,6 @@ function loadTournamentData(id){if(!id||!serverState.data[id]){appData=emptyTour
 function saveCurrentData(){if(currentTournamentId)serverState.data[currentTournamentId]=appData;scheduleSave();}
 function savePlayersDatabase(){serverState.playersDb=playersDatabase;scheduleSave();}
 function switchTournament(id){currentTournamentId=id;localStorage.setItem(CURRENT_TOURNAMENT_KEY,id);loadTournamentData(id);updateTournamentSelect();render();}
-
-// ✅ ПАТЧ 9: при создании тура — привязка к сезону
 function openNewTournamentModal(){
 if(!requireAdmin('создавать турниры'))return;
 if(!currentSeasonId){alert('Сначала создайте сезон');return;}
@@ -1114,6 +1133,40 @@ alert(`✅ Тур «${tn}» создан (${getFormatLabel(_newTournamentFormat)
 };
 }
 function deleteTournament(tid){if(!requireAdmin('удалять турниры'))return;const t=tournamentsList.find(x=>x.id===tid);if(!t)return;if(!confirm(`Удалить тур "${t.name}"?`))return;delete serverState.data[tid];tournamentsList=tournamentsList.filter(x=>x.id!==tid);serverState.tournaments=tournamentsList;localStorage.removeItem(VOTE_KEY_PREFIX+tid);if(currentTournamentId===tid){if(tournamentsList.length){currentTournamentId=tournamentsList[0].id;loadTournamentData(currentTournamentId);}else{currentTournamentId=null;appData=emptyTournament();}}if(!serverState.data[CHAT_KEY])serverState.data[CHAT_KEY]=[];serverState.data[CHAT_KEY].push({id:'msg_'+generateId(),playerName:SYSTEM_USER,text:`❌ Админ удалил турнир: «${t.name}»`,timestamp:new Date().toISOString(),system:true});audit('tournament','delete',t.name);scheduleSave();updateTournamentSelect();render();}
+
+/* ============================================================
+   ✅ ПАТЧ 2: функции переименования сезона и тура
+   ============================================================ */
+function renameSeason(){
+if(!requireAdmin('переименовывать сезоны'))return;
+const s=getCurrentSeason();
+if(!s){alert('Нет активного сезона');return;}
+const n=prompt('Новое название сезона:',s.name);
+if(n===null)return;
+const tn=n.trim();
+if(!tn||tn===s.name)return;
+s.name=tn;
+audit('season','rename',tn);
+scheduleSave();updateTournamentSelect();render();
+alert('✅ Сезон переименован');
+}
+function renameTournamentName(){
+if(!requireAdmin('переименовывать туры'))return;
+const t=tournamentsList.find(x=>x.id===currentTournamentId);
+if(!t){alert('Нет активного тура');return;}
+const n=prompt('Новое название тура:',t.name);
+if(n===null)return;
+const tn=n.trim();
+if(!tn||tn===t.name)return;
+t.name=tn;
+audit('tournament','rename',tn);
+scheduleSave();updateTournamentSelect();render();
+alert('✅ Тур переименован');
+}
+/* ============================================================
+   ✅ КОНЕЦ БЛОКА ПЕРЕИМЕНОВАНИЯ
+   ============================================================ */
+
 function addAssigner(n){if(!isCurrentUserAdmin()){alert('🔒 Только админ');return;}if(!playersDatabase.includes(n)){alert('Игрока нет в базе');return;}const l=getAssigners();if(l.includes(n))return;l.push(n);audit('assigner','promote',n);scheduleSave();render();}
 function removeAssigner(n){if(!isCurrentUserAdmin()){alert('🔒 Только админ');return;}const l=getAssigners();const i=l.indexOf(n);if(i>=0)l.splice(i,1);audit('assigner','demote',n);scheduleSave();render();}
 function assignTeamToPlayer(pid,tid){if(!requireTeamAssign())return;const p=appData.players.find(x=>x.id===pid);if(!p)return;p.teamId=tid||null;saveCurrentData();addChangeLog('edit',`Игроку ${p.name} назначена команда: ${tid?(getTeamById(tid)?.name||'?'):'---'}`);audit('team','assign',`${p.name}: ${tid?(getTeamById(tid)?.name||'?'):'без команды'}`);render();}
@@ -1766,8 +1819,51 @@ h+=`<div style="text-align:center;margin-top:16px;font-size:0.8rem;opacity:0.55;
 return h;
 }
 async function shareTeam(teamId){const html=_buildTeamCardHtml(teamId);if(!html)return;const team=getTeamById(teamId);const file=await captureCardToFile('team_'+team.name,()=>html);await deliverImage(file,'Команда '+team.name);}
-
-// ✅ ПАТЧ 10.3: карточка рекордов — по турам сезона
+function _buildTournamentCardHtml(tid){
+const t=tournamentsList.find(x=>x.id===tid); if(!t) return null;
+const d=getTournamentData(tid);
+const table=_calcTableForData(d);
+let h='<div style="background:#fff;color:#1e2a1e;border-radius:20px;padding:24px;">';
+h+=`<div style="text-align:center;margin-bottom:16px;">
+<div style="font-size:1.5rem;font-weight:900;">🏆 ${escapeHtml(t.name)}</div>
+<div style="font-size:0.9rem;font-weight:700;color:#7a8a7a;margin-top:4px;">Формат: ${getFormatLabel(t.format)}</div>
+${t.createdAt?`<div style="opacity:0.6;font-size:0.85rem;margin-top:4px;">📅 ${escapeHtml(fmtDate(t.createdAt))}</div>`:''}
+</div>`;
+h+=`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px;">
+${_miniStat('🎮','Матчей',(d.matches||[]).length)}
+${_miniStat('👥','Игроков',(d.players||[]).length)}
+${_miniStat('🎨','Команд',(d.teams||[]).length)}
+</div>`;
+if(table.length){
+h+=`<div style="background:#f8faf8;border-radius:12px;padding:12px 14px;border-left:4px solid #2e9e44;">
+<div style="font-weight:700;margin-bottom:8px;font-size:0.95rem;">📊 Таблица</div>
+<table style="width:100%;border-collapse:collapse;font-size:0.82rem;">
+<tr style="background:#2e9e44;color:#fff;">
+<th style="padding:6px 8px;text-align:left;">#</th>
+<th style="padding:6px 8px;text-align:left;">Команда</th>
+<th style="padding:6px 8px;">О</th>
+<th style="padding:6px 8px;">И</th>
+<th style="padding:6px 8px;">В</th>
+<th style="padding:6px 8px;">Н</th>
+<th style="padding:6px 8px;">П</th>
+</tr>`;
+table.forEach((r,i)=>{
+h+=`<tr style="${i===0?'background:#fffde7;':''}border-bottom:1px solid #eef3ee;">
+<td style="padding:6px 8px;">${i+1}</td>
+<td style="padding:6px 8px;font-weight:700;">${escapeHtml(r.name)}</td>
+<td style="padding:6px 8px;text-align:center;font-weight:800;">${r.points}</td>
+<td style="padding:6px 8px;text-align:center;">${r.games}</td>
+<td style="padding:6px 8px;text-align:center;">${r.wins}</td>
+<td style="padding:6px 8px;text-align:center;">${r.draws}</td>
+<td style="padding:6px 8px;text-align:center;">${r.losses}</td>
+</tr>`;
+});
+h+=`</table></div>`;
+}
+h+=`<div style="text-align:center;margin-top:16px;font-size:0.8rem;opacity:0.55;">🏆 ЛАГУНА CUP</div></div>`;
+return h;
+}
+async function shareTournament(tid){const html=_buildTournamentCardHtml(tid);if(!html)return;const t=tournamentsList.find(x=>x.id===tid);const file=await captureCardToFile('tour_'+t.name,()=>html);await deliverImage(file,'Тур '+t.name);}
 function _buildRecordsCardHtml(){
 const T=_getSeasonToursByFormat(recordsFormatFilter);
 const r=calcRecords();
@@ -1796,8 +1892,6 @@ h+=`<div style="text-align:center;margin-top:16px;font-size:0.8rem;opacity:0.55;
 return h;
 }
 async function shareRecords(){const html=_buildRecordsCardHtml();const file=await captureCardToFile('records',()=>html);await deliverImage(file,'Рекорды');}
-
-// ✅ ПАТЧ 10.5: карточка общего рейтинга — по турам сезона
 function _buildOverallCardHtml(){
 const T=_getSeasonToursByFormat(overallFormatFilter);
 const s=new Set();
@@ -2045,8 +2139,6 @@ if(vf)h+=`<div class="vote-footer">Ваш голос: <strong>${escapeHtml(vf)}<
 h+=`</div>`;
 return h;
 }
-
-// ✅ ПАТЧ 10.4: общий рейтинг — по турам сезона
 function renderOverallTab(){
 let h=`<div class="panel-title"><span class="icon">🏅</span> Общий рейтинг</div>`;
 h+=renderFormatFilter('overallFormatFilterSelect',overallFormatFilter);
@@ -2072,16 +2164,7 @@ if(!a.length)h+=`<p>Нет данных</p>`;else h+=tb(a.map((p,i)=>[i+1,escape
 }else if(overallSubTab==='goalkeepers'){
 const g=aggregateAllPlayers(T).filter(p=>p.goalkeeperMatches>0).map(p=>({...p,avg:p.goalsConceded/p.goalkeeperMatches,rating:calcGoalkeeperRating(p)})).sort((a,b)=>b.rating-a.rating);
 if(!g.length)h+=`<p>Нет данных</p>`;
-else{
-let t=`<div class="table-container"><table><thead><tr><th>#</th><th>Вратарь</th><th>Матчи</th><th>Проп.</th><th>Сухие</th><th>Ср.</th><th>Рейтинг</th></tr></thead><tbody>`;
-g.forEach((p,i)=>{
-const color=getGoalkeeperRatingColor(p.rating);
-const medal=i===0?'🥇':(i===1?'🥈':(i===2?'🥉':''));
-t+=`<tr class="${i===0?'highlight-row':''}"><td>${i+1} ${medal}</td><td>${escapeHtml(p.name)}</td><td>${p.goalkeeperMatches}</td><td>${p.goalsConceded}</td><td>${p.cleanSheets}</td><td>${p.avg.toFixed(2)}</td><td><strong style="color:${color};">${p.rating}</strong></td></tr>`;
-});
-t+=`</tbody></table></div>`;
-h+=t;
-}
+else{let t=`<div class="table-container"><table><thead><tr><th>#</th><th>Вратарь</th><th>Матчи</th><th>Проп.</th><th>Сухие</th><th>Ср.</th><th>Рейтинг</th></tr></thead><tbody>`;g.forEach((p,i)=>{const color=getGoalkeeperRatingColor(p.rating);const medal=i===0?'🥇':(i===1?'🥈':(i===2?'🥉':''));t+=`<tr class="${i===0?'highlight-row':''}"><td>${i+1} ${medal}</td><td>${escapeHtml(p.name)}</td><td>${p.goalkeeperMatches}</td><td>${p.goalsConceded}</td><td>${p.cleanSheets}</td><td>${p.avg.toFixed(2)}</td><td><strong style="color:${color};">${p.rating}</strong></td></tr>`;});t+=`</tbody></table></div>`;h+=t;}
 }else{
 const c={};T.forEach(t=>{const b=getBestVoted(getTournamentData(t.id));if(b)c[b.name]=(c[b.name]||0)+1;});
 const e=Object.entries(c).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0]));
@@ -2090,7 +2173,9 @@ if(!e.length)h+=`<p>Нет данных</p>`;else h+=tb(e.map(([n,k],i)=>[i+1,es
 return h;
 }
 
-// ✅ ПАТЧ: заголовок настроек + отображение туров
+/* ============================================================
+   ✅ ПАТЧ 3: кнопки переименования в Настройках
+   ============================================================ */
 function renderSettingsTab(){
 if(!currentTournamentId)return'';
 const u=getCurrentUser(),cm=canManageMatches(),ca=canAssignTeams();
@@ -2105,7 +2190,7 @@ else if(!cm)h+=`<div style="background:#fff3cd;border-radius:12px;padding:12px;c
 h+=renderDraftBadge();
 setTimeout(function(){try{if(!document.getElementById('draftBadge'))return;const s=document.querySelector('[data-acc="add-match"]');if(s)s.classList.add('open');restoreMatchDraft();}catch(e){console.error(e);}},80);
 h+=`<div class="acc-section" data-acc="add-match"><div class="acc-header">⚔️ Добавить матч</div><div class="acc-body"><div class="match-form-grid"><select id="matchTeamA"><option value="">Команда А</option>${appData.teams.map(t=>`<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('')}</select><input type="number" id="matchScoreA" min="0" value="0"><input type="number" id="matchScoreB" min="0" value="0"><select id="matchTeamB"><option value="">Команда Б</option>${appData.teams.map(t=>`<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('')}</select></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:20px;"><div><label style="font-weight:700;display:block;margin-bottom:8px;">🧤 Вратарь А</label><select id="goalkeeperA" style="width:100%;padding:12px;border-radius:12px;border:2px solid var(--border-soft);background:var(--input-bg);color:var(--text-main);"><option value="">-- нет --</option></select></div><div><label style="font-weight:700;display:block;margin-bottom:8px;">🧤 Вратарь Б</label><select id="goalkeeperB" style="width:100%;padding:12px;border-radius:12px;border:2px solid var(--border-soft);background:var(--input-bg);color:var(--text-main);"><option value="">-- нет --</option></select></div></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:20px;"><div><label style="font-weight:700;display:block;margin-bottom:8px;">🔄 Замены А</label><div id="substitutionsA" class="substitution-list"></div><button class="btn btn-secondary btn-sm" id="addSubA" style="width:100%;justify-content:center;margin-top:6px;">➕ Замена</button></div><div><label style="font-weight:700;display:block;margin-bottom:8px;">🔄 Замены Б</label><div id="substitutionsB" class="substitution-list"></div><button class="btn btn-secondary btn-sm" id="addSubB" style="width:100%;justify-content:center;margin-top:6px;">➕ Замена</button></div></div><div style="margin-top:20px;"><label style="font-weight:700;display:block;margin-bottom:8px;">⚽ Голы А</label><div id="goalsA" class="scorer-list"></div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;"><button class="btn btn-secondary btn-sm" id="addGoalA">➕ Гол А</button><button class="btn btn-secondary btn-sm" id="addOwnGoalA" style="border:2px solid #e74c3c;color:#b91c1c;">🥅 Автогол А</button></div><div id="ownGoalsA" class="scorer-list" style="margin-top:8px;"></div></div><div style="margin-top:20px;"><label style="font-weight:700;display:block;margin-bottom:8px;">⚽ Голы Б</label><div id="goalsB" class="scorer-list"></div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;"><button class="btn btn-secondary btn-sm" id="addGoalB">➕ Гол Б</button><button class="btn btn-secondary btn-sm" id="addOwnGoalB" style="border:2px solid #e74c3c;color:#b91c1c;">🥅 Автогол Б</button></div><div id="ownGoalsB" class="scorer-list" style="margin-top:8px;"></div></div><button class="btn btn-primary" id="addMatchBtn" style="margin-top:15px;width:100%;justify-content:center;">Добавить матч</button></div></div>`;
-h+=`<div class="acc-section" data-acc="tools"><div class="acc-header">🛠️ Инструменты</div><div class="acc-body"><div style="display:flex; flex-direction:column; gap:8px;"><button class="btn btn-secondary" id="autoBalanceBtn" style="width:100%; justify-content:center; margin:0;">🎲 Авто-балансировка</button><button class="btn btn-secondary" id="saveTemplateBtn" style="width:100%; justify-content:center; margin:0;">📋 Сохранить как шаблон</button><button class="btn btn-secondary" id="compareBtn" style="width:100%; justify-content:center; margin:0;">⚖️ Сравнить 2 игроков</button><button class="btn btn-secondary" id="compareMultiBtn" style="width:100%; justify-content:center; margin:0;">⚖️ Сравнить 3 игроков</button><button class="btn btn-secondary" id="hatTricksBtn" style="width:100%; justify-content:center; margin:0;">🎩 Хет-трики</button><button class="btn btn-secondary" id="averagesBtn" style="width:100%; justify-content:center; margin:0;">📈 Средние за матч</button><button class="btn btn-secondary" id="massOpsBtn" style="width:100%; justify-content:center; margin:0;">📋 Массовые операции</button><button class="btn btn-secondary" id="pitchBgBtn" style="width:100%; justify-content:center; margin:0;">🏟️ ${localStorage.getItem(PITCH_BG_KEY)==='1'?'Выключить фон поля':'Включить фон поля'}</button></div></div></div>`;
+h+=`<div class="acc-section" data-acc="tools"><div class="acc-header">🛠️ Инструменты</div><div class="acc-body"><div style="display:flex; flex-direction:column; gap:8px;"><button class="btn btn-secondary" id="renameSeasonBtn" style="width:100%; justify-content:center; margin:0;">✏️ Переименовать сезон</button><button class="btn btn-secondary" id="renameTourBtn" style="width:100%; justify-content:center; margin:0;">✏️ Переименовать тур</button><button class="btn btn-secondary" id="autoBalanceBtn" style="width:100%; justify-content:center; margin:0;">🎲 Авто-балансировка</button><button class="btn btn-secondary" id="saveTemplateBtn" style="width:100%; justify-content:center; margin:0;">📋 Сохранить как шаблон</button><button class="btn btn-secondary" id="compareBtn" style="width:100%; justify-content:center; margin:0;">⚖️ Сравнить 2 игроков</button><button class="btn btn-secondary" id="compareMultiBtn" style="width:100%; justify-content:center; margin:0;">⚖️ Сравнить 3 игроков</button><button class="btn btn-secondary" id="hatTricksBtn" style="width:100%; justify-content:center; margin:0;">🎩 Хет-трики</button><button class="btn btn-secondary" id="averagesBtn" style="width:100%; justify-content:center; margin:0;">📈 Средние за матч</button><button class="btn btn-secondary" id="massOpsBtn" style="width:100%; justify-content:center; margin:0;">📋 Массовые операции</button><button class="btn btn-secondary" id="pitchBgBtn" style="width:100%; justify-content:center; margin:0;">🏟️ ${localStorage.getItem(PITCH_BG_KEY)==='1'?'Выключить фон поля':'Включить фон поля'}</button></div></div></div>`;
 h+=`<div class="acc-section" data-acc="add-team"><div class="acc-header">🎨 Добавить команду</div><div class="acc-body"><input type="text" id="newTeamName" placeholder="Название команды" style="width:100%;padding:12px;border:2px solid var(--border-soft);border-radius:12px;margin-bottom:12px;background:var(--input-bg);color:var(--text-main);"><div style="font-size:0.85rem;font-weight:700;color:var(--text-light);margin-bottom:8px;text-transform:uppercase;">Цвет:</div><div class="color-options" id="teamColorOptions">${TEAM_COLORS.map((c,i)=>`<div class="color-option${i===0?' selected':''}" data-color="${c.color}" style="color:${c.color};border-color:${c.color};">${c.name}</div>`).join('')}</div><button class="btn btn-primary" id="addTeamBtn" style="width:100%;justify-content:center;margin:15px 0 0;">Добавить</button></div></div>`;
 if(appData.teams.length){
 h+=`<div class="acc-section open" data-acc="teams-list"><div class="acc-header">🎨 Команды турнира (${appData.teams.length})</div><div class="acc-body"><div style="display:flex;flex-wrap:wrap;gap:10px;">`;
@@ -2288,8 +2373,6 @@ return h;
 function sendChatMessage(){const u=getCurrentUser();if(!u){alert('🔒 Войдите');return;}const i=document.getElementById('chatMessageInput');if(!i)return;const t=i.value.trim();if(!t)return;if(!playersDatabase.includes(u)){playersDatabase.push(u);serverState.playersDb=playersDatabase;}if(!serverState.data[CHAT_KEY])serverState.data[CHAT_KEY]=[];const m={id:'msg_'+generateId(),playerName:u,text:t,timestamp:new Date().toISOString(),reactions:{}};serverState.data[CHAT_KEY].push(m);if(serverState.data[CHAT_KEY].length>200)serverState.data[CHAT_KEY]=serverState.data[CHAT_KEY].slice(-200);localStorage.setItem(LAST_NOTIFIED_MSG_KEY,m.id);markChatAsRead();i.value='';scheduleSave();render();setTimeout(()=>{const el=document.getElementById('chatMessages');if(el)el.scrollTop=el.scrollHeight;const inp=document.getElementById('chatMessageInput');if(inp)inp.focus();},60);}
 function sendChatFile(file){const u=getCurrentUser();if(!u){alert('🔒 Войдите');return;}const isImg=file.type.startsWith('image/'),isAud=file.type.startsWith('audio/');if(!isImg&&!isAud){alert('Только картинки и аудио');return;}const reader=new FileReader();reader.onload=(e)=>{const dataUrl=e.target.result;const tag=isImg?`[img]${dataUrl}[/img]`:`[audio]${dataUrl}[/audio]`;if(!serverState.data[CHAT_KEY])serverState.data[CHAT_KEY]=[];const m={id:'msg_'+generateId(),playerName:u,text:tag,timestamp:new Date().toISOString(),reactions:{},isFile:true};serverState.data[CHAT_KEY].push(m);if(serverState.data[CHAT_KEY].length>200)serverState.data[CHAT_KEY]=serverState.data[CHAT_KEY].slice(-200);scheduleSave();render();};reader.readAsDataURL(file);}
 function renderDMTab(){const me=getCurrentUser();if(!me)return`<div class="empty-state"><span class="emoji">🔒</span><p>Войдите, чтобы видеть личные сообщения.</p></div>`;const all=getDMAll();const partners=new Set();partners.add(SYSTEM_USER);Object.keys(all).forEach(k=>{if(k.includes(me)){const o=k.split('|').find(x=>x!==me);if(o)partners.add(o);}});playersDatabase.forEach(n=>{if(n!==me&&n!==SYSTEM_USER)partners.add(n);});const list=[...partners].sort((a,b)=>{const aSys=a===SYSTEM_USER;const bSys=b===SYSTEM_USER;if(aSys&&!bSys)return -1;if(!aSys&&bSys)return 1;return a.localeCompare(b);});let h=`<div class="panel-title"><span class="icon">✉️</span> Личные сообщения</div>`;if(!list.length)h+=`<p style="color:#9aab9a; text-align:center; padding:40px 20px;">Нет других игроков.</p>`;else list.forEach(p=>{const unread=getDMUnread(p);const last=getDMThread(p).slice(-1)[0];const isSys=p===SYSTEM_USER;const icon=isSys?'🔔':'👤';const borderColor=isSys?'#f5a623':'#2e9e44';const previewText=last?escapeHtml(last.text.substring(0,60))+(last.text.length>60?'...':''):(isSys?'Системные уведомления':'Начните переписку');h+=`<div class="record-card" style="cursor:pointer;border-left-color:${borderColor};" data-dm-open="${escapeHtml(p)}"><div class="info"><strong>${icon} ${escapeHtml(p)}${unread>0?` <span style="background:#e74c3c;color:#fff;padding:2px 8px;border-radius:10px;font-size:0.75rem;">${unread}</span>`:''}</strong><div style="font-size:0.85rem;color:var(--text-light);margin-top:4px;">${previewText}</div></div><span style="color:var(--text-light);font-size:1.5rem;">›</span></div>`;});return h;}
-
-// ✅ ПАТЧ 10.2 + 10.6: рекорды — по турам сезона
 function renderRecordsTab(){
 const _snRec=getCurrentSeason()?.name||'Сезон';
 let h=`<div class="panel-title"><span class="icon">🏆</span> Рекорды</div><p style="color:var(--text-light);font-size:0.92rem;margin-bottom:20px;">Сезон: <strong>${escapeHtml(_snRec)}</strong> · лучшие достижения по турам сезона.</p>`;
@@ -2797,8 +2880,6 @@ let STANDARD_DRAWER_HTML='';
 function captureStandardDrawer(){const el=document.getElementById('drawer');if(el&&!STANDARD_DRAWER_HTML)STANDARD_DRAWER_HTML=el.innerHTML;}
 function openDrawer(){const dr=document.getElementById('drawer');if(STANDARD_DRAWER_HTML)dr.innerHTML=STANDARD_DRAWER_HTML;dr.classList.add('open');document.getElementById('drawerOverlay').classList.add('open');renderMobileUI();}
 function closeDrawer(){document.getElementById('drawer').classList.remove('open');document.getElementById('drawerOverlay').classList.remove('open');}
-
-// ✅ ПАТЧ: picker показывает туры текущего сезона
 function renderTournamentPicker(){
 const dr=document.getElementById('drawer');
 let html='<h3>🏆 Сменить тур</h3>';
@@ -2826,7 +2907,9 @@ document.addEventListener('touchstart',function(e){if(e.touches.length!==1)retur
 document.addEventListener('touchend',function(e){if(!e.changedTouches||!e.changedTouches.length)return;const dx=e.changedTouches[0].clientX-tsX,dy=e.changedTouches[0].clientY-tsY,dt=Date.now()-tsT;if(dt>600)return;if(Math.abs(dx)<60||Math.abs(dy)>50)return;if(!MAIN_TABS.includes(currentTab))return;const tag=(e.target.tagName||'').toLowerCase();if(['input','select','textarea','button'].includes(tag))return;if(e.target.closest('.chat-messages,.table-container,.modal,.drawer'))return;const i=MAIN_TABS.indexOf(currentTab);let ni=i;if(dx<0)ni=Math.min(MAIN_TABS.length-1,i+1);else ni=Math.max(0,i-1);if(ni!==i){currentTab=MAIN_TABS[ni];document.querySelectorAll('.nav-tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===currentTab));if(currentTab==='chat')markChatAsRead();render();}},{passive:true});
 function openTeamSelectModal(pn){if(!requireLogin('добавлять в заявку'))return;if(!currentTournamentId){alert('🔒 Нет турнира.');return;}pendingPlayerToAdd=pn;document.getElementById('teamSelectPlayerName').textContent=pn;document.getElementById('selectTeamModal').style.display='flex';}
 
-// ✅ ПАТЧ: обработчики клика — добавляем кнопки сезона
+/* ============================================================
+   ✅ ПАТЧ: обработчики клика (переименование, сезон, тур)
+   ============================================================ */
 document.addEventListener('click',async function(e){
 if(e.target.closest('[data-goto-chat]')){currentTab='chat';document.querySelectorAll('.nav-tab').forEach(b=>b.classList.toggle('active',b.dataset.tab==='chat'));markChatAsRead();render();return;}
 const bc=e.target.closest('[data-bc-tab]');if(bc){currentTab=bc.dataset.bcTab;document.querySelectorAll('.nav-tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===currentTab));render();return;}
@@ -2849,6 +2932,11 @@ if(e.target.closest('#pitchBgBtn')){togglePitchBg();return;}
 if(e.target.closest('#homeTrendsBtn')){openTrendsModal();return;}
 if(e.target.closest('#homeGoalkeepersBtn')){openGoalkeepersModal();return;}
 if(e.target.closest('#autoBalanceBtn')){openAutoBalanceModal();return;}
+
+/* ✅ ПАТЧ: переименование */
+if(e.target.closest('#renameSeasonBtn')){renameSeason();return;}
+if(e.target.closest('#renameTourBtn')){renameTournamentName();return;}
+
 if(e.target.closest('#drawerAccentBtn')){closeDrawer();openAccentModal();return;}
 if(e.target.closest('#resetAccentBtn')){applyAccent(null);document.querySelectorAll('.accent-opt').forEach(o=>o.classList.remove('selected'));return;}
 const accOpt=e.target.closest('.accent-opt');if(accOpt){pickAccent(parseInt(accOpt.dataset.accentIdx,10));return;}
@@ -2969,7 +3057,7 @@ if(t.classList.contains('promote-admin')){promoteToAdmin(t.dataset.name);return;
 if(t.classList.contains('demote-admin')){demoteAdmin(t.dataset.name);return;}
 if(t.classList.contains('add-assigner')){addAssigner(t.dataset.name);return;}
 if(t.classList.contains('remove-assigner')){removeAssigner(t.dataset.name);return;}
-// ✅ ПАТЧ: кнопка «➕ Сезон»
+/* ✅ Кнопки создания сезона и тура */
 if(t.id==='newSeasonBtn'){openNewSeasonModal();return;}
 if(t.id==='newTournamentBtn'){openNewTournamentModal();return;}
 if(t.classList.contains('nav-tab')){currentTab=t.dataset.tab;if(currentTab==='stats')incCounter('stats_open');document.querySelectorAll('.nav-tab').forEach(b=>b.classList.toggle('active',b===t));if(currentTab==='chat')markChatAsRead();render();return;}
@@ -2999,10 +3087,8 @@ if(t.id==='addSubB'){if(!requireMatchRights())return;addSubRow(document.getEleme
 if(t.classList.contains('remove-sub')){const r=t.closest('.sub-row');if(r)r.remove();saveMatchDraft();return;}
 });
 document.addEventListener('change',function(e){
-
-// ✅ ПАТЧ 7: смена сезона
+/* ✅ Смена сезона */
 if(e.target.id==='seasonSelect'){switchSeason(e.target.value);return;}
-
 if(e.target.id==='tournamentSelect')switchTournament(e.target.value);
 if(e.target.id==='drawerTournamentSelect'){switchTournament(e.target.value);closeDrawer();}
 if(e.target.id==='matchTeamA'){const c=document.getElementById('substitutionsA');if(c)c.innerHTML='';const o=document.getElementById('ownGoalsA');if(o)o.innerHTML='';updateMatchFormLists();}
@@ -3100,10 +3186,8 @@ let _migrated=false;
 tournamentsList.forEach(t=>{const d=getTournamentData(t.id);(d.players||[]).forEach(p=>{if(p.photo&&!serverState.data[PHOTOS_KEY][p.name]){serverState.data[PHOTOS_KEY][p.name]=p.photo;_migrated=true;}});});
 if(_migrated)scheduleSave();
 if(migrateTournamentFormats())scheduleSave();
-
-// ✅ ПАТЧ 11: до загрузки с сервера — создать сезон, если нет
+/* ✅ Сезоны: до загрузки с сервера */
 if(ensureSeasons())scheduleSave();
-
 updateTournamentSelect();
 renderUserBox();renderGuestBanner();renderNotifyButton();renderNavTabs();renderMobileUI();render();
 await pullFromServer(true);
@@ -3115,10 +3199,8 @@ if(!serverState.data[DM_KEY])serverState.data[DM_KEY]={};
 if(!serverState.data[POLLS_KEY])serverState.data[POLLS_KEY]=[];
 if(!serverState.data[TEMPLATES_KEY])serverState.data[TEMPLATES_KEY]=[];
 if(!serverState.data[PHOTOS_KEY])serverState.data[PHOTOS_KEY]={};
-
-// ✅ ПАТЧ 12: после загрузки с сервера — снова проверить сезоны
+/* ✅ Сезоны: после загрузки с сервера */
 if(ensureSeasons())ns=true;
-
 if(ns&&knownVersion>0)scheduleSave();
 cleanupBadPlayers();
 migrateRemoveStatsFromPlayers();
@@ -3139,4 +3221,4 @@ init();
 })();
 </script>
 </body>
-  </html>
+                                                    </html>
