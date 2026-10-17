@@ -351,7 +351,7 @@ tr:hover td{background:#f0f7f0;}
 .format-opt.selected{border-color:#2e9e44;background:#f2fbf3;box-shadow:0 0 0 3px rgba(46,158,68,0.15);}
 .format-badge{display:inline-block;background:#eef3ee;color:#5a6b5a;padding:2px 8px;border-radius:8px;font-size:0.72rem;font-weight:800;margin-left:6px;vertical-align:middle;}
 .own-goal-row{background:#fee2e2;border-radius:8px;padding:4px;}
-#mhProfileBtn{width:48px;height:48px;border-radius:50%;}
+#mhProfileBtn{width:72px;height:72px;border-radius:50%;}
 @media (max-width:700px){
 body{padding:0;padding-top:env(safe-area-inset-top);padding-bottom:calc(60px + env(safe-area-inset-bottom));}
 body::before,body::after{display:none;}
@@ -526,10 +526,12 @@ const ACCENT_KEY='laguna_accent',PITCH_BG_KEY='laguna_pitch_bg';
 const MATCH_DRAFT_KEY='laguna_match_draft';
 const MATCH_DRAFT_SERVER_KEY='__match_draft__';
 const TEAM_COLORS=[{id:'blue',name:'Синие',color:'#2563eb'},{id:'green',name:'Зелёные',color:'#2e9e44'},{id:'orange',name:'Оранжевые',color:'#f5a623'}];
+
 const FORMATS=[
-{id:'5x3',name:'5×3',desc:'4 полевых + вратарь, 3 замены',rosterLimit:15},
-{id:'6x2',name:'6×2',desc:'5 полевых + вратарь, 2 замены',rosterLimit:12}
+{id:'5x3',name:'5×3',desc:'4 полевых + вратарь, 3 замены',label:'Чемпионат',rosterLimit:15},
+{id:'6x2',name:'6×2',desc:'5 полевых + вратарь, 2 замены',label:'Кубок',rosterLimit:12}
 ];
+
 function getFormatInfo(f){return FORMATS.find(v=>v.id===f)||FORMATS[0];}
 function getTournamentFormat(tid){const t=tournamentsList.find(x=>x.id===tid);return (t&&t.format)?t.format:'5x3';}
 function getFormatLabel(f){return getFormatInfo(f).name;}
@@ -732,7 +734,7 @@ mhProfile.style.overflow='hidden';mhProfile.style.padding='0';
 if(userToShow){
 const photo=getPlayerPhoto(userToShow);
 if(photo){mhProfile.innerHTML='<img src="'+photo+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;">';}
-else{mhProfile.innerHTML='<span style="font-weight:800;font-size:1.4rem;color:#1a7a2e;background:#fff;width:100%;height:100%;display:flex;align-items:center;justify-content:center;border-radius:50%;">'+escapeHtml(userToShow.charAt(0).toUpperCase())+'</span>';}
+else{mhProfile.innerHTML='<span style="font-weight:800;font-size:2.1rem;color:#1a7a2e;background:#fff;width:100%;height:100%;display:flex;align-items:center;justify-content:center;border-radius:50%;">'+escapeHtml(userToShow.charAt(0).toUpperCase())+'</span>';}
 mhProfile.title=userToShow;
 }else{mhProfile.textContent='👤';mhProfile.title='Войти';}
 }
@@ -1074,7 +1076,7 @@ m.innerHTML=`<div class="modal" style="max-width:480px;">
 <div id="formatChooser" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;">
 ${FORMATS.map((f,i)=>`<div class="format-opt${i===0?' selected':''}" data-format="${f.id}">
 <div style="font-weight:800;font-size:1.4rem;">${f.name}</div>
-<div style="font-size:0.78rem;color:var(--text-light);margin-top:4px;">${f.desc}</div>
+<div style="font-size:0.95rem;color:var(--text-main);margin-top:6px;font-weight:800;">${f.label}</div>
 </div>`).join('')}
 </div>
 <button class="btn btn-primary" id="createTournConfirm" style="width:100%;justify-content:center;margin:0;">Создать</button>
@@ -3266,6 +3268,48 @@ function migrateSelfVotes(){
   });
   return changed;
 }
+
+function openAutoBalanceModal(){
+    if(!requireAdmin('делать авто-балансировку'))return;
+    if(appData.teams.length<2){alert('Для балансировки нужно минимум 2 команды.');return;}
+    if(appData.players.length<2){alert('Недостаточно игроков в заявке.');return;}
+    showConfirmDialog(
+        '⚖️ Авто-балансировка',
+        'Все игроки заявки будут распределены по командам максимально равномерно по рейтингу.\n\nПродолжить?',
+        () => {
+            const playersWithRating = appData.players.map(p => ({
+                ...p,
+                rating: calcRatingForPlayerInTournament(p.name, appData) || 0
+            }));
+            
+            playersWithRating.sort((a, b) => b.rating - a.rating);
+            
+            const teams = appData.teams;
+            const teamSums = {};
+            teams.forEach(t => teamSums[t.id] = 0);
+            
+            playersWithRating.forEach(p => {
+                let bestTeamId = teams[0].id;
+                let minSum = teamSums[bestTeamId];
+                teams.forEach(t => {
+                    if (teamSums[t.id] < minSum) {
+                        minSum = teamSums[t.id];
+                        bestTeamId = t.id;
+                    }
+                });
+                p.teamId = bestTeamId;
+                teamSums[bestTeamId] += p.rating;
+            });
+            
+            appData.players = playersWithRating.map(({rating, ...rest}) => rest);
+            saveCurrentData();
+            audit('team', 'autobalance', 'Выполнена авто-балансировка');
+            render();
+            alert('✅ Игроки распределены по командам!');
+        }
+    );
+}
+
 async function init(){
 captureStandardDrawer();
 const savedTheme=localStorage.getItem(THEME_KEY);
@@ -3306,7 +3350,6 @@ setTimeout(handleUrlHash, 500);
 function saveTournamentTemplate(){alert('Шаблоны: функция в разработке');}
 function applyTournamentTemplate(){alert('Шаблоны: функция в разработке');}
 function deleteTemplate(){alert('Шаблоны: функция в разработке');}
-function openAutoBalanceModal(){alert('Авто-балансировка: функция в разработке');}
 init();
 })();
 </script>
