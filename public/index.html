@@ -566,6 +566,7 @@ let recordsFormatFilter='all';
 let playersFormatFilter='all';
 let profileFormatFilter='all';
 let profileOpenName='';
+let ratingHistoryMode='graph';
 function generateId(){return Date.now().toString(36)+Math.random().toString(36).substr(2,5);}
 function escapeHtml(t){const d=document.createElement('div');d.textContent=t==null?'':String(t);return d.innerHTML;}
 function getTeamById(id){return appData.teams.find(t=>t.id===id);}
@@ -2647,6 +2648,7 @@ panel.innerHTML=`<div style="padding:16px;background:#fff3cd;border:2px solid #f
 }
 function openPlayerProfile(name){
 profileOpenName = name;
+ratingHistoryMode = 'graph';
 const T = _getTournamentsByFormat(profileFormatFilter);
 const me=getCurrentUser()===name,hp=!!(getPasswords()[name]),adm=isAdmin(name),ass=!adm&&getAssigners().includes(name);
 const b=getRosterBadge(name);
@@ -2666,6 +2668,58 @@ const ratingBoxHtml = canViewRatingHistory
 : `<div title="🔒 Историю рейтинга видит только сам игрок и админ" style="display:flex;align-items:center;justify-content:center;min-width:64px;height:64px;padding:0 12px;border:3px solid ${rs.border};border-radius:16px;background:${rs.bg};opacity:0.9;position:relative;"><span style="font-size:1.6rem;font-weight:800;color:${rs.color};">${r}</span><span style="position:absolute;bottom:2px;right:4px;font-size:0.85rem;line-height:1;">🔒</span></div>`;
 document.getElementById('modalContent').innerHTML=fmtSelector+`<div style="display:flex;align-items:center;gap:14px;margin-bottom:15px;flex-wrap:wrap;">${photo}${ratingBoxHtml}<div style="flex:1;min-width:180px;"><h2 style="margin:0;font-size:1.5rem;">👤 ${escapeHtml(name)} ${adm?'👑':''} ${me?'<span style="color:#2b6cb0;font-size:0.9rem;">(вы)</span>':''}</h2><div style="font-size:0.85rem;color:${rs.color};font-weight:700;margin-top:2px;">${rs.medal} ${rs.label}</div>${canViewRatingHistory?`<div style="font-size:0.72rem;color:var(--text-light);margin-top:4px;">👆 Нажмите на рейтинг --- разбор по баллам</div>`:`<div style="font-size:0.72rem;color:var(--text-light);margin-top:4px;">🔒 История рейтинга скрыта</div>`}</div></div><p style="color:${hp?'#2e9e44':'#b8860b'};font-size:0.9rem;margin-bottom:15px;">${hp?'🔐 Профиль':'⚠️ Нет профиля'}${adm?'<br>👑 Админ':''}${ass?'<br>🎯 Назначает команды':''}${b?`<br><span style="color:${b.color};">${b.label}</span>`:''}</p><table><tr><th>Показатель</th><th>Значение</th></tr><tr><td>Турниров</td><td>${pr.tournamentsCount}</td></tr><tr><td>Матчей</td><td>${pr.matches}</td></tr><tr><td>🟢 Победы</td><td>${pr.wins}</td></tr><tr><td>🟡 Ничьи</td><td>${pr.draws}</td></tr><tr><td>🔴 Поражения</td><td>${pr.losses}</td></tr><tr><td>Голов</td><td>${pr.goals}</td></tr><tr><td>Передач</td><td>${pr.assists}</td></tr>${pr.own>0?`<tr><td>🥅 Автоголов</td><td>${pr.own}</td></tr>`:''}<tr><td>🏆 Бомбардир</td><td>${aw.bestScorer}</td></tr><tr><td>🏆 Ассистент</td><td>${aw.bestAssister}</td></tr><tr><td>🏆 Вратарь</td><td>${aw.bestGoalkeeper}</td></tr><tr><td>🏅 MVP</td><td>${aw.mvp}</td></tr><tr><td>⭐ Лучший игрок</td><td>${aw.bestVoted}</td></tr><tr><td>🏆 Лучшая команда</td><td>${aw.bestTeam||0}</td></tr>${tricks.length?`<tr><td>🎩 Хет-трики</td><td>${tricks.length}</td></tr>`:''}</table>${ach.length?`<div style="margin-top:15px;"><div style="font-weight:700;margin-bottom:6px;">🎖️ Достижения:</div><div style="display:flex;gap:6px;flex-wrap:wrap;">${ach.map(a=>`<span style="background:#fff8e1;color:#7a5a1a;padding:4px 10px;border-radius:12px;font-size:0.78rem;font-weight:700;">${a.icon} ${escapeHtml(a.label)}</span>`).join('')}</div></div>`:''}${achBtn}${shareBtn}${dmBtn}${uploadBtn}${(me||isCurrentUserAdmin())?`<button class="btn btn-secondary" id="renamePlayerBtn" data-player="${escapeHtml(name)}" style="margin-top:10px;width:100%;justify-content:center;">✏️ ${me?'Изменить моё имя':'Изменить имя'}</button>`:''}`;
 document.getElementById('playerModal').style.display='flex';
+}
+function renderRatingGraph(tourData){
+if(!tourData.length)return '<p>Нет данных</p>';
+const W=600,H=260,padX=40,padY=30;
+const maxRating=100;
+const points=[];
+let cumSum=0;
+tourData.forEach((td,i)=>{
+cumSum+=td.r;
+const avg=Math.round(cumSum/(i+1));
+const x=tourData.length===1?W/2:padX+i*((W-padX*2)/(tourData.length-1));
+const yAvg=H-padY-(avg/maxRating)*(H-padY*2);
+const yTour=H-padY-(td.r/maxRating)*(H-padY*2);
+points.push({x,yAvg,yTour,avg,tourRating:td.r,name:td.tournament.name});
+});
+let grid='';
+for(let v=0;v<=100;v+=25){
+const y=H-padY-(v/maxRating)*(H-padY*2);
+grid+=`<line x1="${padX}" y1="${y}" x2="${W-padX}" y2="${y}" stroke="#eef3ee" stroke-width="1"/>`;
+grid+=`<text x="${padX-5}" y="${y+4}" text-anchor="end" font-size="10" fill="#9aab9a">${v}</text>`;
+}
+let pathAvg='';
+let pathTour='';
+points.forEach((p,i)=>{
+if(i===0){pathAvg+=`M ${p.x} ${p.yAvg}`;pathTour+=`M ${p.x} ${p.yTour}`;}
+else{pathAvg+=` L ${p.x} ${p.yAvg}`;pathTour+=` L ${p.x} ${p.yTour}`;}
+});
+let circles='';
+points.forEach(p=>{
+circles+=`<circle cx="${p.x}" cy="${p.yAvg}" r="4" fill="#fff" stroke="#2e9e44" stroke-width="2"/>
+<text x="${p.x}" y="${p.yAvg-8}" text-anchor="middle" font-size="10" font-weight="700" fill="#2e9e44">${p.avg}</text>`;
+circles+=`<circle cx="${p.x}" cy="${p.yTour}" r="3" fill="#fff" stroke="#f5a623" stroke-width="2"/>`;
+});
+let labels='';
+points.forEach((p,i)=>{
+if(tourData.length>1 && i%Math.ceil(tourData.length/6)!==0 && i!==tourData.length-1)return;
+labels+=`<text x="${p.x}" y="${H-10}" text-anchor="middle" font-size="10" fill="#7a8a7a">${escapeHtml(p.name.substring(0,8))}...</text>`;
+});
+let svg=`<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" style="width:100%;height:auto;max-height:300px;">
+${grid}
+<path d="${pathTour}" fill="none" stroke="#f5a623" stroke-width="2" stroke-dasharray="4" opacity="0.6"/>
+<path d="${pathAvg}" fill="none" stroke="#2e9e44" stroke-width="3"/>
+${circles}
+${labels}
+</svg>`;
+return `<div style="background:#f8faf8;border-radius:16px;padding:15px;margin-bottom:15px;border:1px solid var(--border-soft);">
+<div style="display:flex;gap:15px;justify-content:center;font-size:0.8rem;margin-bottom:10px;">
+<div style="display:flex;align-items:center;gap:5px;"><span style="display:inline-block;width:15px;height:3px;background:#2e9e44;"></span> Средний рейтинг</div>
+<div style="display:flex;align-items:center;gap:5px;"><span style="display:inline-block;width:15px;height:3px;background:#f5a623;border-top:2px dashed #f5a623;background:none;"></span> Рейтинг за тур</div>
+</div>
+${svg}
+</div>`;
 }
 function openRatingHistoryModal(name){
 const me=getCurrentUser();
@@ -2691,15 +2745,18 @@ let r=Math.round(P);if(r>99)r=99;if(r<0)r=0;
 const playerMatches=(d.matches||[]).filter(m=>m.teamA===p.teamId||m.teamB===p.teamId).map(m=>({match:m,date:getMatchTime(m)})).filter(x=>x.date).sort((x,y)=>x.date<y.date?-1:1);
 tourData.push({tournament:t,d,p,st,res,awardsList,awardsCount,P,r,firstDate:playerMatches[0]?.date,lastDate:playerMatches[playerMatches.length-1]?.date,playerMatches});
 });
-tourData.sort((x,y)=>{const xd=x.tournament.createdAt||'';const yd=y.tournament.createdAt||'';return yd.localeCompare(xd);});
+tourData.sort((x,y)=>{const xd=x.tournament.createdAt||'';const yd=y.tournament.createdAt||'';return xd.localeCompare(yd);});
 let h=`<button class="btn btn-secondary btn-sm" data-rating-back="${escapeHtml(name)}" style="margin-bottom:12px;">‹ К профилю</button>`;
 h+=`<h2>📊 История рейтинга --- ${escapeHtml(name)}</h2>`;
-h+=`<p style="color:var(--text-light);font-size:0.85rem;margin-bottom:14px;">Полный разбор: за что начислены и за что сняты баллы. Рейтинг = средний по всем турнирам.</p>`;
+h+=`<div class="sub-tabs" style="margin-bottom:15px;"><button class="sub-tab ${ratingHistoryMode==='graph'?'active':''}" data-rating-mode="graph">📈 График</button><button class="sub-tab ${ratingHistoryMode==='list'?'active':''}" data-rating-mode="list">📝 Разбор</button></div>`;
 if(!tourData.length){h+=`<p style="color:var(--text-light);text-align:center;padding:20px 0;">Нет данных по матчам --- рейтинг пока не начислен.</p>`;document.getElementById('modalContent').innerHTML=h;document.getElementById('playerModal').style.display='flex';return;}
 const totalRating=Math.round(tourData.reduce((s,td)=>s+td.r,0)/tourData.length);
 const rs=getRatingStyle(totalRating);
 h+=`<div style="text-align:center;margin-bottom:18px;padding:16px;border-radius:16px;background:${rs.bg};border:2px solid ${rs.border};"><div style="font-size:2.2rem;font-weight:900;color:${rs.color};">${totalRating} ${rs.medal}</div><div style="font-size:0.85rem;color:${rs.color};font-weight:700;">${rs.label} --- средний за ${tourData.length} ${tourData.length===1?'турнир':(tourData.length<5?'турнира':'турниров')}</div></div>`;
-tourData.forEach((td,idx)=>{
+if(ratingHistoryMode==='graph'){
+h+=renderRatingGraph(tourData);
+}else{
+[...tourData].reverse().forEach((td,idx)=>{
 const t=td.tournament;
 const dateRange=td.firstDate&&td.lastDate?`${fmtShort(td.firstDate)} --- ${fmtShort(td.lastDate)}`:(t.createdAt?fmtDate(t.createdAt):'');
 const trs=getRatingStyle(td.r);
@@ -2761,6 +2818,7 @@ h+=`</div></div>`;
 }
 h+=`</div>`;
 });
+}
 document.getElementById('modalContent').innerHTML=h;
 document.getElementById('playerModal').style.display='flex';
 }
@@ -3129,6 +3187,12 @@ const pinBtn=e.target.closest('[data-pin]');if(pinBtn){togglePin(pinBtn.dataset.
 if(e.target.closest('[data-unpin]')){unpinMessage();return;}
 const ppin=e.target.closest('[data-pin-poll]');if(ppin){e.preventDefault();togglePinPoll(ppin.dataset.pinPoll);return;}
 if(e.target.closest('[data-unpin-poll]')){const polls=getPolls();polls.forEach(p=>{p.pinned=false;});scheduleSave();render();return;}
+const rmBtn=e.target.closest('[data-rating-mode]');
+if(rmBtn){
+    ratingHistoryMode=rmBtn.dataset.ratingMode;
+    openRatingHistoryModal(profileOpenName);
+    return;
+}
 const drawerItem=e.target.closest('[data-drawer]');
 if(drawerItem){const t=drawerItem.dataset.drawer;closeDrawer();currentTab=t;document.querySelectorAll('.nav-tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===t));if(t==='chat')markChatAsRead();render();return;}
 if(e.target.id==='drawerOverlay'){closeDrawer();return;}
