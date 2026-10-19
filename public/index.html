@@ -775,9 +775,6 @@ agg[p.name].goalsConceded+=st.goalsConceded;agg[p.name].goalkeeperMatches+=st.go
 });
 return Object.values(agg);
 }
-/* ===================================================================
-   ИЗМЕНЕНИЕ 1: getBestScorer — тай-брейк по голам → ассистам → рейтингу
-   =================================================================== */
 function getBestScorer(d){
   let best=null;
 
@@ -895,9 +892,6 @@ count++;
 if(count===0)return 0;
 return Math.round(total/count);
 }
-/* ===================================================================
-   ИЗМЕНЕНИЕ 2: calcRatingForPlayerInTournament — 4-й параметр skipScorerAward
-   =================================================================== */
 function calcRatingForPlayerInTournament(name,d,skipBtBonus,skipScorerAward){
   const p=(d.players||[]).find(x=>x.name===name);
   if(!p)return 0;
@@ -2150,6 +2144,10 @@ function getMassSelected(){return[...document.querySelectorAll('.mass-check:chec
 function massAssign(){const ids=getMassSelected();if(!ids.length){alert('Ничего не выбрано');return;}if(!appData.teams.length){alert('Нет команд');return;}const teamBtns=appData.teams.map(t=>{const tc=getTeamColor(t);return`<button class="btn" data-mass-team="${t.id}" style="width:100%; justify-content:center; margin:4px 0; font-weight:700; color:${escapeHtml(tc)}; border:2px solid ${escapeHtml(tc)}; background:#fff;">${escapeHtml(t.name)}</button>`;}).join('');const wrapper=document.createElement('div');wrapper.className='modal-overlay';wrapper.style.display='flex';wrapper.innerHTML=`<div class="modal" style="max-width:400px;"><button class="close-btn">&times;</button><h2>🎨 Команда для ${ids.length} игроков</h2>${teamBtns}<button class="btn btn-danger" data-mass-team="" style="width:100%; justify-content:center; margin:4px 0;">Без команды</button></div>`;document.body.appendChild(wrapper);const close=()=>wrapper.remove();wrapper.querySelector('.close-btn').onclick=close;wrapper.addEventListener('click',ev=>{if(ev.target===wrapper){close();return;}const b=ev.target.closest('[data-mass-team]');if(b){const tid=b.dataset.massTeam||null;ids.forEach(id=>{const p=appData.players.find(x=>x.id===id);if(p)p.teamId=tid;});audit('team','mass_assign',`${ids.length} → ${tid?getTeamById(tid)?.name:'без'}`);saveCurrentData();close();document.getElementById('playerModal').style.display='none';render();}});}
 function massSetStatus(){const ids=getMassSelected();if(!ids.length){alert('Ничего не выбрано');return;}const wrapper=document.createElement('div');wrapper.className='modal-overlay';wrapper.style.display='flex';wrapper.innerHTML=`<div class="modal" style="max-width:400px;"><button class="close-btn">&times;</button><h2>🟢 Статус для ${ids.length} игроков</h2><button class="btn btn-primary" data-mass-status="confirmed" style="width:100%; justify-content:center; margin:4px 0;">🟢 Точно</button><button class="btn btn-warning" data-mass-status="pending" style="width:100%; justify-content:center; margin:4px 0;">🟡 Под вопросом</button><button class="btn btn-danger" data-mass-status="reserve" style="width:100%; justify-content:center; margin:4px 0;">🔴 Резерв</button></div>`;document.body.appendChild(wrapper);const close=()=>wrapper.remove();wrapper.querySelector('.close-btn').onclick=close;wrapper.addEventListener('click',ev=>{if(ev.target===wrapper){close();return;}const b=ev.target.closest('[data-mass-status]');if(b){const st=b.dataset.massStatus;ids.forEach(id=>{const p=appData.players.find(x=>x.id===id);if(p)p.status=st;});audit('user','mass_status',`${ids.length} → ${st}`);saveCurrentData();close();document.getElementById('playerModal').style.display='none';render();}});}
 function massDelete(){const ids=getMassSelected();if(!ids.length){alert('Ничего не выбрано');return;}if(!confirm(`Удалить ${ids.length} игроков из заявки?`))return;const backup=ids.map(id=>JSON.parse(JSON.stringify(appData.players.find(x=>x.id===id)))).filter(Boolean);appData.players=appData.players.filter(p=>!ids.includes(p.id));ids.forEach(id=>{const p=backup.find(x=>x.id===id);if(p&&appData.votes&&appData.votes[p.name])delete appData.votes[p.name];});audit('user','mass_delete',`${ids.length} игроков`);pushUndo(`Удалено ${ids.length} игроков`,()=>backup,(snap)=>{snap.forEach(p=>appData.players.push(p));});saveCurrentData();document.getElementById('playerModal').style.display='none';render();}
+/* ===================================================================
+   ИЗМЕНЕНИЕ: openDashboardModal — добавляем %-изменения к показателям
+   «Голов», «Голов/матч», «Ср. рейтинг» относительно предыдущего тура
+   =================================================================== */
 function openDashboardModal(){
 if(!currentTournamentId){alert('Выберите турнир');return;}
 const table=calculateTable();
@@ -2166,6 +2164,49 @@ ratingCount++;
 }
 });
 const avgRating=ratingCount>0?(ratingSum/ratingCount).toFixed(1):'---';
+
+/* === Сравнение с предыдущим туром === */
+const curAvgGoalsNum = totalMatches>0 ? totalGoals/totalMatches : 0;
+const curAvgRatingNum = ratingCount>0 ? ratingSum/ratingCount : 0;
+
+const _seasonToursSorted = getCurrentSeasonTours().slice().sort((a,b)=>{
+  const ac = a.createdAt || '';
+  const bc = b.createdAt || '';
+  return ac < bc ? -1 : (ac > bc ? 1 : 0);
+});
+const _curIdx = _seasonToursSorted.findIndex(t=>t.id===currentTournamentId);
+let prevMetrics = null;
+if(_curIdx > 0){
+  const _prevTour = _seasonToursSorted[_curIdx-1];
+  const _prevData = getTournamentData(_prevTour.id);
+  let _pg=0;
+  const _pm=(_prevData.matches||[]).length;
+  (_prevData.matches||[]).forEach(m=>{_pg+=(parseInt(m.scoreA,10)||0)+(parseInt(m.scoreB,10)||0);});
+  let _rs=0,_rc=0;
+  (_prevData.players||[]).forEach(p=>{
+    const st=getComputedPlayerStats(p.name,_prevData);
+    if(st.matchesPlayed>0){_rs+=calcRatingForPlayerInTournament(p.name,_prevData);_rc++;}
+  });
+  prevMetrics = {
+    totalGoals: _pg,
+    avgGoals: _pm>0 ? _pg/_pm : 0,
+    avgRating: _rc>0 ? _rs/_rc : 0
+  };
+}
+const _deltaBadge = (cur, prev, curValid) => {
+  if(!prevMetrics || !curValid) return '';
+  if(!prev || !isFinite(prev) || prev <= 0) return '';
+  const pct = ((cur - prev) / prev) * 100;
+  if(!isFinite(pct)) return '';
+  const rounded = Math.round(pct * 10) / 10;
+  let color = '#1e2a1e';
+  if(rounded > 0) color = '#2e9e44';
+  else if(rounded < 0) color = '#e74c3c';
+  const txt = (rounded > 0 ? '+' : '') + rounded.toFixed(1) + '%';
+  return `<span style="font-size:0.72rem;font-weight:800;color:${color};margin-left:6px;white-space:nowrap;">${txt}</span>`;
+};
+/* === Конец нового блока === */
+
 const topScorer=getBestScorer(appData);
 const topAssister=getBestAssister(appData);
 const topGK=getBestGoalkeeper(appData);
@@ -2206,9 +2247,9 @@ const recent=[...appData.matches].sort((a,b)=>(b.id>a.id?1:-1)).slice(0,5);
 let h=`<h2>📊 Дашборд турнира</h2><p style="color:var(--text-light); font-size:0.85rem; margin-bottom:16px;">${escapeHtml(tournamentsList.find(t=>t.id===currentTournamentId)?.name||'')}</p>`;
 h+=`<div class="dash-grid">
 <div class="dash-card"><div class="dash-icon">⚽</div><div class="dash-value">${totalMatches}</div><div class="dash-label">Матчей</div></div>
-<div class="dash-card"><div class="dash-icon">🥅</div><div class="dash-value">${totalGoals}</div><div class="dash-label">Голов</div></div>
-<div class="dash-card"><div class="dash-icon">📈</div><div class="dash-value">${avgGoals}</div><div class="dash-label">Голов/матч</div></div>
-<div class="dash-card"><div class="dash-icon">⭐</div><div class="dash-value">${avgRating}</div><div class="dash-label">Ср. рейтинг</div></div>
+<div class="dash-card"><div class="dash-icon">🥅</div><div class="dash-value">${totalGoals}${_deltaBadge(totalGoals, prevMetrics?.totalGoals, totalMatches>0)}</div><div class="dash-label">Голов</div></div>
+<div class="dash-card"><div class="dash-icon">📈</div><div class="dash-value">${avgGoals}${_deltaBadge(curAvgGoalsNum, prevMetrics?.avgGoals, totalMatches>0)}</div><div class="dash-label">Голов/матч</div></div>
+<div class="dash-card"><div class="dash-icon">⭐</div><div class="dash-value">${avgRating}${_deltaBadge(curAvgRatingNum, prevMetrics?.avgRating, ratingCount>0)}</div><div class="dash-label">Ср. рейтинг</div></div>
 </div>`;
 if(leaderTeam){
 h+=`<div class="dash-section-title">🥇 Лидер турнира</div>
@@ -2617,7 +2658,6 @@ const aa=aggregateAllPlayers(T);
 const r=aa.map(p=>({name:p.name,rating:calcRatingForPlayer(p.name,T)})).filter(x=>x.rating>0).sort((a,b)=>b.rating-a.rating);
 const bR=r[0]||null;
 const mS=[...aa].filter(p=>p.matchesPlayed>0).sort((a,b)=>(b.goals+b.assists)-(a.goals+a.assists));const bM=mS[0]||null;
-/* ИЗМЕНЕНИЕ 3: сезонный бомбардир с тай-брейком по голам → ассистам → рейтингу */
 const sS=[...aa]
 .filter(p=>p.matchesPlayed>0)
 .sort((a,b)=>
@@ -3613,4 +3653,4 @@ init();
 })();
 </script>
 </body>
-</html>
+   </html>
