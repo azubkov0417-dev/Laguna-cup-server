@@ -2551,13 +2551,21 @@ h+=`<div class="acc-section" data-acc="add-match"><div class="acc-header">⚔️
 
     <!-- Команды -->
     <div style="padding: 10px; border-right: 1px solid var(--border-soft); border-bottom: 1px solid var(--border-soft);">
-        <select id="matchTeamA" style="width:100%; padding:8px; border-radius:8px; border:1px solid var(--border-soft); background:var(--input-bg); color:var(--text-main); font-weight:700;">
-            <option value="">Команда А</option>${appData.teams.map(t=>`<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('')}
+        <select id="matchTeamA" style="width:100%; padding:8px; border-radius:8px; border:1px solid var(--border-soft); background:var(--input-bg); color:var(--text-main); font-weight:800; font-size:1rem;">
+            <option value="" style="color:var(--text-main);">Команда А</option>
+            ${appData.teams.map(t=>{
+                const tc = getTeamColor(t);
+                return `<option value="${t.id}" style="color:${escapeHtml(tc)};">${escapeHtml(t.name)}</option>`;
+            }).join('')}
         </select>
     </div>
     <div style="padding: 10px; border-bottom: 1px solid var(--border-soft);">
-        <select id="matchTeamB" style="width:100%; padding:8px; border-radius:8px; border:1px solid var(--border-soft); background:var(--input-bg); color:var(--text-main); font-weight:700;">
-            <option value="">Команда Б</option>${appData.teams.map(t=>`<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('')}
+        <select id="matchTeamB" style="width:100%; padding:8px; border-radius:8px; border:1px solid var(--border-soft); background:var(--input-bg); color:var(--text-main); font-weight:800; font-size:1rem;">
+            <option value="" style="color:var(--text-main);">Команда Б</option>
+            ${appData.teams.map(t=>{
+                const tc = getTeamColor(t);
+                return `<option value="${t.id}" style="color:${escapeHtml(tc)};">${escapeHtml(t.name)}</option>`;
+            }).join('')}
         </select>
     </div>
 
@@ -2957,6 +2965,12 @@ const tA=document.getElementById('matchTeamA'),tB=document.getElementById('match
 const gA=document.getElementById('goalkeeperA'),gB=document.getElementById('goalkeeperB');
 const cA=document.getElementById('goalsA'),cB=document.getElementById('goalsB');
 if(!tA||!tB)return;
+// Обновляем цвет самого селекта при выборе
+const optA = tA.options[tA.selectedIndex];
+if(optA) tA.style.color = optA.style.color || 'var(--text-main)';
+const optB = tB.options[tB.selectedIndex];
+if(optB) tB.style.color = optB.style.color || 'var(--text-main)';
+
 gA.innerHTML='<option value="">-- нет --</option>';gB.innerHTML='<option value="">-- нет --</option>';
 cA.innerHTML='';cB.innerHTML='';
 if(tA.value)getPlayersByTeam(tA.value).forEach(p=>gA.innerHTML+=`<option value="${p.id}">${escapeHtml(p.name)}</option>`);
@@ -3329,8 +3343,20 @@ document.addEventListener('change',function(e){
 if(e.target.id==='seasonSelect'){switchSeason(e.target.value);return;}
 if(e.target.id==='tournamentSelect')switchTournament(e.target.value);
 if(e.target.id==='drawerTournamentSelect'){switchTournament(e.target.value);closeDrawer();}
-if(e.target.id==='matchTeamA'){const c=document.getElementById('substitutionsA');if(c)c.innerHTML='';const o=document.getElementById('ownGoalsA');if(o)o.innerHTML='';updateMatchFormLists();}
-if(e.target.id==='matchTeamB'){const c=document.getElementById('substitutionsB');if(c)c.innerHTML='';const o=document.getElementById('ownGoalsB');if(o)o.innerHTML='';updateMatchFormLists();}
+if(e.target.id==='matchTeamA'){
+    const c=document.getElementById('substitutionsA');if(c)c.innerHTML='';
+    const o=document.getElementById('ownGoalsA');if(o)o.innerHTML='';
+    const opt = e.target.options[e.target.selectedIndex];
+    if(opt) e.target.style.color = opt.style.color || 'var(--text-main)';
+    updateMatchFormLists();
+}
+if(e.target.id==='matchTeamB'){
+    const c=document.getElementById('substitutionsB');if(c)c.innerHTML='';
+    const o=document.getElementById('ownGoalsB');if(o)o.innerHTML='';
+    const opt = e.target.options[e.target.selectedIndex];
+    if(opt) e.target.style.color = opt.style.color || 'var(--text-main)';
+    updateMatchFormLists();
+}
 if(e.target.classList.contains('status-select')){setPlayerStatus(e.target.dataset.id,e.target.value);}
 if(e.target.id==='statsFilterTeamSelect'){statsFilterTeam=e.target.value;render();}
 if(e.target.id==='statsFilterMinInput'){statsFilterMin=parseInt(e.target.value,10)||1;render();}
@@ -3450,4 +3476,5 @@ init();
 })();
 </script>
 </body>
-    </html>
+</html>
+                                                                                           </html>
