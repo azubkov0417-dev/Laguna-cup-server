@@ -354,6 +354,63 @@ tr:hover td{background:#f0f7f0;}
 .format-badge{display:inline-block;background:#eef3ee;color:#5a6b5a;padding:2px 8px;border-radius:8px;font-size:0.72rem;font-weight:800;margin-left:6px;vertical-align:middle;}
 .own-goal-row{background:#fee2e2;border-radius:8px;padding:4px;}
 #mhProfileBtn{width:72px;height:72px;border-radius:50%;}
+/* Стили для Сборной тура */
+.tot-container {
+    position: relative;
+    width: 100%;
+    height: 400px;
+    background: linear-gradient(135deg, #1a7a2e 0%, #2e9e44 100%);
+    border-radius: 20px;
+    overflow: hidden;
+    border: 3px solid #1a7a2e;
+    box-shadow: inset 0 0 20px rgba(0,0,0,0.3);
+    margin-bottom: 20px;
+}
+.tot-pitch-line {
+    position: absolute;
+    border: 2px solid rgba(255,255,255,0.3);
+    pointer-events: none;
+}
+.tot-player {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    color: #fff;
+    text-align: center;
+    z-index: 10;
+    width: 90px;
+}
+.tot-icon {
+    font-size: 1.8rem;
+    filter: drop-shadow(0 2px 3px rgba(0,0,0,0.6));
+    line-height: 1;
+    margin-bottom: 2px;
+}
+.tot-name {
+    font-weight: 800;
+    font-size: 0.75rem;
+    line-height: 1.1;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.9), 0 0 4px rgba(0,0,0,0.8);
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.tot-rating {
+    background: rgba(255,255,255,0.95);
+    color: #1a7a2e;
+    padding: 1px 6px;
+    border-radius: 8px;
+    font-weight: 900;
+    font-size: 0.75rem;
+    margin-top: 3px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+}
+.tot-empty {
+    opacity: 0.4;
+}
 @media (max-width:700px){
 body{padding:0;padding-top:env(safe-area-inset-top);padding-bottom:calc(60px + env(safe-area-inset-bottom));}
 body::before,body::after{display:none;}
@@ -511,13 +568,11 @@ input,select,textarea{font-size:16px !important;}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script>
 (function() {
-
 const _c = { rating: new Map(), ratingTour: new Map(), ach: new Map() };
 let _dIdSeq = 0;
 const _dIds = new WeakMap();
 function _did(d){ if(!d) return 0; let id=_dIds.get(d); if(!id){ id=++_dIdSeq; _dIds.set(d,id); } return id; }
 function _bumpCache(){ _c.rating.clear(); _c.ratingTour.clear(); _c.ach.clear(); }
-
 const API_URL='https://script.google.com/macros/s/AKfycbxrxo4AQuw6Re-41kEdxom5epgXPIg-oJZJGC3WnwuimMnMgkypIY5LvZLuD7ywKI3y5A/exec';
 const POLL_MS=30000;
 const LOCAL_STATE_KEY='laguna_full_state', LOCAL_VERSION_KEY='laguna_state_version', CURRENT_TOURNAMENT_KEY='laguna_current_tournament';
@@ -716,7 +771,6 @@ m.querySelector('#ccYesBtn').onclick = () => { close(); if(onYes) onYes(); };
 m.querySelector('#ccNoBtn').onclick = () => { close(); if(onNo) onNo(); };
 m.addEventListener('click', e => { if(e.target === m){ close(); if(onNo) onNo(); } });
 }
-
 function getComputedPlayerStats(name,d){
 d=d||appData;
 const res={goals:0,assists:0,matchesPlayed:0,goalsConceded:0,goalkeeperMatches:0,cleanSheets:0,ownGoals:0,hatTricks:0};
@@ -729,7 +783,7 @@ const isA=m.teamA===tid, isB=m.teamB===tid;
 if(!isA&&!isB)return;
 const myTeamPlayers=(d.players||[]).filter(p=>p.teamId===tid);
 if(myTeamPlayers.some(p=>p.id===player.id)){
-    res.matchesPlayed++;
+res.matchesPlayed++;
 }
 const goals=isA?(m.goalsA||[]):(m.goalsB||[]);
 let matchGoals=0;
@@ -1154,7 +1208,6 @@ function renderChartsSection(){if(!currentTournamentId)return'';let h=`<h3 style
 function applyStatsFilters(list){let r=list;if(statsFilterTeam!=='all')r=r.filter(p=>p.teamId===statsFilterTeam);if(statsFilterMin>1)r=r.filter(p=>getComputedPlayerStats(p.name,appData).matchesPlayed>=statsFilterMin);return r;}
 function renderStatsFilters(){let h=`<div class="stats-filters">`;h+=`<label>Команда:</label><select id="statsFilterTeamSelect"><option value="all">Все</option>${appData.teams.map(t=>`<option value="${t.id}" ${statsFilterTeam===t.id?'selected':''}>${escapeHtml(t.name)}</option>`).join('')}</select>`;h+=`<label>Мин. матчей:</label><input type="number" id="statsFilterMinInput" min="1" value="${statsFilterMin}" style="width:70px;">`;h+=`<button class="btn btn-secondary btn-sm" id="statsResetFilters">↺ Сбросить</button>`;h+=`</div>`;return h;}
 function renderFormatFilter(id,current){return `<div class="stats-filters" style="margin-bottom:12px;"><label>Формат:</label><select id="${id}"><option value="all" ${current==='all'?'selected':''}>Все</option>${FORMATS.map(f=>`<option value="${f.id}" ${current===f.id?'selected':''}>${f.name} --- ${f.desc}</option>`).join('')}</select></div>`;}
-
 function getTourRatingChange(name){
 const tours = _getSeasonToursByFormat(statsFormatFilter).slice().sort((a,b)=>{
 const ac=a.createdAt||'', bc=b.createdAt||'';
@@ -1166,16 +1219,16 @@ let prevTour = null;
 let prevData = null;
 let prevSt = null;
 for(let i=idx-1; i>=0; i--){
-    const td = getTournamentData(tours[i].id);
-    if((td.matches||[]).length > 0){
-        const st = getComputedPlayerStats(name, td);
-        if(st.matchesPlayed > 0) {
-            prevTour = tours[i];
-            prevData = td;
-            prevSt = st;
-            break;
-        }
-    }
+const td = getTournamentData(tours[i].id);
+if((td.matches||[]).length > 0){
+const st = getComputedPlayerStats(name, td);
+if(st.matchesPlayed > 0) {
+prevTour = tours[i];
+prevData = td;
+prevSt = st;
+break;
+}
+}
 }
 if(!prevTour) return null;
 const prevRating = calcRatingForPlayerInTournament(name, prevData);
@@ -1184,7 +1237,6 @@ const curRating = calcRatingForPlayerInTournament(name, appData);
 const pct = ((curRating-prevRating)/prevRating)*100;
 return {pct, curRating, prevRating};
 }
-
 function renderTourTrendBadge(name){
 const c = getTourRatingChange(name);
 if(!c) return '<span class="trend-flat">---</span>';
@@ -1347,7 +1399,7 @@ h+=`<div style="background:#f5eafc;border:1px solid #c39bd3;border-radius:12px;p
 h+=`<div class="dm-thread" id="dmThread">`;
 if(!thread.length){
 if(isBotThread){
-h+=`<div style="text-align:center;padding:20px 0;color:#9aab9a;"><div style="font-size:3rem;margin-bottom:10px;">🤖</div><p>Привет! Я — Аналитик LAGUNA CUP.<br>Напиши <code>/help</code>, чтобы увидеть все команды.</p></div>`;
+h+=`<div style="text-align:center;padding:20px 0;color:#9aab9a;"><div style="font-size:3rem;margin-bottom:10px;">🤖</div><p>Привет! Я --- Аналитик LAGUNA CUP.<br>Напиши <code>/help</code>, чтобы увидеть все команды.</p></div>`;
 }else if(isSystemThread){
 h+=`<p style="color:#9aab9a;text-align:center;padding:20px 0;">Поздравлений пока нет.</p>`;
 }else{
@@ -2313,7 +2365,7 @@ else {h += `<p style="color:var(--text-light);font-size:0.9rem;margin-bottom:15p
 h += `<button class="btn btn-secondary" id="joinCloseBtn2" style="width:100%;justify-content:center;margin-top:10px;">Закрыть</button></div>`;
 document.getElementById('modalContent').innerHTML = h;
 document.getElementById('playerModal').style.display = 'flex';
-const cl = () =>{document.getElementById('playerModal').style.display = 'none';history.replaceState(null, null, window.location.pathname + window.location.search);};
+const cl = ()=>{document.getElementById('playerModal').style.display = 'none';history.replaceState(null, null, window.location.pathname + window.location.search);};
 const cBtn1 = document.getElementById('joinCloseBtn');if(cBtn1) cBtn1.onclick = cl;
 const cBtn2 = document.getElementById('joinCloseBtn2');if(cBtn2) cBtn2.onclick = cl;
 const lBtn = document.getElementById('joinLoginBtn');if(lBtn) lBtn.onclick = () => { cl(); openLoginModal(); };
@@ -2498,6 +2550,75 @@ if(players.length){h+=`<div class="bt-players">`;players.forEach(p=>{const r=cal
 h+=`</div></div>`;
 return h;
 }
+function getTeamOfTheTournament(d) {
+    const players = (d.players || []).map(p => {
+        const st = getComputedPlayerStats(p.name, d);
+        const rating = calcRatingForPlayerInTournament(p.name, d);
+        const gkRating = calcGoalkeeperRating(st);
+        return { ...p, st, rating, gkRating };
+    }).filter(p => p.st.matchesPlayed > 0);
+
+    const picked = new Set();
+    const team = { gk: null, rating: null, bomb: null, assist: null, mvp: null };
+
+    const pickNext = (sortFn, filterFn = () => true) => {
+        const eligible = players.filter(filterFn);
+        const sorted = [...eligible].sort(sortFn);
+        for (const p of sorted) {
+            if (!picked.has(p.name)) {
+                picked.add(p.name);
+                return p;
+            }
+        }
+        return null;
+    };
+
+    team.gk = pickNext((a, b) => b.gkRating - a.gkRating, p => p.st.goalkeeperMatches > 0);
+    team.rating = pickNext((a, b) => b.rating - a.rating);
+    team.bomb = pickNext((a, b) => b.st.goals - a.st.goals || b.st.assists - a.st.assists || b.rating - a.rating);
+    team.assist = pickNext((a, b) => b.st.assists - a.st.assists || b.st.goals - a.st.goals || b.rating - a.rating);
+    team.mvp = pickNext((a, b) => (b.st.goals + b.st.assists) - (a.st.goals + a.st.assists) || b.st.goals - a.st.goals || b.rating - a.rating);
+
+    return team;
+}
+
+function renderTeamOfTheTournament() {
+    if (!currentTournamentId) return '';
+    const team = getTeamOfTheTournament(appData);
+    if (!team.rating && !team.bomb && !team.assist && !team.mvp && !team.gk) return '';
+
+    const renderPlayer = (player, icon, top, left) => {
+        if (!player) {
+            return `<div class="tot-player tot-empty" style="top:${top}; left:${left};">
+                <div class="tot-icon" style="font-size: 1.5rem;">${icon}</div>
+                <div class="tot-name">---</div>
+            </div>`;
+        }
+        return `<div class="tot-player" style="top:${top}; left:${left};">
+            <div class="tot-icon">${icon}</div>
+            <div class="tot-name" title="${escapeHtml(player.name)}">${escapeHtml(player.name)}</div>
+            <div class="tot-rating">${player.rating}</div>
+        </div>`;
+    };
+
+    return `
+    <div class="best-team-section" style="margin-top:20px; background: linear-gradient(160deg, #e8f5e9 0%, #c8e6c9 100%); border-color: #4caf50;">
+        <h3>⭐ Сборная LAGUNA этого тура</h3>
+        <div class="tot-container">
+            <div class="tot-pitch-line" style="top:10px; left:10px; right:10px; bottom:10px; border-radius:12px;"></div>
+            <div class="tot-pitch-line" style="bottom:10px; left:50%; transform:translateX(-50%); width:50%; height:25%; border-bottom:none; border-radius:0 0 50% 50%;"></div>
+            <div class="tot-pitch-line" style="bottom:10px; left:50%; transform:translateX(-50%); width:30%; height:12%; border-bottom:none;"></div>
+            <div class="tot-pitch-line" style="bottom:10px; left:50%; transform:translateX(-50%); width:10%; height:5%; border-bottom:none; border-radius:4px 4px 0 0;"></div>
+            <div class="tot-pitch-line" style="top:10px; left:50%; transform:translateX(-50%); width:40%; height:20%; border-top:none; border-radius:0 0 50% 50%;"></div>
+
+            ${renderPlayer(team.rating, '🌟', '20%', '50%')}
+            ${renderPlayer(team.mvp, '🏅', '40%', '50%')}
+            ${renderPlayer(team.bomb, '⚽', '65%', '25%')}
+            ${renderPlayer(team.assist, '🎯', '65%', '75%')}
+            ${renderPlayer(team.gk, '🧤', '88%', '50%')}
+        </div>
+    </div>`;
+}
 function openTournamentPickerModal(){
 const tours=getCurrentSeasonTours();const season=getCurrentSeason();
 let h=`<h2>🏆 Выбрать тур</h2>`;
@@ -2540,6 +2661,7 @@ const ba=getBestAssister(appData);h+=`<div class="stat-card"><h4>🎯 Ассис
 const gkBest=getBestGoalkeeper(appData);h+=`<div class="stat-card"><h4>🧤 Вратарь</h4>${gkBest?`<div class="best">🏆 ${escapeHtml(gkBest.name)} <span style="color:${getGoalkeeperRatingColor(gkBest.rating)};">(${gkBest.rating})</span></div>`:'<div>Нет</div>'}</div>`;
 h+=`</div>`;
 h+=renderBestTeamSection();
+h+=renderTeamOfTheTournament();
 if(!appData.pinnedVote) h+=renderVotingSection();
 return h;
 }
@@ -2759,7 +2881,6 @@ if(u){h+=`<div class="chat-as-label">От: <strong>${escapeHtml(u)}</strong> · 
 else{h+=`<div style="background:#fff3cd;border-radius:12px;padding:14px;color:#7a5a1a;text-align:center;font-size:0.9rem;">Войдите, чтобы писать.<br><br><button class="btn btn-primary btn-sm" id="openLoginBtnChat" style="margin:0;">👤 Войти</button></div>`;}
 return h;
 }
-
 function sendChatMessage(){
 const u=getCurrentUser();
 if(!u){alert('🔒 Войдите');return;}
@@ -2787,7 +2908,6 @@ const inp=document.getElementById('chatMessageInput');
 if(inp)inp.focus();
 },60);
 }
-
 function sendChatFile(file){
 const u=getCurrentUser();if(!u){alert('🔒 Войдите');return;}
 const isImg=file.type.startsWith('image/'),isAud=file.type.startsWith('audio/');
@@ -2796,7 +2916,6 @@ const reader=new FileReader();
 reader.onload=(e)=>{const dataUrl=e.target.result;const tag=isImg?`[img]${dataUrl}[/img]`:`[audio]${dataUrl}[/audio]`;if(!serverState.data[CHAT_KEY])serverState.data[CHAT_KEY]=[];const m={id:'msg_'+generateId(),playerName:u,text:tag,timestamp:new Date().toISOString(),reactions:{},isFile:true};serverState.data[CHAT_KEY].push(m);if(serverState.data[CHAT_KEY].length>200)serverState.data[CHAT_KEY]=serverState.data[CHAT_KEY].slice(-200);scheduleSave();render();};
 reader.readAsDataURL(file);
 }
-
 function renderDMTab(){
 const me=getCurrentUser();
 if(!me)return`<div class="empty-state"><span class="emoji">🔒</span><p>Войдите, чтобы видеть личные сообщения.</p></div>`;
@@ -2809,7 +2928,6 @@ if(!list.length)h+=`<p style="color:#9aab9a; text-align:center; padding:40px 20p
 else list.forEach(p=>{const unread=getDMUnread(p);const last=getDMThread(p).slice(-1)[0];const isSys=p===SYSTEM_USER;const isBot=p===BOT_USER;const icon=isBot?'🤖':(isSys?'🔔':'👤');const borderColor=isBot?'#8b5cf6':(isSys?'#f5a623':'#2e9e44');const hint=isBot?'Умный аналитик · напиши /help':(isSys?'Системные уведомления':'Начните переписку');const previewText=last?escapeHtml(last.text.substring(0,60))+(last.text.length>60?'...':''):hint;h+=`<div class="record-card" style="cursor:pointer;border-left-color:${borderColor};${isBot?'background:linear-gradient(135deg,#f5eafc,#ede4fb);':''}" data-dm-open="${escapeHtml(p)}"><div class="info"><strong>${icon} ${escapeHtml(p)}${unread>0?` <span style="background:#e74c3c;color:#fff;padding:2px 8px;border-radius:10px;font-size:0.75rem;">${unread}</span>`:''}</strong><div style="font-size:0.85rem;color:var(--text-light);margin-top:4px;">${previewText}</div></div><span style="color:var(--text-light);font-size:1.5rem;">›</span></div>`;});
 return h;
 }
-
 function sendDM(other,text){
 const me=getCurrentUser();
 if(!me||!other||!text)return;
@@ -2825,7 +2943,6 @@ localStorage.setItem(DM_LAST_READ_KEY+':'+k,new Date().toISOString());
 audit('dm','send',`${me} → ${other}`);
 scheduleSave();
 }
-
 function sendSystemDM(playerName,text){
 if(!playerName||!text)return false;
 const exists=playersDatabase.includes(playerName)||(appData.players||[]).some(p=>p.name===playerName);
@@ -2839,11 +2956,8 @@ all[k].push(msg);
 if(all[k].length>300)all[k]=all[k].slice(-300);
 return true;
 }
-
 function getDMUnread(other){const me=getCurrentUser();if(!me||!other)return 0;const k=dmKey(me,other);const lastRead=localStorage.getItem(DM_LAST_READ_KEY+':'+k)||'1970-01-01';return getDMThread(other).filter(m=>m.from===other&&m.timestamp>lastRead).length;}
-
 function getTotalDMUnread(){const me=getCurrentUser();if(!me)return 0;const all=getDMAll();let total=0;Object.keys(all).forEach(k=>{if(!k.includes(me))return;const other=k.split('|').find(x=>x!==me);if(other && other !== BOT_USER)total+=getDMUnread(other);});return total;}
-
 function openDMModal(other){
 const me=getCurrentUser();
 if(!me){alert('🔒 Войдите');return;}
@@ -2883,7 +2997,7 @@ h+=`<div style="background:#f5eafc;border:1px solid #c39bd3;border-radius:12px;p
 h+=`<div class="dm-thread" id="dmThread">`;
 if(!thread.length){
 if(isBotThread){
-h+=`<div style="text-align:center;padding:20px 0;color:#9aab9a;"><div style="font-size:3rem;margin-bottom:10px;">🤖</div><p>Привет! Я — Аналитик LAGUNA CUP.<br>Напиши <code>/help</code>, чтобы увидеть все команды.</p></div>`;
+h+=`<div style="text-align:center;padding:20px 0;color:#9aab9a;"><div style="font-size:3rem;margin-bottom:10px;">🤖</div><p>Привет! Я --- Аналитик LAGUNA CUP.<br>Напиши <code>/help</code>, чтобы увидеть все команды.</p></div>`;
 }else if(isSystemThread){
 h+=`<p style="color:#9aab9a;text-align:center;padding:20px 0;">Поздравлений пока нет.</p>`;
 }else{
@@ -2914,7 +3028,6 @@ setTimeout(()=>{const el=document.getElementById('dmThread');if(el)el.scrollTop=
 }
 document.getElementById('dmModal').style.display='flex';
 }
-
 function renderRecordsTab(){
 const _snRec=getCurrentSeason()?.name||'Сезон';
 let h=`<div class="panel-title"><span class="icon">🏆</span> Рекорды</div><p style="color:var(--text-light);font-size:0.92rem;margin-bottom:20px;">Сезон: <strong>${escapeHtml(_snRec)}</strong> · лучшие достижения по турам сезона.</p>`;
@@ -2930,7 +3043,6 @@ h+=sc('🏅 MVP',r.bestMVP?{name:'🌟 '+r.bestMVP.name}:'');h+=sc('⚽ Бомб
 if(r.bestTeam){const rs=getRatingStyle(r.bestTeam.rating);let playersHtml='';const tFound=T.find(t=>t.name===r.bestTeam.tournamentName);if(tFound){const td=getTournamentData(tFound.id);const teamObj=(td.teams||[]).find(t=>t.name===r.bestTeam.name);if(teamObj){const players=(td.players||[]).filter(p=>p.teamId===teamObj.id).sort((a,b)=>calcRatingForPlayerInTournament(b.name,td)-calcRatingForPlayerInTournament(a.name,td));playersHtml=players.map(p=>{const pR=calcRatingForPlayerInTournament(p.name,td);const pRs=getRatingStyle(pR);return`<span class="player-chip" style="border:2px solid ${pRs.border};">👤 ${escapeHtml(p.name)} · <strong style="color:${pRs.color};">${pR}</strong></span>`;}).join('');}}if(!playersHtml)playersHtml=renderPlayerChips(r.bestTeam.players);h+=`<div class="stat-card" style="grid-column:1/-1;"><h4>🏆 Лучшая команда</h4><div style="color:#1a7a2e;font-weight:700;">🥇 ${escapeHtml(r.bestTeam.name)}</div><div style="font-size:1.2rem;font-weight:800;color:${rs.color};margin-top:8px;">${r.bestTeam.rating} ${rs.medal}</div><div style="font-size:0.85rem;color:#7a8a7a;margin-top:6px;">${escapeHtml(r.bestTeam.tournamentName)}</div><div style="margin-top:10px;">${playersHtml}</div></div>`;}
 h+=`</div>`;return h;
 }
-
 function calcRecords(){
 const T=_getSeasonToursByFormat(recordsFormatFilter);
 const aa=aggregateAllPlayers(T);
@@ -2946,7 +3058,6 @@ const vE=Object.entries(vS).sort((a,b)=>b[1]-a[1]);const bV=vE[0]?{name:vE[0][0]
 let bt=null;T.forEach(t=>{const d=getTournamentData(t.id);const b=getBestTeamTournament(d);if(b&&(!bt||b.rating>bt.rating))bt={...b,tournamentName:t.name};});
 return{bestRating:bR,bestMVP:bM,bestScorer:bS,bestAssister:bA,bestGK:bG,bestVoted:bV,bestTeam:bt};
 }
-
 function renderAdminTab(){
 if(!isCurrentUserAdmin())return`<div class="empty-state"><span class="emoji">🔒</span><p>Только для админов</p></div>`;
 let h=`<div class="panel-title"><span class="icon">👑</span> Админ-панель</div><div class="sub-tabs"><button class="sub-tab ${adminSubTab==='pending'?'active':''}" data-admin="pending">⏳ Заявки (${getPending().length})</button><button class="sub-tab ${adminSubTab==='invites'?'active':''}" data-admin="invites">🔗 Приглашения</button><button class="sub-tab ${adminSubTab==='admins'?'active':''}" data-admin="admins">👑 Админы (${getAdmins().length})</button><button class="sub-tab ${adminSubTab==='assigners'?'active':''}" data-admin="assigners">🎯 Команды (${getAssigners().length})</button><button class="sub-tab ${adminSubTab==='audit'?'active':''}" data-admin="audit">📋 Аудит</button><button class="sub-tab ${adminSubTab==='congrats'?'active':''}" data-admin="congrats">🎉 Поздравление</button><button class="sub-tab ${adminSubTab==='settings'?'active':''}" data-admin="settings">⚙️ Настройки</button></div>`;
@@ -2959,7 +3070,6 @@ else if(adminSubTab==='congrats'){h+=`<div class="admin-section"><h3>🎉 Поз
 else{h+=`<div class="admin-section"><h3>⚙️ Настройки</h3><label style="display:flex;align-items:center;gap:10px;font-size:0.95rem;margin-bottom:8px;"><input type="checkbox" id="anonVoteToggle" ${isAnonVote()?'checked':''}> 🔒 Анонимное голосование</label></div>`;h+=`<div class="admin-section"><h3>✏️ Переименование</h3><div style="display:flex; flex-direction:column; gap:8px;"><button class="btn btn-secondary" id="renameSeasonBtn" style="width:100%; justify-content:center; margin:0;">✏️ Переименовать сезон</button><button class="btn btn-secondary" id="renameTourBtn" style="width:100%; justify-content:center; margin:0;">✏️ Переименовать тур</button></div></div>`;}
 return h;
 }
-
 // ============ БОТ-АНАЛИТИК ============
 function botPush(text, targetUser){
 targetUser=targetUser||getCurrentUser();
@@ -2972,7 +3082,6 @@ all[k].push(msg);
 if(all[k].length>300)all[k]=all[k].slice(-300);
 scheduleSave();
 }
-
 function sendBotCommand(text){
 const me=getCurrentUser();
 if(!me||!text)return;
@@ -2987,16 +3096,14 @@ handleBotCommand(text,me);
 if(currentTab==='dm'&&dmTarget===BOT_USER)openDMModal(BOT_USER);
 },300);
 }
-
 function findTeamByName(q){if(!q)return null;q=q.trim().toLowerCase();const teams=appData.teams||[];let t=teams.find(x=>x.name.toLowerCase()===q);if(t)return t;return teams.find(x=>x.name.toLowerCase().includes(q))||null;}
 function findPlayerByName(q){if(!q)return null;q=q.trim().toLowerCase();const ps=appData.players||[];let p=ps.find(x=>x.name.toLowerCase()===q);if(p)return p;return ps.find(x=>x.name.toLowerCase().includes(q))||null;}
 function findBestGoalkeeperForTeam(tid){const count={};appData.matches.forEach(m=>{const isA=m.teamA===tid;if(!isA&&m.teamB!==tid)return;const gkId=isA?m.goalkeeperA:m.goalkeeperB;if(gkId)count[gkId]=(count[gkId]||0)+1;});let best=null,bc=0;Object.keys(count).forEach(k=>{if(count[k]>bc){bc=count[k];best=k;}});return best;}
-
 function botPredict(ta,tb){
 const p=getMatchPrediction(ta.id,tb.id);const drawPct=Math.max(0,100-p.pA-p.pB);
-const formA=p.formA.map(x=>x==='W'?'🟢':x==='D'?'🟡':'🔴').join('')||'—';
-const formB=p.formB.map(x=>x==='W'?'🟢':x==='D'?'🟡':'🔴').join('')||'—';
-let h=`🔮 Прогноз: ${ta.name} vs ${tb.name}\n\nВероятности: ${ta.name} — ${p.pA}% · Ничья — ${drawPct}% · ${tb.name} — ${p.pB}%\nРейтинг: ${p.ratingA} — ${p.ratingB}\nФорма: ${formA} — ${formB}\n`;
+const formA=p.formA.map(x=>x==='W'?'🟢':x==='D'?'🟡':'🔴').join('')||'---';
+const formB=p.formB.map(x=>x==='W'?'🟢':x==='D'?'🟡':'🔴').join('')||'---';
+let h=`🔮 Прогноз: ${ta.name} vs ${tb.name}\n\nВероятности: ${ta.name} --- ${p.pA}% · Ничья --- ${drawPct}% · ${tb.name} --- ${p.pB}%\nРейтинг: ${p.ratingA} --- ${p.ratingB}\nФорма: ${formA} --- ${formB}\n`;
 if(p.hasHistory){let wA=0,wB=0,d=0;p.h2h.forEach(m=>{const isA=m.teamA===ta.id;const sa=parseInt(m.scoreA,10)||0,sb=parseInt(m.scoreB,10)||0;const my=isA?sa:sb,opp=isA?sb:sa;if(my>opp)wA++;else if(my<opp)wB++;else d++;});h+=`История: ${wA}:${wB} (ничьих ${d})\n`;}
 else h+=`Истории встреч нет.\n`;
 const topA=appData.players.filter(x=>x.teamId===ta.id).map(x=>({n:x.name,r:calcRatingForPlayerInTournament(x.name,appData)})).sort((a,b)=>b.r-a.r).slice(0,3);
@@ -3005,26 +3112,24 @@ if(topA.length)h+=`⭐ ${ta.name}: ${topA.map(x=>`${x.n} (${x.r})`).join(', ')}\
 if(topB.length)h+=`⭐ ${tb.name}: ${topB.map(x=>`${x.n} (${x.r})`).join(', ')}\n`;
 const diff=Math.abs(p.pA-p.pB);
 if(diff<10)h+=`\n⚖️ Матч равный.`;
-else if(p.pA>p.pB)h+=`\n🏆 Фаворит — ${ta.name}.`;
-else h+=`\n🏆 Фаворит — ${tb.name}.`;
+else if(p.pA>p.pB)h+=`\n🏆 Фаворит --- ${ta.name}.`;
+else h+=`\n🏆 Фаворит --- ${tb.name}.`;
 return h;
 }
-
 function botLineup(teamName){
-const t=findTeamByName(teamName);if(!t)return'⚠️ Не нашёл команду. /teams — список.';
+const t=findTeamByName(teamName);if(!t)return'⚠️ Не нашёл команду. /teams --- список.';
 const players=appData.players.filter(p=>p.teamId===t.id);if(!players.length)return`⚠️ В «${t.name}» нет игроков.`;
 const fmt=getTournamentFormat(currentTournamentId);const fieldLimit=fmt==='6x2'?5:4;
 const ranked=players.map(p=>({p,r:calcRatingForPlayerInTournament(p.name,appData)})).sort((a,b)=>b.r-a.r);
 const gkId=findBestGoalkeeperForTeam(t.id);const gk=gkId?ranked.find(x=>x.p.id===gkId):null;
 const field=ranked.filter(x=>!gk||x.p.id!==gk.p.id);
-let h=`📋 Состав ${t.name} (${getFormatLabel(fmt)})\n\n🧤 Вратарь: ${gk?`${gk.p.name} (${gk.r})`:'❗ нет — риск'}\n\nПолевые:\n`;
-field.slice(0,fieldLimit).forEach((x,i)=>h+=`${i+1}. ${x.p.name} — ⭐${x.r}\n`);
+let h=`📋 Состав ${t.name} (${getFormatLabel(fmt)})\n\n🧤 Вратарь: ${gk?`${gk.p.name} (${gk.r})`:'❗ нет --- риск'}\n\nПолевые:\n`;
+field.slice(0,fieldLimit).forEach((x,i)=>h+=`${i+1}. ${x.p.name} --- ⭐${x.r}\n`);
 if(field.length>fieldLimit){h+=`\n🔄 На замену:\n`;field.slice(fieldLimit,fieldLimit+3).forEach(x=>h+=`• ${x.p.name} (${x.r})\n`);}
 const noGames=players.filter(p=>getComputedPlayerStats(p.name,appData).matchesPlayed===0).map(p=>p.name);
 if(noGames.length)h+=`\n⚠️ Без игр: ${noGames.join(', ')}`;
 return h;
 }
-
 function botChems(playerName){
 const pl=findPlayerByName(playerName);if(!pl)return'⚠️ Не нашёл игрока.';
 const assistTo={},assistsFrom={};
@@ -3032,12 +3137,11 @@ appData.matches.forEach(m=>{[...(m.goalsA||[]),...(m.goalsB||[])].forEach(g=>{if
 const topA=Object.entries(assistTo).sort((a,b)=>b[1]-a[1]).slice(0,3);
 const topB=Object.entries(assistsFrom).sort((a,b)=>b[1]-a[1]).slice(0,3);
 let h=`🔗 Связки ${pl.name}\n\n`;
-if(topA.length){h+=`🎯 Ассистирует чаще:\n`;topA.forEach(([n,c])=>h+=`• ${n} — ${c}\n`);} else h+=`🎯 Пока никому не ассистировал.\n`;
+if(topA.length){h+=`🎯 Ассистирует чаще:\n`;topA.forEach(([n,c])=>h+=`• ${n} --- ${c}\n`);} else h+=`🎯 Пока никому не ассистировал.\n`;
 h+=`\n`;
-if(topB.length){h+=`🤝 Получает ассисты от:\n`;topB.forEach(([n,c])=>h+=`• ${n} — ${c}\n`);} else h+=`🤝 Пока не получал ассистов.\n`;
+if(topB.length){h+=`🤝 Получает ассисты от:\n`;topB.forEach(([n,c])=>h+=`• ${n} --- ${c}\n`);} else h+=`🤝 Пока не получал ассистов.\n`;
 return h;
 }
-
 function botWeak(teamName){
 const t=findTeamByName(teamName);if(!t)return'⚠️ Не нашёл команду.';
 const players=appData.players.filter(p=>p.teamId===t.id);const notes=[];
@@ -3049,28 +3153,24 @@ const reserve=players.filter(p=>p.status==='reserve');if(reserve.length)notes.pu
 if(!notes.length)notes.push('✅ Явных слабых мест нет.');
 return `🔍 Анализ ${t.name}\n\n`+notes.join('\n');
 }
-
 function botTop(){
 const rows=appData.players.map(p=>({n:p.name,r:calcRatingForPlayerInTournament(p.name,appData),st:getComputedPlayerStats(p.name,appData)})).filter(x=>x.st.matchesPlayed>0).sort((a,b)=>b.r-a.r).slice(0,5);
 if(!rows.length)return'⚠️ Нет данных.';
-return `🏆 Топ-5 турнира\n\n`+rows.map((x,i)=>`${i+1}. ${x.n} — ⭐${x.r} (${x.st.goals}⚽ / ${x.st.assists}🎯)`).join('\n');
+return `🏆 Топ-5 турнира\n\n`+rows.map((x,i)=>`${i+1}. ${x.n} --- ⭐${x.r} (${x.st.goals}⚽ / ${x.st.assists}🎯)`).join('\n');
 }
-
 function botForm(target){
 const t=findTeamByName(target);
-if(t){const form=getTeamForm(t.id,5);return `📈 Форма ${t.name}: `+form.map(x=>x==='W'?'🟢':x==='D'?'🟡':'🔴').join('')||'—';}
+if(t){const form=getTeamForm(t.id,5);return `📈 Форма ${t.name}: `+form.map(x=>x==='W'?'🟢':x==='D'?'🟡':'🔴').join('')||'---';}
 const pl=findPlayerByName(target);
-if(pl){const tr=getPlayerTrend(pl.name,5);const line=tr.ratings.slice(0,5).map(r=>r+'очк').join(' · ')||'—';const tip=tr.trend==='up'?'📈 растёт':tr.trend==='down'?'📉 падает':'➖ стабильно';return `📈 ${pl.name}: ${line}\nТренд: ${tip} (${tr.diff.toFixed(1)})`;}
+if(pl){const tr=getPlayerTrend(pl.name,5);const line=tr.ratings.slice(0,5).map(r=>r+'очк').join(' · ')||'---';const tip=tr.trend==='up'?'📈 растёт':tr.trend==='down'?'📉 падает':'➖ стабильно';return `📈 ${pl.name}: ${line}\nТренд: ${tip} (${tr.diff.toFixed(1)})`;}
 return'⚠️ Не нашёл команду или игрока.';
 }
-
 function botVs(a,b){
 const pa=findPlayerByName(a),pb=findPlayerByName(b);if(!pa||!pb)return'⚠️ /vs Игрок1 Игрок2';
 const sa=getComputedPlayerStats(pa.name,appData),sb=getComputedPlayerStats(pb.name,appData);
 const ra=calcRatingForPlayerInTournament(pa.name,appData),rb=calcRatingForPlayerInTournament(pb.name,appData);
 return `⚖️ ${pa.name} vs ${pb.name}\n\nРейтинг: ⭐${ra} vs ⭐${rb}\nМатчи: ${sa.matchesPlayed} vs ${sb.matchesPlayed}\nГолы: ${sa.goals} vs ${sb.goals}\nАссисты: ${sa.assists} vs ${sb.assists}\nГ+П: ${sa.goals+sa.assists} vs ${sb.goals+sb.assists}`;
 }
-
 function botStat(plName){
 const pl=findPlayerByName(plName);if(!pl)return'⚠️ Не нашёл игрока.';
 const s=getComputedPlayerStats(pl.name,appData);const r=calcRatingForPlayerInTournament(pl.name,appData);const t=getTeamById(pl.teamId);
@@ -3078,9 +3178,7 @@ let h=`👤 ${pl.name} ${t?'('+t.name+')':''}\n⭐ Рейтинг: ${r}\nМат�
 if(s.goalkeeperMatches>0)h+=`🧤 В воротах: ${s.goalkeeperMatches} · пропущено ${s.goalsConceded}\n`;
 return h;
 }
-
 function botTeams(){if(!appData.teams.length)return'⚠️ Команд нет.';return `📋 Команды:\n`+appData.teams.map(t=>`• ${t.name}`).join('\n');}
-
 function botMatchRecap(m){
 const ta=getTeamById(m.teamA),tb=getTeamById(m.teamB);if(!ta||!tb)return;
 const sa=parseInt(m.scoreA,10)||0,sb=parseInt(m.scoreB,10)||0;
@@ -3090,7 +3188,7 @@ h+=winner?('🏆 Победа: '+winner.name+'\n'):'⚖️ Ничья\n';
 const allGoals=[...(m.goalsA||[]),...(m.goalsB||[])];
 const scorers={};allGoals.forEach(g=>{const p=getPlayerById(g.scorerId);if(p)scorers[p.name]=(scorers[p.name]||0)+1;});
 const topScorer=Object.entries(scorers).sort((a,b)=>b[1]-a[1])[0];
-if(topScorer&&topScorer[1]>=2)h+=`🎩 ${topScorer[0]} — ${topScorer[1]} ${topScorer[1]>=3?'(хет-трик!)':'гола'}\n`;
+if(topScorer&&topScorer[1]>=2)h+=`🎩 ${topScorer[0]} --- ${topScorer[1]} ${topScorer[1]>=3?'(хет-трик!)':'гола'}\n`;
 const ownGoals=[...(m.ownGoalsA||[]),...(m.ownGoalsB||[])];
 if(ownGoals.length)h+=`😅 Автоголов: ${ownGoals.length}\n`;
 const candidates=[];const seen=new Set();
@@ -3098,7 +3196,6 @@ allGoals.forEach(g=>{const p=getPlayerById(g.scorerId);if(p)seen.add(p.name);if(
 seen.forEach(name=>{const pts=getMatchPointsForPlayer(name,m);if(pts)candidates.push({name,pts:pts.pts});});
 candidates.sort((a,b)=>b.pts-a.pts);
 if(candidates.length)h+=`⭐ Лучший в матче: ${candidates[0].name} (${candidates[0].pts} очк.)\n`;
-
 // В ОБЩИЙ ЧАТ
 if(!serverState.data[CHAT_KEY])serverState.data[CHAT_KEY]=[];
 const chat=serverState.data[CHAT_KEY];
@@ -3106,7 +3203,6 @@ chat.push({id:'msg_'+generateId(),playerName:BOT_USER,text:h,timestamp:new Date(
 if(chat.length>200)serverState.data[CHAT_KEY]=chat.slice(-200);
 scheduleSave();
 }
-
 function openBotAnalysis(){
 if(!currentTournamentId){alert('Нет турнира');return;}
 let h='<h2>🤖 Анализ турнира</h2>';
@@ -3125,7 +3221,6 @@ const matches=appData.matches||[];
 if(matches.length){h+='<h3 style="margin-top:20px;">🔥 Рекорды</h3>';let bigScore=0,bigMatch=null;matches.forEach(m=>{const total=(parseInt(m.scoreA,10)||0)+(parseInt(m.scoreB,10)||0);if(total>bigScore){bigScore=total;bigMatch=m;}});if(bigMatch){const ta=getTeamById(bigMatch.teamA),tb=getTeamById(bigMatch.teamB);h+=`<div style="background:#f8faf8;border-radius:10px;padding:10px;">⚽ Самый результативный: <strong>${escapeHtml(ta?.name||'?')} ${bigMatch.scoreA}:${bigMatch.scoreB} ${escapeHtml(tb?.name||'?')}</strong> (${bigScore})</div>`;}}
 document.getElementById('modalContent').innerHTML=h;document.getElementById('playerModal').style.display='flex';
 }
-
 function botRecap(){
 const matches=appData.matches||[];if(!matches.length)return'⚠️ Матчей нет.';
 const now=Date.now();const dayMs=24*60*60*1000;
@@ -3138,12 +3233,11 @@ let h=`📰 Итоги ${period}\n\nМатчей: ${today.length}\nГолов: $
 if(totalOwn)h+=` (авто: ${totalOwn})`;
 h+=`\n`;
 const topS=Object.entries(topScorers).sort((a,b)=>b[1]-a[1]).slice(0,3);
-if(topS.length){h+=`\n⚽ Бомбардиры:\n`;topS.forEach(([n,c])=>h+=`• ${n} — ${c}\n`);}
+if(topS.length){h+=`\n⚽ Бомбардиры:\n`;topS.forEach(([n,c])=>h+=`• ${n} --- ${c}\n`);}
 const topA=Object.entries(topAssists).sort((a,b)=>b[1]-a[1]).slice(0,3);
-if(topA.length){h+=`\n🎯 Ассистенты:\n`;topA.forEach(([n,c])=>h+=`• ${n} — ${c}\n`);}
+if(topA.length){h+=`\n🎯 Ассистенты:\n`;topA.forEach(([n,c])=>h+=`• ${n} --- ${c}\n`);}
 return h;
 }
-
 function botWhoami(targetUser){
 const me=targetUser||getCurrentUser();if(!me)return'⚠️ Войди в аккаунт.';
 const myPlayer=appData.players.find(p=>p.name===me);
@@ -3158,65 +3252,56 @@ const bestFeeder=Object.entries(assistsFrom).sort((a,b)=>b[1]-a[1])[0];
 if(bestPartner)h+=`\n🤝 Лучший партнёр: ${bestPartner[0]} (${bestPartner[1]})`;
 if(bestFeeder)h+=`\n🎯 Лучший ассистент: ${bestFeeder[0]} (${bestFeeder[1]})`;
 h+=`\n\n`;
-if(rating>=70)h+=`🏆 Ты — лидер команды.`;
+if(rating>=70)h+=`🏆 Ты --- лидер команды.`;
 else if(rating>=40)h+=`💪 Крепкий игрок основы.`;
 else if(rating>=15)h+=`📈 Растёшь. Больше времени на поле.`;
 else h+=`🌱 Новичок. Участвуй чаще.`;
 return h;
 }
-
 function botHelp(){
 return `🤖 Аналитик LAGUNA CUP
-
 📊 Матчи и прогнозы
-/predict A B — прогноз
-/h2h A B — история встреч
-/gap A B — разрыв между командами
-/next — последний матч
-
+/predict A B --- прогноз
+/h2h A B --- история встреч
+/gap A B --- разрыв между командами
+/next --- последний матч
 👤 Игроки
-/top — топ-5
-/best goals|assists|gk|mvp|form — топы
-/stat Игрок — статистика
-/vs A B — сравнение
-/form Игрок/Команда — форма
-/streak — мои серии
-/last N — мои последние N
-/lastgoal — мой последний гол
-/duo A B — связка двух
-/chemi Игрок — связки игрока
-
+/top --- топ-5
+/best goals|assists|gk|mvp|form --- топы
+/stat Игрок --- статистика
+/vs A B --- сравнение
+/form Игрок/Команда --- форма
+/streak --- мои серии
+/last N --- мои последние N
+/lastgoal --- мой последний гол
+/duo A B --- связка двух
+/chemi Игрок --- связки игрока
 🏆 Команды
-/table — таблица
-/myteam — моя команда
-/weak Команда — слабые места
-/lineup Команда — состав
-/lineup — все составы
-/teams — список команд
-
+/table --- таблица
+/myteam --- моя команда
+/weak Команда --- слабые места
+/lineup Команда --- состав
+/lineup --- все составы
+/teams --- список команд
 📈 Общее
-/rank — моя позиция
-/whoami — мой разбор
-/recap — итоги за 24ч
-/records — рекорды
-/awards — награды
-/vote — голосование
-
+/rank --- моя позиция
+/whoami --- мой разбор
+/recap --- итоги за 24ч
+/records --- рекорды
+/awards --- награды
+/vote --- голосование
 🎁 Бонус
-/cheer Команда — кричалка
-/fact — факт
-/quote — цитата
-/meme — мем
-
+/cheer Команда --- кричалка
+/fact --- факт
+/quote --- цитата
+/meme --- мем
 👑 Админ
-/pending — заявки
-/approve Имя — одобрить
-/reject Имя — отклонить
-/audit — лог действий
-
-❓ /help — это меню`;
+/pending --- заявки
+/approve Имя --- одобрить
+/reject Имя --- отклонить
+/audit --- лог действий
+❓ /help --- это меню`;
 }
-
 function handleBotCommand(text, targetUser){
 targetUser=targetUser||getCurrentUser();
 if(!targetUser)return;
@@ -3235,7 +3320,7 @@ case 'predict': {
 if(args.length < 2){ reply = '⚠️ /predict КомандаА КомандаБ'; break; }
 const ta = findTeamByName(args[0]);
 const tb = findTeamByName(args.slice(1).join(' '));
-if(!ta || !tb){ reply = '⚠️ Не нашёл одну из команд. /teams — список.'; break; }
+if(!ta || !tb){ reply = '⚠️ Не нашёл одну из команд. /teams --- список.'; break; }
 reply = botPredict(ta, tb); break;
 }
 case 'lineup': {
@@ -3292,24 +3377,23 @@ case 'pending': reply = botPending(targetUser); break;
 case 'approve': reply = botApprove(args, targetUser); break;
 case 'reject': reply = botReject(args, targetUser); break;
 case 'audit': reply = botAudit(targetUser); break;
-default: reply = '🤔 Не знаю такую команду. /help — список.';
+default: reply = '🤔 Не знаю такую команду. /help --- список.';
 }
 }catch(e){ reply = '❌ Ошибка: ' + e.message; }
 botPush(reply, targetUser);
 }
-
 // ============ НОВЫЕ КОМАНДЫ БОТА ============
 function botTable(){
 const t=calculateTable();
 if(!t.length)return '⚠️ Нет команд в турнире.';
 let h=`🏆 Турнирная таблица\n\n`;
-t.forEach((r,i)=>{const rm=r.goalsFor-r.goalsAgainst;const rmStr=rm>=0?'+'+rm:String(rm);h+=`${i+1}. ${r.name} — ${r.points} очк (${r.games} игр, ${r.wins}П ${r.draws}Н ${r.losses}Пор, РМ ${rmStr})\n`;});
+t.forEach((r,i)=>{const rm=r.goalsFor-r.goalsAgainst;const rmStr=rm>=0?'+'+rm:String(rm);h+=`${i+1}. ${r.name} --- ${r.points} очк (${r.games} игр, ${r.wins}П ${r.draws}Н ${r.losses}Пор, РМ ${rmStr})\n`;});
 return h;
 }
 function botH2H(args){
 if(args.length<2)return '⚠️ /h2h КомандаА КомандаБ';
 const ta=findTeamByName(args[0]);const tb=findTeamByName(args.slice(1).join(' '));
-if(!ta||!tb)return '⚠️ Не нашёл одну из команд. /teams — список.';
+if(!ta||!tb)return '⚠️ Не нашёл одну из команд. /teams --- список.';
 const matches=appData.matches.filter(m=>(m.teamA===ta.id&&m.teamB===tb.id)||(m.teamA===tb.id&&m.teamB===ta.id));
 if(!matches.length)return `⚔️ ${ta.name} vs ${tb.name}\n\nМатчей ещё не было.`;
 let winsA=0,winsB=0,draws=0,gfA=0,gfB=0;
@@ -3321,7 +3405,7 @@ return h;
 function botRank(user){
 const players=appData.players.map(p=>({name:p.name,r:calcRatingForPlayerInTournament(p.name,appData),st:getComputedPlayerStats(p.name,appData)})).filter(x=>x.st.matchesPlayed>0).sort((a,b)=>b.r-a.r);
 const idx=players.findIndex(p=>p.name===user);
-if(idx<0)return `📊 ${user} — пока нет рейтинга.`;
+if(idx<0)return `📊 ${user} --- пока нет рейтинга.`;
 const me=players[idx];const prev=players[idx-1];const next=players[idx+1];const tr=getPlayerTrend(user,5);
 let h=`📊 Твоя позиция: #${idx+1}\n\n⭐ Рейтинг: ${me.r}\n`;
 if(prev)h+=`📈 До #${idx} (${prev.name}): ${prev.r-me.r} очк\n`;
@@ -3332,15 +3416,15 @@ return h;
 }
 function botMyTeam(user){
 const p=appData.players.find(x=>x.name===user);
-if(!p||!p.teamId)return `⚠️ ${user} — без команды.`;
+if(!p||!p.teamId)return `⚠️ ${user} --- без команды.`;
 const t=getTeamById(p.teamId);if(!t)return '⚠️ Команда не найдена.';
 const table=calculateTable();const row=table.find(r=>r.id===t.id);
 const players=appData.players.filter(x=>x.teamId===t.id).map(x=>({name:x.name,r:calcRatingForPlayerInTournament(x.name,appData)})).sort((a,b)=>b.r-a.r);
-const rating=calcTeamRating(t.id,appData);const form=getTeamForm(t.id,5).map(x=>x==='W'?'🟢':(x==='D'?'🟡':'🔴')).join('')||'—';
+const rating=calcTeamRating(t.id,appData);const form=getTeamForm(t.id,5).map(x=>x==='W'?'🟢':(x==='D'?'🟡':'🔴')).join('')||'---';
 let h=`🔵 ${t.name} (твоя команда)\n\n`;
 if(row){const pos=table.findIndex(r=>r.id===t.id)+1;h+=`Место: ${pos} (${row.points} очк)\nФорма: ${form}\n`;}
 h+=`Рейтинг: ⭐${rating}\n\n⭐ Лидеры:\n`;
-players.slice(0,3).forEach(x=>{const st=getComputedPlayerStats(x.name,appData);h+=`• ${x.name} (${x.r}) — ${st.goals}⚽ / ${st.assists}🎯\n`;});
+players.slice(0,3).forEach(x=>{const st=getComputedPlayerStats(x.name,appData);h+=`• ${x.name} (${x.r}) --- ${st.goals}⚽ / ${st.assists}🎯\n`;});
 return h;
 }
 function botNext(user){
@@ -3361,11 +3445,11 @@ return h;
 function botBest(args){
 const cat=(args[0]||'').toLowerCase();
 const players=appData.players.map(p=>({name:p.name,st:getComputedPlayerStats(p.name,appData),r:calcRatingForPlayerInTournament(p.name,appData)})).filter(x=>x.st.matchesPlayed>0);
-if(cat==='goals'){const sorted=players.sort((a,b)=>b.st.goals-a.st.goals).slice(0,5);if(!sorted.length)return '⚠️ Нет данных.';return `⚽ Топ-5 бомбардиров\n\n`+sorted.map((x,i)=>`${i+1}. ${x.name} — ${x.st.goals}⚽`).join('\n');}
-if(cat==='assists'){const sorted=players.sort((a,b)=>b.st.assists-a.st.assists).slice(0,5);if(!sorted.length)return '⚠️ Нет данных.';return `🎯 Топ-5 ассистентов\n\n`+sorted.map((x,i)=>`${i+1}. ${x.name} — ${x.st.assists}🎯`).join('\n');}
-if(cat==='gk'){const sorted=players.filter(x=>x.st.goalkeeperMatches>0).map(x=>({...x,gkr:calcGoalkeeperRating(x.st)})).sort((a,b)=>b.gkr-a.gkr).slice(0,5);if(!sorted.length)return '⚠️ Вратарей нет.';return `🧤 Топ-5 вратарей\n\n`+sorted.map((x,i)=>`${i+1}. ${x.name} — ${x.gkr} (${x.st.cleanSheets} сухих)`).join('\n');}
-if(cat==='mvp'){const sorted=players.sort((a,b)=>(b.st.goals+b.st.assists)-(a.st.goals+a.st.assists)).slice(0,5);if(!sorted.length)return '⚠️ Нет данных.';return `🏅 Топ-5 по Г+П\n\n`+sorted.map((x,i)=>`${i+1}. ${x.name} — ${x.st.goals+x.st.assists}`).join('\n');}
-if(cat==='form'){const sorted=players.map(x=>({...x,tr:getPlayerTrend(x.name,5)})).filter(x=>x.tr.ratings.length>=2).sort((a,b)=>b.tr.diff-a.tr.diff).slice(0,5);if(!sorted.length)return '⚠️ Нет данных.';return `📈 Топ-5 по форме\n\n`+sorted.map((x,i)=>`${i+1}. ${x.name} — ${x.tr.diff>0?'+':''}${x.tr.diff.toFixed(1)}`).join('\n');}
+if(cat==='goals'){const sorted=players.sort((a,b)=>b.st.goals-a.st.goals).slice(0,5);if(!sorted.length)return '⚠️ Нет данных.';return `⚽ Топ-5 бомбардиров\n\n`+sorted.map((x,i)=>`${i+1}. ${x.name} --- ${x.st.goals}⚽`).join('\n');}
+if(cat==='assists'){const sorted=players.sort((a,b)=>b.st.assists-a.st.assists).slice(0,5);if(!sorted.length)return '⚠️ Нет данных.';return `🎯 Топ-5 ассистентов\n\n`+sorted.map((x,i)=>`${i+1}. ${x.name} --- ${x.st.assists}🎯`).join('\n');}
+if(cat==='gk'){const sorted=players.filter(x=>x.st.goalkeeperMatches>0).map(x=>({...x,gkr:calcGoalkeeperRating(x.st)})).sort((a,b)=>b.gkr-a.gkr).slice(0,5);if(!sorted.length)return '⚠️ Вратарей нет.';return `🧤 Топ-5 вратарей\n\n`+sorted.map((x,i)=>`${i+1}. ${x.name} --- ${x.gkr} (${x.st.cleanSheets} сухих)`).join('\n');}
+if(cat==='mvp'){const sorted=players.sort((a,b)=>(b.st.goals+b.st.assists)-(a.st.goals+a.st.assists)).slice(0,5);if(!sorted.length)return '⚠️ Нет данных.';return `🏅 Топ-5 по Г+П\n\n`+sorted.map((x,i)=>`${i+1}. ${x.name} --- ${x.st.goals+x.st.assists}`).join('\n');}
+if(cat==='form'){const sorted=players.map(x=>({...x,tr:getPlayerTrend(x.name,5)})).filter(x=>x.tr.ratings.length>=2).sort((a,b)=>b.tr.diff-a.tr.diff).slice(0,5);if(!sorted.length)return '⚠️ Нет данных.';return `📈 Топ-5 по форме\n\n`+sorted.map((x,i)=>`${i+1}. ${x.name} --- ${x.tr.diff>0?'+':''}${x.tr.diff.toFixed(1)}`).join('\n');}
 return '⚠️ /best goals|assists|gk|mvp|form';
 }
 function botStreak(user){
@@ -3382,7 +3466,7 @@ const n=parseInt(args[0],10)||5;const player=appData.players.find(p=>p.name===us
 const matches=appData.matches.filter(m=>m.teamA===player.teamId||m.teamB===player.teamId).sort((a,b)=>(b.createdAt||b.id)>(a.createdAt||a.id)?1:-1).slice(0,n);
 if(!matches.length)return `📅 Нет матчей.`;
 let h=`📅 Твои последние ${matches.length} матчей\n\n`;
-matches.forEach(m=>{const isA=m.teamA===player.teamId;const opp=getTeamById(isA?m.teamB:m.teamA);const my=isA?parseInt(m.scoreA,10)||0:parseInt(m.scoreB,10)||0;const oppS=isA?parseInt(m.scoreB,10)||0:parseInt(m.scoreA,10)||0;const res=my>oppS?'🟢':(my<oppS?'🔴':'🟡');const pts=getMatchPointsForPlayer(user,m);h+=`${res} vs ${opp?.name||'?'} ${my}:${oppS} — ${pts?pts.goals:0}⚽ ${pts?pts.assists:0}🎯 → ${pts?pts.pts:0} очк\n`;});
+matches.forEach(m=>{const isA=m.teamA===player.teamId;const opp=getTeamById(isA?m.teamB:m.teamA);const my=isA?parseInt(m.scoreA,10)||0:parseInt(m.scoreB,10)||0;const oppS=isA?parseInt(m.scoreB,10)||0:parseInt(m.scoreA,10)||0;const res=my>oppS?'🟢':(my<oppS?'🔴':'🟡');const pts=getMatchPointsForPlayer(user,m);h+=`${res} vs ${opp?.name||'?'} ${my}:${oppS} --- ${pts?pts.goals:0}⚽ ${pts?pts.assists:0}🎯 → ${pts?pts.pts:0} очк\n`;});
 return h;
 }
 function botDuo(args){
@@ -3409,8 +3493,8 @@ const matches=appData.matches||[];if(!matches.length)return '⚠️ Матчей
 let bigWin=null,topMatch=null,maxGoals=0;
 matches.forEach(m=>{const sa=parseInt(m.scoreA,10)||0,sb=parseInt(m.scoreB,10)||0;const diff=Math.abs(sa-sb);if(!bigWin||diff>bigWin.diff)bigWin={diff,sa,sb,ta:getTeamById(m.teamA),tb:getTeamById(m.teamB)};if(sa+sb>maxGoals){maxGoals=sa+sb;topMatch={sa,sb,ta:getTeamById(m.teamA),tb:getTeamById(m.teamB)};}});
 let h=`🏆 Рекорды турнира\n\n`;
-if(bigWin)h+=`🔥 Крупнейшая победа:\n   ${bigWin.ta?.name} ${bigWin.sa}:${bigWin.sb} ${bigWin.tb?.name} (разница ${bigWin.diff})\n\n`;
-if(topMatch)h+=`⚽ Самый результативный:\n   ${topMatch.ta?.name} ${topMatch.sa}:${topMatch.sb} ${topMatch.tb?.name} (${maxGoals} голов)\n`;
+if(bigWin)h+=`🔥 Крупнейшая победа:\n ${bigWin.ta?.name} ${bigWin.sa}:${bigWin.sb} ${bigWin.tb?.name} (разница ${bigWin.diff})\n\n`;
+if(topMatch)h+=`⚽ Самый результативный:\n ${topMatch.ta?.name} ${topMatch.sa}:${topMatch.sb} ${topMatch.tb?.name} (${maxGoals} голов)\n`;
 return h;
 }
 function botAwards(){
@@ -3419,7 +3503,7 @@ const awards={};
 tournamentsList.forEach(t=>{const d=getTournamentData(t.id);const check=(award,obj)=>{if(!obj)return;if(!awards[award])awards[award]={};awards[award][obj.name]=(awards[award][obj.name]||0)+1;};check('mvp',getMVPTournament(d));check('bombardier',getBestScorer(d));check('assist',getBestAssister(d));check('gk',getBestGoalkeeper(d));check('voted',getBestVoted(d));});
 const labels={mvp:'🏅 MVP',bombardier:'⚽ Бомбардир',assist:'🎯 Ассистент',gk:'🧤 Вратарь',voted:'⭐ Лучший игрок'};
 let h=`🏅 Награды турнира\n\n`;let any=false;
-Object.keys(awards).forEach(k=>{const sorted=Object.entries(awards[k]).sort((a,b)=>b[1]-a[1]).slice(0,3);if(!sorted.length)return;any=true;h+=`${labels[k]||k}:\n`;sorted.forEach(([n,c],i)=>h+=`   ${i+1}. ${n} — ${c} раз\n`);h+=`\n`;});
+Object.keys(awards).forEach(k=>{const sorted=Object.entries(awards[k]).sort((a,b)=>b[1]-a[1]).slice(0,3);if(!sorted.length)return;any=true;h+=`${labels[k]||k}:\n`;sorted.forEach(([n,c],i)=>h+=` ${i+1}. ${n} --- ${c} раз\n`);h+=`\n`;});
 if(!any)return '⚠️ Наград пока нет.';
 return h;
 }
@@ -3427,7 +3511,7 @@ function botLastGoal(user){
 const player=appData.players.find(p=>p.name===user);if(!player||!player.teamId)return '⚠️ У тебя нет команды.';
 const myMatches=appData.matches.filter(m=>m.teamA===player.teamId||m.teamB===player.teamId).sort((a,b)=>(b.createdAt||b.id)>(a.createdAt||a.id)?1:-1);
 for(const m of myMatches){const isA=m.teamA===player.teamId;const goals=isA?(m.goalsA||[]):(m.goalsB||[]);const myGoals=goals.filter(g=>{const p=getPlayerById(g.scorerId);return p&&p.name===user;});if(myGoals.length){const g=myGoals[myGoals.length-1];const assist=g.assistId?getPlayerById(g.assistId):null;const dt=getMatchTime(m);const opp=getTeamById(isA?m.teamB:m.teamA);let h=`⚽ Твой последний гол\n\n`;if(dt)h+=`📅 ${fmtDate(dt)}\n`;h+=`🆚 Против ${opp?.name||'?'}\n`;if(assist)h+=`🤝 Ассист: ${assist.name}\n`;return h;}}
-return `⚽ ${user} — голов пока нет.`;
+return `⚽ ${user} --- голов пока нет.`;
 }
 function botVote(){
 if(!currentTournamentId)return '⚠️ Нет турнира.';
@@ -3435,37 +3519,37 @@ const votes=appData.votes||{};const total=Object.values(votes).reduce((a,b)=>a+(
 if(!total)return '🗳️ Голосов пока нет.';
 const sorted=Object.entries(votes).sort((a,b)=>b[1]-a[1]);const leader=sorted[0];
 const me=getCurrentUser();const vKey=VOTE_KEY_PREFIX+currentTournamentId;const myVote=localStorage.getItem(vKey);
-let h=`🗳️ Голосование «Лучший игрок»\n\nВсего: ${total} голосов\n\n👑 Лидер: ${leader[0]} — ${leader[1]} (${Math.round(leader[1]/total*100)}%)\n\nТоп-5:\n`;
-sorted.slice(0,5).forEach(([n,c],i)=>h+=`${i+1}. ${n} — ${c} (${Math.round(c/total*100)}%)\n`);
+let h=`🗳️ Голосование «Лучший игрок»\n\nВсего: ${total} голосов\n\n👑 Лидер: ${leader[0]} --- ${leader[1]} (${Math.round(leader[1]/total*100)}%)\n\nТоп-5:\n`;
+sorted.slice(0,5).forEach(([n,c],i)=>h+=`${i+1}. ${n} --- ${c} (${Math.round(c/total*100)}%)\n`);
 if(myVote)h+=`\n✅ Твой голос: ${myVote}`;else h+=`\n💡 Ещё не голосовал.`;
 return h;
 }
 function botCheer(args){
 const teamName=args.join(' ');const t=findTeamByName(teamName);const name=t?t.name:(teamName||'Команда');
 const cheers=[
-`⚽ ${name}, вперёд, к победе!\nМы — команда, мы — семья,\nНас не сломит никогда!\nГол за голом, шаг за шагом,\n${name} идут к наградам! 💪`,
-`🔥 ${name} — сила!\n${name} — мощь!\nВсех соперников порвём!\nИ победу принесём! 🏆`,
-`⚡ Эй, ${name}, не сдавайся!\nБей вперёд и не сдавай!\nМы с тобой, ты — лучший самый,\nВсех врагов ты побеждай! 🥇`
+`⚽ ${name}, вперёд, к победе!\nМы --- команда, мы --- семья,\nНас не сломит никогда!\nГол за голом, шаг за шагом,\n${name} идут к наградам! 💪`,
+`🔥 ${name} --- сила!\n${name} --- мощь!\nВсех соперников порвём!\nИ победу принесём! 🏆`,
+`⚡ Эй, ${name}, не сдавайся!\nБей вперёд и не сдавай!\nМы с тобой, ты --- лучший самый,\nВсех врагов ты побеждай! 🥇`
 ];
 return cheers[Math.floor(Math.random()*cheers.length)];
 }
 function botFact(){
 const facts=[
-'⚽ Самый быстрый гол в истории — 2.1 секунды (Рикардо Оливейра, Бразилия).',
-'🏆 Кубок мира 1950 года ни разу не вручали — Бразилия проиграла финал Уругваю, и трофей так и не нашли.',
-'🥅 Вратари забивали в 5% случаев с пенальти и 1% — с игры.',
-'⚡ Средний футболист пробегает за матч 10–13 км. Вратарь — всего 4 км.',
-'🎯 Лучший бомбардир в истории — Криштиану Роналду (900+ голов).'
+'⚽ Самый быстрый гол в истории --- 2.1 секунды (Рикардо Оливейра, Бразилия).',
+'🏆 Кубок мира 1950 года ни разу не вручали --- Бразилия проиграла финал Уругваю, и трофей так и не нашли.',
+'🥅 Вратари забивали в 5% случаев с пенальти и 1% --- с игры.',
+'⚡ Средний футболист пробегает за матч 10--13 км. Вратарь --- всего 4 км.',
+'🎯 Лучший бомбардир в истории --- Криштиану Роналду (900+ голов).'
 ];
 return '⚽ Факт дня\n\n'+facts[Math.floor(Math.random()*facts.length)];
 }
 function botQuote(){
 const quotes=[
-'«Не важно, как медленно ты идёшь, главное — ты не останавливаешься.» — Конфуций',
-'«Победа любит подготовку.» — Пеле',
-'«Футбол — это не жизнь и смерть, это гораздо важнее.» — Билл Шенкли',
-'«Команда важнее любого игрока.» — сэр Алекс Фергюсон',
-'«Всё, что нужно — это верить и работать.» — Лионель Месси'
+'«Не важно, как медленно ты идёшь, главное --- ты не останавливаешься.» --- Конфуций',
+'«Победа любит подготовку.» --- Пеле',
+'«Футбол --- это не жизнь и смерть, это гораздо важнее.» --- Билл Шенкли',
+'«Команда важнее любого игрока.» --- сэр Алекс Фергюсон',
+'«Всё, что нужно --- это верить и работать.» --- Лионель Месси'
 ];
 return '💬 Цитата дня\n\n'+quotes[Math.floor(Math.random()*quotes.length)];
 }
@@ -3482,7 +3566,7 @@ function botPending(user){
 if(!isAdmin(user))return '🔒 Только для админов.';
 const p=getPending();if(!p.length)return '⏳ Заявок нет.';
 let h=`⏳ Заявки (${p.length})\n\n`;
-p.forEach((x,i)=>{h+=`${i+1}. 👤 ${x.name} — ${fmtDate(x.requestedAt)}\n   /approve ${x.name} · /reject ${x.name}\n\n`;});
+p.forEach((x,i)=>{h+=`${i+1}. 👤 ${x.name} --- ${fmtDate(x.requestedAt)}\n /approve ${x.name} · /reject ${x.name}\n\n`;});
 return h;
 }
 function botApprove(args, user){
@@ -3642,7 +3726,7 @@ return h;
 }
 function buildSubRowInner(teamId,outId,inId){const tp=getPlayersByTeam(teamId),ap=appData.players||[];let h=`<select class="sub-out-select"><option value="">Кого меняем</option>`;tp.forEach(p=>{h+=`<option value="${p.id}" ${outId===p.id?'selected':''}>${escapeHtml(p.name)}</option>`;});h+=`</select><span class="sub-arrow">→</span><select class="sub-in-select"><option value="">На кого</option>`;ap.forEach(p=>{h+=`<option value="${p.id}" ${inId===p.id?'selected':''}>${escapeHtml(p.name)}</option>`;});h+=`</select><button class="btn btn-danger btn-sm remove-sub" type="button">✕</button>`;return h;}
 function addSubRow(c,t){if(!t){alert('Выберите команду');return;}const r=document.createElement('div');r.className='sub-row';r.innerHTML=buildSubRowInner(t,null,null);c.appendChild(r);}
-function addOwnGoalRow(c, t){if(!t){ alert('Выберите команду'); return; }const players = getPlayersByTeam(t);if(!players.length) return alert('Нет игроков');const wrap = document.createElement('div');wrap.innerHTML = buildOwnGoalRowHtml(null, players);const r = wrap.firstElementChild;c.appendChild(r);r.querySelector('.remove-goal').addEventListener('click', ()=>{ r.remove(); syncScoreFromGoals(); saveMatchDraft(); });}
+function addOwnGoalRow(c, t){if(!t){ alert('Выберите команду'); return; }const players = getPlayersByTeam(t);if(!players.length) return alert('Нет игроков');const wrap = document.createElement('div');wrap.innerHTML = buildOwnGoalRowHtml(null, players);const r = wrap.firstElementChild;c.appendChild(r);r.querySelector('.remove-goal').addEventListener('click',()=>{ r.remove(); syncScoreFromGoals(); saveMatchDraft(); });}
 function openEditMatchModal(mid){
 if(!requireMatchRights())return;
 const m=appData.matches.find(x=>x.id===mid);if(!m)return;
