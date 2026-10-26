@@ -19,6 +19,7 @@
 :root[data-theme="dark"] input,:root[data-theme="dark"] select,:root[data-theme="dark"] textarea{background:#2a3330;color:#e8f0e8;border-color:#445;}
 :root[data-theme="dark"] .chat-msg{background:#222a26;color:#e8f0e8;}
 :root[data-theme="dark"] .chat-msg.own{background:#1f3040;}
+:root[data-theme="dark"] .chat-msg.bot{background:#2a1a3a;}
 :root[data-theme="dark"] .chat-input-area,:root[data-theme="dark"] .chat-messages{background:#1a201d;}
 :root[data-theme="dark"] .modal{background:#1c2320;color:#e8f0e8;}
 :root[data-theme="dark"] .modal th{background:#1a5a2e;}
@@ -180,6 +181,7 @@ tr:hover td{background:#f0f7f0;}
 .chat-msg{background:#fff;border-radius:12px;padding:10px 14px;margin-bottom:8px;border-left:4px solid #2e9e44;box-shadow:0 2px 6px rgba(0,0,0,0.04);position:relative;}
 .chat-msg.own{border-left-color:#4a90d9;background:#eef6fd;}
 .chat-msg.system{background:#fff8e1;border-left-color:#f5a623;}
+.chat-msg.bot{background:linear-gradient(135deg,#f5eafc,#ede4fb);border-left-color:#8b5cf6;}
 .chat-msg-header{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:4px;font-size:0.82rem;flex-wrap:wrap;}
 .chat-msg-player{font-weight:700;color:#1a7a2e;cursor:pointer;}
 .chat-msg-player:hover{text-decoration:underline;}
@@ -527,6 +529,7 @@ const AUDIT_KEY='__audit__', DM_KEY='__dm__', POLLS_KEY='__polls__', ANON_VOTE_K
 const TEMPLATES_KEY='__templates__', PHOTOS_KEY='__photos__';
 const SEASONS_KEY='__seasons__', CURRENT_SEASON_KEY='laguna_current_season';
 const SYSTEM_USER='🔔 Система';
+const BOT_USER='🤖 Аналитик';
 const BAD_PLAYERS_TO_DELETE=['Dim@sikZol'];
 const REACTION_EMOJIS=['👍','❤️','😂','🔥','⚽','👏','😮','🤝'];
 const EMOJI_SET=['😀','😂','😍','🥳','😎','🤔','😢','😡','👍','👎','👏','🙏','🔥','⚽','🏆','🎉','❤️','💪','🎯','⚡','🥇','🥈','🥉','😴','🤣','😱','🤝','✌️','👀','💯','🚀','✨','🥅','🧤','🎩','📸','📊','🗳️','📥','🏛️','🔮','🎲','🎨','⚔️','💬','✉️'];
@@ -776,6 +779,7 @@ if(!name)return{error:'Введите имя'};
 if(name.length<2)return{error:'Имя от 2 символов'};
 if(BAD_PLAYERS_TO_DELETE.includes(name))return{error:'🚫 Это имя заблокировано'};
 if(name===SYSTEM_USER)return{error:'🚫 Это имя зарезервировано'};
+if(name===BOT_USER)return{error:'🚫 Это имя зарезервировано'};
 if(!password)return{error:'Введите пароль'};
 if(password.length<3)return{error:'Пароль от 3 символов'};
 try{
@@ -2484,7 +2488,7 @@ const table=calculateTable();const tCur=tournamentsList.find(x=>x.id===currentTo
 let h='';const pinnedItem=getPinnedItem();
 if(pinnedItem&&pinnedItem.type==='message'){const pinned=pinnedItem.msg;const pinPreview=(pinned.text||'').replace(/\[img\][\s\S]*?\[\/img\]/g,'🖼 картинка').replace(/\[audio\][\s\S]*?\[\/audio\]/g,'🎵 аудио').substring(0,120);h+='<div class="pinned-banner" data-goto-chat="1" style="cursor:pointer;margin-bottom:14px;" title="Перейти в чат"><span class="pin-icon">📌</span><div class="pin-body"><div class="pin-author">'+escapeHtml(pinned.playerName||'Сообщение')+'</div><div class="pin-text">'+escapeHtml(pinPreview)+'</div></div><span style="color:var(--text-light);font-size:1.3rem;line-height:1;">›</span></div>';}
 else if(pinnedItem&&pinnedItem.type==='poll'){h+='<div class="pinned-banner" data-goto-chat="1" style="cursor:pointer;margin-bottom:14px;background:linear-gradient(135deg,#f5eafc,#e8d5f5);border-color:#9b59b6;" title="Перейти в чат"><span class="pin-icon">📊</span><div class="pin-body"><div class="pin-author" style="color:#6a2c8a;">Закреплённый опрос</div><div class="pin-text">'+escapeHtml(pinnedItem.poll.question)+'</div></div><span style="color:#6a2c8a;font-size:1.3rem;line-height:1;">›</span></div>';}
-h+=`<div class="panel-title" data-open-tournament-picker="1" style="cursor:pointer;" title="Нажмите, чтобы сменить тур"><span class="icon">🏠</span> ${escapeHtml(tCur?.name||'')} <span class="format-badge">${fmtLabel}</span> <span style="font-size:1rem;color:var(--text-light);">▾</span></div><div class="home-quick-grid"><button class="btn btn-secondary btn-sm" id="homeAwardsBtn" style="margin:0;justify-content:center;">🏆 Итоги турнира</button><button class="btn btn-secondary btn-sm" id="homeTrendsBtn" style="margin:0;justify-content:center;">📈 Тренды игроков</button><button class="btn btn-secondary btn-sm" id="dashboardBtn" style="margin:0;justify-content:center;">📊 Дашборд</button><button class="btn btn-secondary btn-sm" id="homeGoalkeepersBtn" style="margin:0;justify-content:center;">🧤 Вратари</button></div>`;
+h+=`<div class="panel-title" data-open-tournament-picker="1" style="cursor:pointer;" title="Нажмите, чтобы сменить тур"><span class="icon">🏠</span> ${escapeHtml(tCur?.name||'')} <span class="format-badge">${fmtLabel}</span> <span style="font-size:1rem;color:var(--text-light);">▾</span></div><div class="home-quick-grid"><button class="btn btn-secondary btn-sm" id="homeAwardsBtn" style="margin:0;justify-content:center;">🏆 Итоги турнира</button><button class="btn btn-secondary btn-sm" id="homeTrendsBtn" style="margin:0;justify-content:center;">📈 Тренды игроков</button><button class="btn btn-secondary btn-sm" id="dashboardBtn" style="margin:0;justify-content:center;">📊 Дашборд</button><button class="btn btn-secondary btn-sm" id="homeGoalkeepersBtn" style="margin:0;justify-content:center;">🧤 Вратари</button><button class="btn btn-secondary btn-sm" id="homeBotAnalysisBtn" style="margin:0;justify-content:center;">🤖 Анализ</button></div>`;
 if(appData.pinnedVote) h+=renderVotingSection();
 if(table.length===0)h+=`<div class="empty-state"><span class="emoji">📊</span><p>Добавьте команды.</p></div>`;
 else{
@@ -2722,23 +2726,30 @@ if(pinnedItem&&pinnedItem.type==='message'){const pinned=pinnedItem.msg;const pi
 else if(pinnedItem&&pinnedItem.type==='poll'){const pp=pinnedItem.poll;h+=`<div class="pinned-banner" style="background:linear-gradient(135deg,#f5eafc,#e8d5f5);border-color:#9b59b6;"><span class="pin-icon">📊</span><div class="pin-body"><div class="pin-author" style="color:#6a2c8a;">Закреплённый опрос</div><div class="pin-text">${escapeHtml(pp.question)}</div></div>${isCurrentUserAdmin()?`<button class="pin-close" data-unpin-poll="1">✕</button>`:''}</div>`;}
 h+=`<div class="chat-messages" id="chatMessages">`;
 if(!c.length)h+=`<div class="empty-state" style="padding:30px 10px;"><span class="emoji" style="font-size:3rem;">💬</span><p>Сообщений нет.</p></div>`;
-else{const s=[...c].sort((a,b)=>(a.timestamp>b.timestamp?1:-1));s.forEach(m=>{const own=u&&m.playerName===u,sys=m.system===true;h+=`<div class="chat-msg${own?' own':''}${sys?' system':''}" data-msg-id="${m.id}">`;const pinBtn=isCurrentUserAdmin()?`<button class="pin-btn" data-pin="${m.id}" title="${m.pinned?'Открепить':'Закрепить'}" style="opacity:${m.pinned?'1':'0.55'};font-size:1.1rem;padding:2px 8px;background:${m.pinned?'#fff3cd':'transparent'};border-radius:8px;">${m.pinned?'📌':'📍'}</button>`:'';h+=`<div class="chat-msg-header"><span class="chat-msg-player" data-chat-user="${escapeHtml(m.playerName)}">${sys?'':''}${escapeHtml(m.playerName)}</span><span style="display:flex;gap:6px;align-items:baseline;"><span class="chat-msg-time">${fmtDate(m.timestamp)}</span>${pinBtn}</span></div><div class="chat-msg-text">${renderChatText(m.text)}</div>`;const rxn=m.reactions||{};const rxnKeys=Object.keys(rxn);if(rxnKeys.length||u){h+=`<div class="reaction-bar">`;rxnKeys.forEach(k=>{const users=rxn[k]||[];if(!users.length)return;const mine=u&&users.includes(u);h+=`<span class="reaction-chip${mine?' mine':''}" data-react="${m.id}" data-emoji="${k}">${k} ${users.length}</span>`;});if(u){h+=`<span class="reaction-chip" data-react-open="${m.id}" style="font-size:1rem;">➕</span>`;}h+=`</div><div class="reaction-picker" id="rp_${m.id}">${REACTION_EMOJIS.map(e=>`<button data-react="${m.id}" data-emoji="${e}">${e}</button>`).join('')}</div>`;}h+=`</div>`;});}
+else{const s=[...c].sort((a,b)=>(a.timestamp>b.timestamp?1:-1));s.forEach(m=>{const own=u&&m.playerName===u,sys=m.system===true;const isBot=m.isBot===true||m.playerName===BOT_USER;h+=`<div class="chat-msg${own?' own':''}${sys?' system':''}${isBot?' bot':''}" data-msg-id="${m.id}">`;const pinBtn=isCurrentUserAdmin()?`<button class="pin-btn" data-pin="${m.id}" title="${m.pinned?'Открепить':'Закрепить'}" style="opacity:${m.pinned?'1':'0.55'};font-size:1.1rem;padding:2px 8px;background:${m.pinned?'#fff3cd':'transparent'};border-radius:8px;">${m.pinned?'📌':'📍'}</button>`:'';h+=`<div class="chat-msg-header"><span class="chat-msg-player" data-chat-user="${escapeHtml(m.playerName)}" ${isBot?'style="color:#8b5cf6;"':''}>${isBot?'🤖 ':''}${escapeHtml(m.playerName)}</span><span style="display:flex;gap:6px;align-items:baseline;"><span class="chat-msg-time">${fmtDate(m.timestamp)}</span>${pinBtn}</span></div><div class="chat-msg-text">${renderChatText(m.text)}</div>`;const rxn=m.reactions||{};const rxnKeys=Object.keys(rxn);if(rxnKeys.length||u){h+=`<div class="reaction-bar">`;rxnKeys.forEach(k=>{const users=rxn[k]||[];if(!users.length)return;const mine=u&&users.includes(u);h+=`<span class="reaction-chip${mine?' mine':''}" data-react="${m.id}" data-emoji="${k}">${k} ${users.length}</span>`;});if(u){h+=`<span class="reaction-chip" data-react-open="${m.id}" style="font-size:1rem;">➕</span>`;}h+=`</div><div class="reaction-picker" id="rp_${m.id}">${REACTION_EMOJIS.map(e=>`<button data-react="${m.id}" data-emoji="${e}">${e}</button>`).join('')}</div>`;}h+=`</div>`;});}
 h+=`</div>`;
-if(u){h+=`<div class="chat-as-label">От: <strong>${escapeHtml(u)}</strong> · 💡 <code>#m_ID</code> · <code>@имя</code> · 📎</div><div class="chat-input-area" style="position:relative;"><input type="text" id="chatMessageInput" placeholder="Сообщение..." maxlength="500" autocomplete="off"><div style="display:flex;gap:6px;position:relative;"><button class="emoji-picker-btn" id="emojiPickerBtn" type="button">😀</button><div class="emoji-picker-popup" id="emojiPickerPopup">${EMOJI_SET.map(e=>`<button type="button" data-emoji="${e}">${e}</button>`).join('')}</div><label class="btn btn-secondary btn-sm" for="chatFileInput" style="margin:0;cursor:pointer;min-height:44px;display:inline-flex;align-items:center;justify-content:center;">📎</label><input type="file" id="chatFileInput" accept="image/*,audio/*" style="display:none;"><button class="btn btn-primary" id="chatSendBtn">📤</button></div></div>`;}
+if(u){h+=`<div class="chat-as-label">От: <strong>${escapeHtml(u)}</strong> · 💡 <code>#m_ID</code> · <code>@имя</code> · 🤖 <code>/help</code> · 📎</div><div class="chat-input-area" style="position:relative;"><input type="text" id="chatMessageInput" placeholder="Сообщение или /команда..." maxlength="500" autocomplete="off"><div style="display:flex;gap:6px;position:relative;"><button class="emoji-picker-btn" id="emojiPickerBtn" type="button">😀</button><div class="emoji-picker-popup" id="emojiPickerPopup">${EMOJI_SET.map(e=>`<button type="button" data-emoji="${e}">${e}</button>`).join('')}</div><label class="btn btn-secondary btn-sm" for="chatFileInput" style="margin:0;cursor:pointer;min-height:44px;display:inline-flex;align-items:center;justify-content:center;">📎</label><input type="file" id="chatFileInput" accept="image/*,audio/*" style="display:none;"><button class="btn btn-primary" id="chatSendBtn">📤</button></div></div>`;}
 else{h+=`<div style="background:#fff3cd;border-radius:12px;padding:14px;color:#7a5a1a;text-align:center;font-size:0.9rem;">Войдите, чтобы писать.<br><br><button class="btn btn-primary btn-sm" id="openLoginBtnChat" style="margin:0;">👤 Войти</button></div>`;}
 return h;
 }
+
 function sendChatMessage(){
 const u=getCurrentUser();if(!u){alert('🔒 Войдите');return;}
 const i=document.getElementById('chatMessageInput');if(!i)return;const t=i.value.trim();if(!t)return;
 if(!playersDatabase.includes(u)){playersDatabase.push(u);serverState.playersDb=playersDatabase;}
 if(!serverState.data[CHAT_KEY])serverState.data[CHAT_KEY]=[];
-const m={id:'msg_'+generateId(),playerName:u,text:t,timestamp:new Date().toISOString(),reactions:{}};
-serverState.data[CHAT_KEY].push(m);
+const msg={id:'msg_'+generateId(),playerName:u,text:t,timestamp:new Date().toISOString(),reactions:{}};
+serverState.data[CHAT_KEY].push(msg);
 if(serverState.data[CHAT_KEY].length>200)serverState.data[CHAT_KEY]=serverState.data[CHAT_KEY].slice(-200);
-localStorage.setItem(LAST_NOTIFIED_MSG_KEY,m.id);markChatAsRead();i.value='';scheduleSave();render();
+if(t.startsWith('/')){
+i.value='';localStorage.setItem(LAST_NOTIFIED_MSG_KEY,msg.id);markChatAsRead();scheduleSave();render();
+setTimeout(()=>{handleBotCommand(t);render();setTimeout(()=>{const el=document.getElementById('chatMessages');if(el)el.scrollTop=el.scrollHeight;},100);},400);
+return;
+}
+localStorage.setItem(LAST_NOTIFIED_MSG_KEY,msg.id);markChatAsRead();i.value='';scheduleSave();render();
 setTimeout(()=>{const el=document.getElementById('chatMessages');if(el)el.scrollTop=el.scrollHeight;const inp=document.getElementById('chatMessageInput');if(inp)inp.focus();},60);
 }
+
 function sendChatFile(file){
 const u=getCurrentUser();if(!u){alert('🔒 Войдите');return;}
 const isImg=file.type.startsWith('image/'),isAud=file.type.startsWith('audio/');
@@ -2747,6 +2758,7 @@ const reader=new FileReader();
 reader.onload=(e)=>{const dataUrl=e.target.result;const tag=isImg?`[img]${dataUrl}[/img]`:`[audio]${dataUrl}[/audio]`;if(!serverState.data[CHAT_KEY])serverState.data[CHAT_KEY]=[];const m={id:'msg_'+generateId(),playerName:u,text:tag,timestamp:new Date().toISOString(),reactions:{},isFile:true};serverState.data[CHAT_KEY].push(m);if(serverState.data[CHAT_KEY].length>200)serverState.data[CHAT_KEY]=serverState.data[CHAT_KEY].slice(-200);scheduleSave();render();};
 reader.readAsDataURL(file);
 }
+
 function renderDMTab(){
 const me=getCurrentUser();
 if(!me)return`<div class="empty-state"><span class="emoji">🔒</span><p>Войдите, чтобы видеть личные сообщения.</p></div>`;
@@ -2759,6 +2771,7 @@ if(!list.length)h+=`<p style="color:#9aab9a; text-align:center; padding:40px 20p
 else list.forEach(p=>{const unread=getDMUnread(p);const last=getDMThread(p).slice(-1)[0];const isSys=p===SYSTEM_USER;const icon=isSys?'🔔':'👤';const borderColor=isSys?'#f5a623':'#2e9e44';const previewText=last?escapeHtml(last.text.substring(0,60))+(last.text.length>60?'...':''):(isSys?'Системные уведомления':'Начните переписку');h+=`<div class="record-card" style="cursor:pointer;border-left-color:${borderColor};" data-dm-open="${escapeHtml(p)}"><div class="info"><strong>${icon} ${escapeHtml(p)}${unread>0?` <span style="background:#e74c3c;color:#fff;padding:2px 8px;border-radius:10px;font-size:0.75rem;">${unread}</span>`:''}</strong><div style="font-size:0.85rem;color:var(--text-light);margin-top:4px;">${previewText}</div></div><span style="color:var(--text-light);font-size:1.5rem;">›</span></div>`;});
 return h;
 }
+
 function renderRecordsTab(){
 const _snRec=getCurrentSeason()?.name||'Сезон';
 let h=`<div class="panel-title"><span class="icon">🏆</span> Рекорды</div><p style="color:var(--text-light);font-size:0.92rem;margin-bottom:20px;">Сезон: <strong>${escapeHtml(_snRec)}</strong> · лучшие достижения по турам сезона.</p>`;
@@ -2774,6 +2787,7 @@ h+=sc('🏅 MVP',r.bestMVP?{name:'🌟 '+r.bestMVP.name}:'');h+=sc('⚽ Бомб
 if(r.bestTeam){const rs=getRatingStyle(r.bestTeam.rating);let playersHtml='';const tFound=T.find(t=>t.name===r.bestTeam.tournamentName);if(tFound){const td=getTournamentData(tFound.id);const teamObj=(td.teams||[]).find(t=>t.name===r.bestTeam.name);if(teamObj){const players=(td.players||[]).filter(p=>p.teamId===teamObj.id).sort((a,b)=>calcRatingForPlayerInTournament(b.name,td)-calcRatingForPlayerInTournament(a.name,td));playersHtml=players.map(p=>{const pR=calcRatingForPlayerInTournament(p.name,td);const pRs=getRatingStyle(pR);return`<span class="player-chip" style="border:2px solid ${pRs.border};">👤 ${escapeHtml(p.name)} · <strong style="color:${pRs.color};">${pR}</strong></span>`;}).join('');}}if(!playersHtml)playersHtml=renderPlayerChips(r.bestTeam.players);h+=`<div class="stat-card" style="grid-column:1/-1;"><h4>🏆 Лучшая команда</h4><div style="color:#1a7a2e;font-weight:700;">🥇 ${escapeHtml(r.bestTeam.name)}</div><div style="font-size:1.2rem;font-weight:800;color:${rs.color};margin-top:8px;">${r.bestTeam.rating} ${rs.medal}</div><div style="font-size:0.85rem;color:#7a8a7a;margin-top:6px;">${escapeHtml(r.bestTeam.tournamentName)}</div><div style="margin-top:10px;">${playersHtml}</div></div>`;}
 h+=`</div>`;return h;
 }
+
 function calcRecords(){
 const T=_getSeasonToursByFormat(recordsFormatFilter);
 const aa=aggregateAllPlayers(T);
@@ -2789,6 +2803,7 @@ const vE=Object.entries(vS).sort((a,b)=>b[1]-a[1]);const bV=vE[0]?{name:vE[0][0]
 let bt=null;T.forEach(t=>{const d=getTournamentData(t.id);const b=getBestTeamTournament(d);if(b&&(!bt||b.rating>bt.rating))bt={...b,tournamentName:t.name};});
 return{bestRating:bR,bestMVP:bM,bestScorer:bS,bestAssister:bA,bestGK:bG,bestVoted:bV,bestTeam:bt};
 }
+
 function renderAdminTab(){
 if(!isCurrentUserAdmin())return`<div class="empty-state"><span class="emoji">🔒</span><p>Только для админов</p></div>`;
 let h=`<div class="panel-title"><span class="icon">👑</span> Админ-панель</div><div class="sub-tabs"><button class="sub-tab ${adminSubTab==='pending'?'active':''}" data-admin="pending">⏳ Заявки (${getPending().length})</button><button class="sub-tab ${adminSubTab==='invites'?'active':''}" data-admin="invites">🔗 Приглашения</button><button class="sub-tab ${adminSubTab==='admins'?'active':''}" data-admin="admins">👑 Админы (${getAdmins().length})</button><button class="sub-tab ${adminSubTab==='assigners'?'active':''}" data-admin="assigners">🎯 Команды (${getAssigners().length})</button><button class="sub-tab ${adminSubTab==='audit'?'active':''}" data-admin="audit">📋 Аудит</button><button class="sub-tab ${adminSubTab==='congrats'?'active':''}" data-admin="congrats">🎉 Поздравление</button><button class="sub-tab ${adminSubTab==='settings'?'active':''}" data-admin="settings">⚙️ Настройки</button></div>`;
@@ -2800,6 +2815,213 @@ else if(adminSubTab==='audit'){const a=getAudit().slice().reverse().slice(0,150)
 else if(adminSubTab==='congrats'){h+=`<div class="admin-section"><h3>🎉 Поздравление</h3><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;"><button class="btn btn-primary" data-congrats="mvp" style="margin:0;justify-content:center;">🏅 MVP</button><button class="btn btn-primary" data-congrats="bombardier" style="margin:0;justify-content:center;">⚽ Бомбардир</button><button class="btn btn-primary" data-congrats="assist" style="margin:0;justify-content:center;">🎯 Ассистент</button><button class="btn btn-primary" data-congrats="gk" style="margin:0;justify-content:center;">🧤 Вратарь</button><button class="btn btn-primary" data-congrats="bestteam" style="margin:0;justify-content:center;">🏆 Лучшая команда</button><button class="btn btn-primary" data-congrats="bestvoted" style="margin:0;justify-content:center;">⭐ Лучший игрок</button></div><button class="btn btn-warning" data-congrats="all" style="width:100%;justify-content:center;margin-top:12px;">🎉 Все сразу</button></div>`;}
 else{h+=`<div class="admin-section"><h3>⚙️ Настройки</h3><label style="display:flex;align-items:center;gap:10px;font-size:0.95rem;margin-bottom:8px;"><input type="checkbox" id="anonVoteToggle" ${isAnonVote()?'checked':''}> 🔒 Анонимное голосование</label></div>`;h+=`<div class="admin-section"><h3>✏️ Переименование</h3><div style="display:flex; flex-direction:column; gap:8px;"><button class="btn btn-secondary" id="renameSeasonBtn" style="width:100%; justify-content:center; margin:0;">✏️ Переименовать сезон</button><button class="btn btn-secondary" id="renameTourBtn" style="width:100%; justify-content:center; margin:0;">✏️ Переименовать тур</button></div></div>`;}
 return h;
+}
+
+// ============ БОТ-АНАЛИТИК ============
+function botPush(text){
+if(!serverState.data[CHAT_KEY])serverState.data[CHAT_KEY]=[];
+const chat=serverState.data[CHAT_KEY];
+chat.push({id:'msg_'+generateId(),playerName:BOT_USER,text,timestamp:new Date().toISOString(),system:true,isBot:true});
+if(chat.length>200)serverState.data[CHAT_KEY]=chat.slice(-200);
+scheduleSave();
+}
+function findTeamByName(q){if(!q)return null;q=q.trim().toLowerCase();const teams=appData.teams||[];let t=teams.find(x=>x.name.toLowerCase()===q);if(t)return t;return teams.find(x=>x.name.toLowerCase().includes(q))||null;}
+function findPlayerByName(q){if(!q)return null;q=q.trim().toLowerCase();const ps=appData.players||[];let p=ps.find(x=>x.name.toLowerCase()===q);if(p)return p;return ps.find(x=>x.name.toLowerCase().includes(q))||null;}
+function findBestGoalkeeperForTeam(tid){const count={};appData.matches.forEach(m=>{const isA=m.teamA===tid;if(!isA&&m.teamB!==tid)return;const gkId=isA?m.goalkeeperA:m.goalkeeperB;if(gkId)count[gkId]=(count[gkId]||0)+1;});let best=null,bc=0;Object.keys(count).forEach(k=>{if(count[k]>bc){bc=count[k];best=k;}});return best;}
+
+function botPredict(ta,tb){
+const p=getMatchPrediction(ta.id,tb.id);const drawPct=Math.max(0,100-p.pA-p.pB);
+const formA=p.formA.map(x=>x==='W'?'🟢':x==='D'?'🟡':'🔴').join('')||'—';
+const formB=p.formB.map(x=>x==='W'?'🟢':x==='D'?'🟡':'🔴').join('')||'—';
+let h=`🔮 Прогноз: ${ta.name} vs ${tb.name}\n\nВероятности: ${ta.name} — ${p.pA}% · Ничья — ${drawPct}% · ${tb.name} — ${p.pB}%\nРейтинг: ${p.ratingA} — ${p.ratingB}\nФорма: ${formA} — ${formB}\n`;
+if(p.hasHistory){let wA=0,wB=0,d=0;p.h2h.forEach(m=>{const isA=m.teamA===ta.id;const sa=parseInt(m.scoreA,10)||0,sb=parseInt(m.scoreB,10)||0;const my=isA?sa:sb,opp=isA?sb:sa;if(my>opp)wA++;else if(my<opp)wB++;else d++;});h+=`История: ${wA}:${wB} (ничьих ${d})\n`;}
+else h+=`Истории встреч нет.\n`;
+const topA=appData.players.filter(x=>x.teamId===ta.id).map(x=>({n:x.name,r:calcRatingForPlayerInTournament(x.name,appData)})).sort((a,b)=>b.r-a.r).slice(0,3);
+const topB=appData.players.filter(x=>x.teamId===tb.id).map(x=>({n:x.name,r:calcRatingForPlayerInTournament(x.name,appData)})).sort((a,b)=>b.r-a.r).slice(0,3);
+if(topA.length)h+=`⭐ ${ta.name}: ${topA.map(x=>`${x.n} (${x.r})`).join(', ')}\n`;
+if(topB.length)h+=`⭐ ${tb.name}: ${topB.map(x=>`${x.n} (${x.r})`).join(', ')}\n`;
+const diff=Math.abs(p.pA-p.pB);
+if(diff<10)h+=`\n⚖️ Матч равный.`;
+else if(p.pA>p.pB)h+=`\n🏆 Фаворит — ${ta.name}.`;
+else h+=`\n🏆 Фаворит — ${tb.name}.`;
+return h;
+}
+function botLineup(teamName){
+const t=findTeamByName(teamName);if(!t)return'⚠️ Не нашёл команду. /teams — список.';
+const players=appData.players.filter(p=>p.teamId===t.id);if(!players.length)return`⚠️ В «${t.name}» нет игроков.`;
+const fmt=getTournamentFormat(currentTournamentId);const fieldLimit=fmt==='6x2'?5:4;
+const ranked=players.map(p=>({p,r:calcRatingForPlayerInTournament(p.name,appData)})).sort((a,b)=>b.r-a.r);
+const gkId=findBestGoalkeeperForTeam(t.id);const gk=gkId?ranked.find(x=>x.p.id===gkId):null;
+const field=ranked.filter(x=>!gk||x.p.id!==gk.p.id);
+let h=`📋 Состав ${t.name} (${getFormatLabel(fmt)})\n\n🧤 Вратарь: ${gk?`${gk.p.name} (${gk.r})`:'❗ нет — риск'}\n\nПолевые:\n`;
+field.slice(0,fieldLimit).forEach((x,i)=>h+=`${i+1}. ${x.p.name} — ⭐${x.r}\n`);
+if(field.length>fieldLimit){h+=`\n🔄 На замену:\n`;field.slice(fieldLimit,fieldLimit+3).forEach(x=>h+=`• ${x.p.name} (${x.r})\n`);}
+const noGames=players.filter(p=>getComputedPlayerStats(p.name,appData).matchesPlayed===0).map(p=>p.name);
+if(noGames.length)h+=`\n⚠️ Без игр: ${noGames.join(', ')}`;
+return h;
+}
+function botChems(playerName){
+const pl=findPlayerByName(playerName);if(!pl)return'⚠️ Не нашёл игрока.';
+const assistTo={},assistsFrom={};
+appData.matches.forEach(m=>{[...(m.goalsA||[]),...(m.goalsB||[])].forEach(g=>{if(!g.assistId)return;const scorer=getPlayerById(g.scorerId);const assist=getPlayerById(g.assistId);if(!scorer||!assist)return;if(assist.name===pl.name&&scorer.name!==pl.name)assistTo[scorer.name]=(assistTo[scorer.name]||0)+1;if(scorer.name===pl.name&&assist.name!==pl.name)assistsFrom[assist.name]=(assistsFrom[assist.name]||0)+1;});});
+const topA=Object.entries(assistTo).sort((a,b)=>b[1]-a[1]).slice(0,3);
+const topB=Object.entries(assistsFrom).sort((a,b)=>b[1]-a[1]).slice(0,3);
+let h=`🔗 Связки ${pl.name}\n\n`;
+if(topA.length){h+=`🎯 Ассистирует чаще:\n`;topA.forEach(([n,c])=>h+=`• ${n} — ${c}\n`);} else h+=`🎯 Пока никому не ассистировал.\n`;
+h+=`\n`;
+if(topB.length){h+=`🤝 Получает ассисты от:\n`;topB.forEach(([n,c])=>h+=`• ${n} — ${c}\n`);} else h+=`🤝 Пока не получал ассистов.\n`;
+return h;
+}
+function botWeak(teamName){
+const t=findTeamByName(teamName);if(!t)return'⚠️ Не нашёл команду.';
+const players=appData.players.filter(p=>p.teamId===t.id);const notes=[];
+if(!findBestGoalkeeperForTeam(t.id))notes.push('🚨 Нет вратаря.');
+const tbl=calculateTable();const row=tbl.find(r=>r.id===t.id);
+if(row&&row.games>0){const avgConc=row.goalsAgainst/row.games;const avgScored=row.goalsFor/row.games;if(avgConc>2)notes.push(`🛡️ Слабая защита: ${avgConc.toFixed(2)} проп./матч.`);if(avgScored<1)notes.push(`⚽ Слабая атака: ${avgScored.toFixed(2)} забитых/матч.`);}
+const form=getTeamForm(t.id,5);if(form.filter(x=>x==='L').length>=3)notes.push(`📉 Кризис: ${form.filter(x=>x==='L').length} поражений из ${form.length}.`);
+const reserve=players.filter(p=>p.status==='reserve');if(reserve.length)notes.push(`🟥 В резерве: ${reserve.length} игр.`);
+if(!notes.length)notes.push('✅ Явных слабых мест нет.');
+return `🔍 Анализ ${t.name}\n\n`+notes.join('\n');
+}
+function botTop(){
+const rows=appData.players.map(p=>({n:p.name,r:calcRatingForPlayerInTournament(p.name,appData),st:getComputedPlayerStats(p.name,appData)})).filter(x=>x.st.matchesPlayed>0).sort((a,b)=>b.r-a.r).slice(0,5);
+if(!rows.length)return'⚠️ Нет данных.';
+return `🏆 Топ-5 турнира\n\n`+rows.map((x,i)=>`${i+1}. ${x.n} — ⭐${x.r} (${x.st.goals}⚽ / ${x.st.assists}🎯)`).join('\n');
+}
+function botForm(target){
+const t=findTeamByName(target);
+if(t){const form=getTeamForm(t.id,5);return `📈 Форма ${t.name}: `+form.map(x=>x==='W'?'🟢':x==='D'?'🟡':'🔴').join('')||'—';}
+const pl=findPlayerByName(target);
+if(pl){const tr=getPlayerTrend(pl.name,5);const line=tr.ratings.slice(0,5).map(r=>r+'очк').join(' · ')||'—';const tip=tr.trend==='up'?'📈 растёт':tr.trend==='down'?'📉 падает':'➖ стабильно';return `📈 ${pl.name}: ${line}\nТренд: ${tip} (${tr.diff.toFixed(1)})`;}
+return'⚠️ Не нашёл команду или игрока.';
+}
+function botVs(a,b){
+const pa=findPlayerByName(a),pb=findPlayerByName(b);if(!pa||!pb)return'⚠️ /vs Игрок1 Игрок2';
+const sa=getComputedPlayerStats(pa.name,appData),sb=getComputedPlayerStats(pb.name,appData);
+const ra=calcRatingForPlayerInTournament(pa.name,appData),rb=calcRatingForPlayerInTournament(pb.name,appData);
+return `⚖️ ${pa.name} vs ${pb.name}\n\nРейтинг: ⭐${ra} vs ⭐${rb}\nМатчи: ${sa.matchesPlayed} vs ${sb.matchesPlayed}\nГолы: ${sa.goals} vs ${sb.goals}\nАссисты: ${sa.assists} vs ${sb.assists}\nГ+П: ${sa.goals+sa.assists} vs ${sb.goals+sb.assists}`;
+}
+function botStat(plName){
+const pl=findPlayerByName(plName);if(!pl)return'⚠️ Не нашёл игрока.';
+const s=getComputedPlayerStats(pl.name,appData);const r=calcRatingForPlayerInTournament(pl.name,appData);const t=getTeamById(pl.teamId);
+let h=`👤 ${pl.name} ${t?'('+t.name+')':''}\n⭐ Рейтинг: ${r}\nМатчей: ${s.matchesPlayed}\n⚽ Голов: ${s.goals}\n🎯 Ассистов: ${s.assists}\n`;
+if(s.goalkeeperMatches>0)h+=`🧤 В воротах: ${s.goalkeeperMatches} · пропущено ${s.goalsConceded}\n`;
+return h;
+}
+function botTeams(){if(!appData.teams.length)return'⚠️ Команд нет.';return `📋 Команды:\n`+appData.teams.map(t=>`• ${t.name}`).join('\n');}
+function botMatchRecap(m){
+const ta=getTeamById(m.teamA),tb=getTeamById(m.teamB);if(!ta||!tb)return;
+const sa=parseInt(m.scoreA,10)||0,sb=parseInt(m.scoreB,10)||0;
+const winner=sa>sb?ta:sb>sa?tb:null;
+let h='⚽ Матч завершён: '+ta.name+' '+sa+':'+sb+' '+tb.name+'\n';
+h+=winner?('🏆 Победа: '+winner.name+'\n'):'⚖️ Ничья\n';
+const allGoals=[...(m.goalsA||[]),...(m.goalsB||[])];
+const scorers={};allGoals.forEach(g=>{const p=getPlayerById(g.scorerId);if(p)scorers[p.name]=(scorers[p.name]||0)+1;});
+const topScorer=Object.entries(scorers).sort((a,b)=>b[1]-a[1])[0];
+if(topScorer&&topScorer[1]>=2)h+=`🎩 ${topScorer[0]} — ${topScorer[1]} ${topScorer[1]>=3?'(хет-трик!)':'гола'}\n`;
+const ownGoals=[...(m.ownGoalsA||[]),...(m.ownGoalsB||[])];
+if(ownGoals.length)h+=`😅 Автоголов: ${ownGoals.length}\n`;
+const candidates=[];const seen=new Set();
+allGoals.forEach(g=>{const p=getPlayerById(g.scorerId);if(p)seen.add(p.name);if(g.assistId){const a=getPlayerById(g.assistId);if(a)seen.add(a.name);}});
+seen.forEach(name=>{const pts=getMatchPointsForPlayer(name,m);if(pts)candidates.push({name,pts:pts.pts});});
+candidates.sort((a,b)=>b.pts-a.pts);
+if(candidates.length)h+=`⭐ Лучший в матче: ${candidates[0].name} (${candidates[0].pts} очк.)\n`;
+botPush(h);
+}
+function openBotAnalysis(){
+if(!currentTournamentId){alert('Нет турнира');return;}
+let h='<h2>🤖 Анализ турнира</h2>';
+const top=appData.players.map(p=>({n:p.name,r:calcRatingForPlayerInTournament(p.name,appData),st:getComputedPlayerStats(p.name,appData)})).filter(x=>x.st.matchesPlayed>0).sort((a,b)=>b.r-a.r).slice(0,5);
+if(top.length){h+='<h3 style="margin-top:20px;">⭐ Топ-5 игроков</h3><div style="background:#f8faf8;border-radius:12px;padding:12px;">';top.forEach((x,i)=>{h+=`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #eef3ee;"><span style="font-weight:700;">${i+1}. ${x.n}</span><span>⭐${x.r} · ${x.st.goals}⚽ / ${x.st.assists}🎯</span></div>`;});h+='</div>';}
+h+='<h3 style="margin-top:20px;">🔍 Слабые места команд</h3>';
+let anyWeak=false;
+appData.teams.forEach(t=>{const notes=[];if(!findBestGoalkeeperForTeam(t.id))notes.push('нет вратаря');const row=calculateTable().find(r=>r.id===t.id);if(row&&row.games>0){const avgConc=row.goalsAgainst/row.games;const avgScored=row.goalsFor/row.games;if(avgConc>2)notes.push(`слабая защита (${avgConc.toFixed(1)})`);if(avgScored<1)notes.push(`слабая атака (${avgScored.toFixed(1)})`);}const form=getTeamForm(t.id,5);if(form.filter(x=>x==='L').length>=3)notes.push(`${form.filter(x=>x==='L').length}/${form.length} поражений`);if(notes.length){anyWeak=true;h+=`<div style="background:#fff8e1;border-radius:10px;padding:10px;margin-bottom:8px;border-left:4px solid #f5a623;"><strong>${escapeHtml(t.name)}:</strong> ${notes.join(', ')}</div>`;}});
+if(!anyWeak)h+='<div style="color:#2e9e44;font-weight:700;">✅ Проблем не найдено.</div>';
+h+='<h3 style="margin-top:20px;">📈 Тренды</h3>';
+const trends=appData.players.map(p=>({name:p.name,t:getPlayerTrend(p.name,5)})).filter(x=>x.t.ratings.length>=3).sort((a,b)=>b.t.diff-a.t.diff);
+const rising=trends.filter(x=>x.t.trend==='up').slice(0,3);const falling=trends.filter(x=>x.t.trend==='down').slice(0,3);
+if(rising.length)h+=`<div style="margin-bottom:8px;"><strong>📈 Растут:</strong> ${rising.map(x=>`${escapeHtml(x.name)} (+${x.t.diff.toFixed(1)})`).join(', ')}</div>`;
+if(falling.length)h+=`<div style="margin-bottom:8px;"><strong>📉 Падают:</strong> ${falling.map(x=>`${escapeHtml(x.name)} (${x.t.diff.toFixed(1)})`).join(', ')}</div>`;
+const matches=appData.matches||[];
+if(matches.length){h+='<h3 style="margin-top:20px;">🔥 Рекорды</h3>';let bigScore=0,bigMatch=null;matches.forEach(m=>{const total=(parseInt(m.scoreA,10)||0)+(parseInt(m.scoreB,10)||0);if(total>bigScore){bigScore=total;bigMatch=m;}});if(bigMatch){const ta=getTeamById(bigMatch.teamA),tb=getTeamById(bigMatch.teamB);h+=`<div style="background:#f8faf8;border-radius:10px;padding:10px;">⚽ Самый результативный: <strong>${escapeHtml(ta?.name||'?')} ${bigMatch.scoreA}:${bigMatch.scoreB} ${escapeHtml(tb?.name||'?')}</strong> (${bigScore})</div>`;}}
+document.getElementById('modalContent').innerHTML=h;document.getElementById('playerModal').style.display='flex';
+}
+function botRecap(){
+const matches=appData.matches||[];if(!matches.length)return'⚠️ Матчей нет.';
+const now=Date.now();const dayMs=24*60*60*1000;
+let today=matches.filter(m=>{const t=getMatchTime(m);if(!t)return false;return now-new Date(t).getTime()<dayMs;});
+let period='за 24 часа';
+if(!today.length){today=[...matches].sort((a,b)=>(b.createdAt||b.id)>(a.createdAt||a.id)?1:-1).slice(0,3);period='последние 3 матча';}
+let totalGoals=0,totalOwn=0;const topScorers={},topAssists={};
+today.forEach(m=>{totalGoals+=(parseInt(m.scoreA,10)||0)+(parseInt(m.scoreB,10)||0);totalOwn+=(m.ownGoalsA||[]).length+(m.ownGoalsB||[]).length;[...(m.goalsA||[]),...(m.goalsB||[])].forEach(g=>{const p=getPlayerById(g.scorerId);if(p)topScorers[p.name]=(topScorers[p.name]||0)+1;if(g.assistId){const a=getPlayerById(g.assistId);if(a)topAssists[a.name]=(topAssists[a.name]||0)+1;}});});
+let h=`📰 Итоги ${period}\n\nМатчей: ${today.length}\nГолов: ${totalGoals}`;
+if(totalOwn)h+=` (авто: ${totalOwn})`;
+h+=`\n`;
+const topS=Object.entries(topScorers).sort((a,b)=>b[1]-a[1]).slice(0,3);
+if(topS.length){h+=`\n⚽ Бомбардиры:\n`;topS.forEach(([n,c])=>h+=`• ${n} — ${c}\n`);}
+const topA=Object.entries(topAssists).sort((a,b)=>b[1]-a[1]).slice(0,3);
+if(topA.length){h+=`\n🎯 Ассистенты:\n`;topA.forEach(([n,c])=>h+=`• ${n} — ${c}\n`);}
+return h;
+}
+function botWhoami(){
+const me=getCurrentUser();if(!me)return'⚠️ Войди в аккаунт.';
+const myPlayer=appData.players.find(p=>p.name===me);
+const myTeam=myPlayer?.teamId?getTeamById(myPlayer.teamId):null;
+const st=getComputedPlayerStats(me,appData);const rating=calcRatingForPlayerInTournament(me,appData);const tr=getPlayerTrend(me,5);
+let h=`👤 ${me}${myTeam?' ('+myTeam.name+')':''}\n\n⭐ Рейтинг: ${rating}\nМатчей: ${st.matchesPlayed} · ⚽${st.goals} · 🎯${st.assists}\n`;
+if(tr.ratings.length>=2){const tip=tr.trend==='up'?'📈 Ты в форме!':tr.trend==='down'?'📉 Спад':'➖ Стабильно';h+=`Тренд: ${tip} (${tr.diff>0?'+':''}${tr.diff.toFixed(1)})\n`;}
+const assistTo={},assistsFrom={};
+appData.matches.forEach(m=>{[...(m.goalsA||[]),...(m.goalsB||[])].forEach(g=>{if(!g.assistId)return;const scorer=getPlayerById(g.scorerId);const assist=getPlayerById(g.assistId);if(!scorer||!assist)return;if(assist.name===me&&scorer.name!==me)assistTo[scorer.name]=(assistTo[scorer.name]||0)+1;if(scorer.name===me&&assist.name!==me)assistsFrom[assist.name]=(assistsFrom[assist.name]||0)+1;});});
+const bestPartner=Object.entries(assistTo).sort((a,b)=>b[1]-a[1])[0];
+const bestFeeder=Object.entries(assistsFrom).sort((a,b)=>b[1]-a[1])[0];
+if(bestPartner)h+=`\n🤝 Лучший партнёр: ${bestPartner[0]} (${bestPartner[1]})`;
+if(bestFeeder)h+=`\n🎯 Лучший ассистент: ${bestFeeder[0]} (${bestFeeder[1]})`;
+h+=`\n\n`;
+if(rating>=70)h+=`🏆 Ты — лидер команды.`;
+else if(rating>=40)h+=`💪 Крепкий игрок основы.`;
+else if(rating>=15)h+=`📈 Растёшь. Больше времени на поле.`;
+else h+=`🌱 Новичок. Участвуй чаще.`;
+return h;
+}
+function botHelp(){
+return `🤖 Я — Аналитик LAGUNA CUP:
+
+🔮 /predict A B — прогноз
+📋 /lineup Команда — состав
+📋 /lineup — все составы
+🏆 /top — топ-5
+📈 /form Команда/Игрок — форма
+⚖️ /vs A B — сравнение
+🔗 /chemi Игрок — связки
+🔍 /weak Команда — слабые места
+👤 /stat Игрок — статистика
+📋 /teams — команды
+📰 /recap — итоги за 24ч
+🙋 /whoami — личные советы
+❓ /help — это меню`;
+}
+function handleBotCommand(text){
+const raw=text.trim();if(!raw.startsWith('/'))return false;
+const parts=raw.slice(1).split(/\s+/);const cmd=(parts[0]||'').toLowerCase();const args=parts.slice(1);
+let reply='';
+try{
+switch(cmd){
+case 'help': reply=botHelp(); break;
+case 'teams': reply=botTeams(); break;
+case 'top': reply=botTop(); break;
+case 'predict':{if(args.length<2){reply='⚠️ /predict A B';break;}const ta=findTeamByName(args[0]);const tb=findTeamByName(args.slice(1).join(' '));if(!ta||!tb){reply='⚠️ Не нашёл одну из команд.';break;}reply=botPredict(ta,tb);break;}
+case 'lineup':{if(!args.length){reply='📋 Составы всех команд:\n\n'+appData.teams.map(t=>{const pls=appData.players.filter(p=>p.teamId===t.id);const r=pls.map(p=>({n:p.name,r:calcRatingForPlayerInTournament(p.name,appData)})).sort((a,b)=>b.r-a.r).slice(0,5);return `**${t.name}** (${pls.length}):\n`+r.map((x,i)=>`${i+1}. ${x.n} (${x.r})`).join('\n');}).join('\n\n');}else reply=botLineup(args.join(' '));break;}
+case 'form':{if(!args.length){reply='⚠️ /form Команда или /form Игрок';break;}reply=botForm(args.join(' '));break;}
+case 'vs':{if(args.length<2){reply='⚠️ /vs Игрок1 Игрок2';break;}reply=botVs(args[0],args.slice(1).join(' '));break;}
+case 'chemi':{if(!args.length){reply='⚠️ /chemi Игрок';break;}reply=botChems(args.join(' '));break;}
+case 'weak':{if(!args.length){reply='⚠️ /weak Команда';break;}reply=botWeak(args.join(' '));break;}
+case 'stat':{if(!args.length){reply='⚠️ /stat Игрок';break;}reply=botStat(args.join(' '));break;}
+case 'recap': reply=botRecap(); break;
+case 'whoami': reply=botWhoami(); break;
+default: reply='🤔 Не знаю. /help — список.';
+}
+}catch(e){reply='❌ Ошибка: '+e.message;}
+botPush(reply);return true;
 }
 function isUserEditing(){
 const ae=document.activeElement;
@@ -2900,7 +3122,7 @@ if(u!==oldN && !isCurrentUserAdmin()){alert('🔒 Можно изменить т
 const nn=prompt('Новое имя:',oldN);if(!nn)return;
 const t=nn.trim();if(!t||t===oldN)return;
 if(BAD_PLAYERS_TO_DELETE.includes(t)){alert('🚫 Это имя заблокировано');return;}
-if(t===SYSTEM_USER){alert('🚫 Это имя зарезервировано');return;}
+if(t===SYSTEM_USER||t===BOT_USER){alert('🚫 Это имя зарезервировано');return;}
 if(playersDatabase.includes(t)){alert('Уже есть');return;}
 tournamentsList.forEach(x=>{const d=getTournamentData(x.id);(d.players||[]).forEach(p=>{if(p.name===oldN)p.name=t;});if(d.votes&&d.votes[oldN]!==undefined){d.votes[t]=d.votes[oldN];delete d.votes[oldN];}});
 const i=playersDatabase.indexOf(oldN);if(i>=0)playersDatabase[i]=t;
@@ -2936,16 +3158,7 @@ return h;
 }
 function buildSubRowInner(teamId,outId,inId){const tp=getPlayersByTeam(teamId),ap=appData.players||[];let h=`<select class="sub-out-select"><option value="">Кого меняем</option>`;tp.forEach(p=>{h+=`<option value="${p.id}" ${outId===p.id?'selected':''}>${escapeHtml(p.name)}</option>`;});h+=`</select><span class="sub-arrow">→</span><select class="sub-in-select"><option value="">На кого</option>`;ap.forEach(p=>{h+=`<option value="${p.id}" ${inId===p.id?'selected':''}>${escapeHtml(p.name)}</option>`;});h+=`</select><button class="btn btn-danger btn-sm remove-sub" type="button">✕</button>`;return h;}
 function addSubRow(c,t){if(!t){alert('Выберите команду');return;}const r=document.createElement('div');r.className='sub-row';r.innerHTML=buildSubRowInner(t,null,null);c.appendChild(r);}
-function addOwnGoalRow(c, t){
-if(!t){ alert('Выберите команду'); return; }
-const players = getPlayersByTeam(t);
-if(!players.length) return alert('Нет игроков');
-const wrap = document.createElement('div');
-wrap.innerHTML = buildOwnGoalRowHtml(null, players);
-const r = wrap.firstElementChild;
-c.appendChild(r);
-r.querySelector('.remove-goal').addEventListener('click', ()=>{ r.remove(); syncScoreFromGoals(); saveMatchDraft(); });
-}
+function addOwnGoalRow(c, t){if(!t){ alert('Выберите команду'); return; }const players = getPlayersByTeam(t);if(!players.length) return alert('Нет игроков');const wrap = document.createElement('div');wrap.innerHTML = buildOwnGoalRowHtml(null, players);const r = wrap.firstElementChild;c.appendChild(r);r.querySelector('.remove-goal').addEventListener('click', ()=>{ r.remove(); syncScoreFromGoals(); saveMatchDraft(); });}
 function openEditMatchModal(mid){
 if(!requireMatchRights())return;
 const m=appData.matches.find(x=>x.id===mid);if(!m)return;
@@ -3019,34 +3232,17 @@ const sA = document.getElementById('matchScoreA');const sB = document.getElement
 if(sA) sA.value = nGA + nOB;if(sB) sB.value = nGB + nOA;
 }
 function _draftBodyToHash(d){return JSON.stringify({teamA:d.teamA||'',teamB:d.teamB||'',gkA:d.gkA||'',gkB:d.gkB||'',goalsA:(d.goalsA||[]).map(g=>({s:g.scorerId||'',a:g.assistId||''})),goalsB:(d.goalsB||[]).map(g=>({s:g.scorerId||'',a:g.assistId||''})),ownA:(d.ownA||[]).map(g=>({s:g.scorerId||''})),ownB:(d.ownB||[]).map(g=>({s:g.scorerId||''})),subsA:(d.subsA||[]).map(s=>({o:s.outId||'',i:s.inId||''})),subsB:(d.subsB||[]).map(s=>({o:s.outId||'',i:s.inId||''}))});}
-function saveMatchDraft(){
-try{
-const tA=document.getElementById('matchTeamA');if(!tA)return;
-const draft={teamA:tA.value,teamB:document.getElementById('matchTeamB')?.value||'',scoreA:document.getElementById('matchScoreA')?.value||'0',scoreB:document.getElementById('matchScoreB')?.value||'0',gkA:document.getElementById('goalkeeperA')?.value||'',gkB:document.getElementById('goalkeeperB')?.value||'',goalsA:[...document.querySelectorAll('#goalsA .goal-row:not(.own-goal-row)')].map(r=>({scorerId:r.querySelector('.scorer-select')?.value||'',assistId:r.querySelector('.assist-select')?.value||''})),goalsB:[...document.querySelectorAll('#goalsB .goal-row:not(.own-goal-row)')].map(r=>({scorerId:r.querySelector('.scorer-select')?.value||'',assistId:r.querySelector('.assist-select')?.value||''})),ownA:[...document.querySelectorAll('#ownGoalsA .goal-row')].map(r=>({scorerId:r.querySelector('.own-scorer-select')?.value||''})),ownB:[...document.querySelectorAll('#ownGoalsB .goal-row')].map(r=>({scorerId:r.querySelector('.own-scorer-select')?.value||''})),subsA:[...document.querySelectorAll('#substitutionsA .sub-row')].map(r=>({outId:r.querySelector('.sub-out-select')?.value||'',inId:r.querySelector('.sub-in-select')?.value||''})),subsB:[...document.querySelectorAll('#substitutionsB .sub-row')].map(r=>({outId:r.querySelector('.sub-out-select')?.value||'',inId:r.querySelector('.sub-in-select')?.value||''})),savedBy:getCurrentUser()||'Гость',savedAt:new Date().toISOString()};
-const hash=_draftBodyToHash(draft);if(hash===_lastDraftHash)return;_lastDraftHash=hash;
-localStorage.setItem(MATCH_DRAFT_KEY,JSON.stringify(draft));
-if(!serverState.data)serverState.data={};
-serverState.data[MATCH_DRAFT_SERVER_KEY]=draft;
-scheduleSave();updateDraftBadge();
-}catch(e){}
-}
+function saveMatchDraft(){try{const tA=document.getElementById('matchTeamA');if(!tA)return;const draft={teamA:tA.value,teamB:document.getElementById('matchTeamB')?.value||'',scoreA:document.getElementById('matchScoreA')?.value||'0',scoreB:document.getElementById('matchScoreB')?.value||'0',gkA:document.getElementById('goalkeeperA')?.value||'',gkB:document.getElementById('goalkeeperB')?.value||'',goalsA:[...document.querySelectorAll('#goalsA .goal-row:not(.own-goal-row)')].map(r=>({scorerId:r.querySelector('.scorer-select')?.value||'',assistId:r.querySelector('.assist-select')?.value||''})),goalsB:[...document.querySelectorAll('#goalsB .goal-row:not(.own-goal-row)')].map(r=>({scorerId:r.querySelector('.scorer-select')?.value||'',assistId:r.querySelector('.assist-select')?.value||''})),ownA:[...document.querySelectorAll('#ownGoalsA .goal-row')].map(r=>({scorerId:r.querySelector('.own-scorer-select')?.value||''})),ownB:[...document.querySelectorAll('#ownGoalsB .goal-row')].map(r=>({scorerId:r.querySelector('.own-scorer-select')?.value||''})),subsA:[...document.querySelectorAll('#substitutionsA .sub-row')].map(r=>({outId:r.querySelector('.sub-out-select')?.value||'',inId:r.querySelector('.sub-in-select')?.value||''})),subsB:[...document.querySelectorAll('#substitutionsB .sub-row')].map(r=>({outId:r.querySelector('.sub-out-select')?.value||'',inId:r.querySelector('.sub-in-select')?.value||''})),savedBy:getCurrentUser()||'Гость',savedAt:new Date().toISOString()};const hash=_draftBodyToHash(draft);if(hash===_lastDraftHash)return;_lastDraftHash=hash;localStorage.setItem(MATCH_DRAFT_KEY,JSON.stringify(draft));if(!serverState.data)serverState.data={};serverState.data[MATCH_DRAFT_SERVER_KEY]=draft;scheduleSave();updateDraftBadge();}catch(e){}}
 function clearMatchDraft(){try{localStorage.removeItem(MATCH_DRAFT_KEY);}catch(e){}_lastDraftHash='';if(serverState.data){serverState.data[MATCH_DRAFT_SERVER_KEY]=null;if(saveTimer){clearTimeout(saveTimer);saveTimer=null;}hasUnsavedChanges=true;pushToServer();}updateDraftBadge();}
 function _draftHasContent(d){return !!(d.teamA||d.teamB||(d.goalsA||[]).some(g=>g.scorerId)||(d.goalsB||[]).some(g=>g.scorerId)||(d.ownA||[]).some(g=>g.scorerId)||(d.ownB||[]).some(g=>g.scorerId)||(d.subsA||[]).length||(d.subsB||[]).length);}
 function restoreMatchDraft(){
-let draft=null;const serverHas=serverState.data && (MATCH_DRAFT_SERVER_KEY in serverState.data);
-if(serverHas){draft=serverState.data[MATCH_DRAFT_SERVER_KEY];}
-if(!draft){try{const s=localStorage.getItem(MATCH_DRAFT_KEY);if(s)draft=JSON.parse(s);}catch(e){return;}}
-if(!draft)return;if(!_draftHasContent(draft))return;
+let draft=null;const serverHas=serverState.data && (MATCH_DRAFT_SERVER_KEY in serverState.data);if(serverHas){draft=serverState.data[MATCH_DRAFT_SERVER_KEY];}if(!draft){try{const s=localStorage.getItem(MATCH_DRAFT_KEY);if(s)draft=JSON.parse(s);}catch(e){return;}}if(!draft)return;if(!_draftHasContent(draft))return;
 const tA=document.getElementById('matchTeamA');const tB=document.getElementById('matchTeamB');if(!tA||!tB)return;
 tA.value='';tB.value='';
-const gkA=document.getElementById('goalkeeperA');const gkB=document.getElementById('goalkeeperB');
-if(gkA)gkA.innerHTML='<option value="">-- нет --</option>';if(gkB)gkB.innerHTML='<option value="">-- нет --</option>';
-const cA=document.getElementById('goalsA');if(cA)cA.innerHTML='';
-const cB=document.getElementById('goalsB');if(cB)cB.innerHTML='';
-const oAC=document.getElementById('ownGoalsA');if(oAC)oAC.innerHTML='';
-const oBC=document.getElementById('ownGoalsB');if(oBC)oBC.innerHTML='';
-const sAC=document.getElementById('substitutionsA');if(sAC)sAC.innerHTML='';
-const sBC=document.getElementById('substitutionsB');if(sBC)sBC.innerHTML='';
+const gkA=document.getElementById('goalkeeperA');const gkB=document.getElementById('goalkeeperB');if(gkA)gkA.innerHTML='<option value="">-- нет --</option>';if(gkB)gkB.innerHTML='<option value="">-- нет --</option>';
+const cA=document.getElementById('goalsA');if(cA)cA.innerHTML='';const cB=document.getElementById('goalsB');if(cB)cB.innerHTML='';
+const oAC=document.getElementById('ownGoalsA');if(oAC)oAC.innerHTML='';const oBC=document.getElementById('ownGoalsB');if(oBC)oBC.innerHTML='';
+const sAC=document.getElementById('substitutionsA');if(sAC)sAC.innerHTML='';const sBC=document.getElementById('substitutionsB');if(sBC)sBC.innerHTML='';
 const scA=document.getElementById('matchScoreA');if(scA)scA.value=0;const scB=document.getElementById('matchScoreB');if(scB)scB.value=0;
 if(draft.teamA&&[...tA.options].some(o=>o.value===draft.teamA))tA.value=draft.teamA;
 if(draft.teamB&&[...tB.options].some(o=>o.value===draft.teamB))tB.value=draft.teamB;
@@ -3060,28 +3256,10 @@ if(sAC){(draft.subsA||[]).forEach(s=>{if(!tA.value)return;const row=document.cre
 if(sBC){(draft.subsB||[]).forEach(s=>{if(!tB.value)return;const row=document.createElement('div');row.className='sub-row';row.innerHTML=buildSubRowInner(tB.value,s.outId,s.inId);sBC.appendChild(row);row.querySelector('.remove-sub').addEventListener('click',()=>{row.remove();saveMatchDraft();});});}
 syncScoreFromGoals();_lastDraftHash=_draftBodyToHash(draft);
 }
-function renderDraftBadge(){
-let d=null;if(serverState.data && (MATCH_DRAFT_SERVER_KEY in serverState.data)){d=serverState.data[MATCH_DRAFT_SERVER_KEY];}
-if(!d){try{const s=localStorage.getItem(MATCH_DRAFT_KEY);if(s)d=JSON.parse(s);}catch(e){}}
-if(!d||!d.savedBy)return'';if(!_draftHasContent(d))return'';
-const me=getCurrentUser();const isMine=me&&d.savedBy===me;const name=isMine?'вы':d.savedBy;
-let timeStr='';if(d.savedAt){try{const dt=new Date(d.savedAt);const now=new Date();const diff=Math.floor((now-dt)/1000);if(diff<60)timeStr='только что';else if(diff<3600)timeStr=Math.floor(diff/60)+' мин назад';else if(diff<86400)timeStr=Math.floor(diff/3600)+' ч назад';else timeStr=dt.toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});}catch(e){}}
-const teamA=d.teamA?(getTeamById(d.teamA)?.name||'?'):'?';const teamB=d.teamB?(getTeamById(d.teamB)?.name||'?'):'?';
-const gA=(d.goalsA||[]).filter(g=>g.scorerId).length+(d.ownB||[]).filter(g=>g.scorerId).length;
-const gB=(d.goalsB||[]).filter(g=>g.scorerId).length+(d.ownA||[]).filter(g=>g.scorerId).length;
-return `<div id="draftBadge" style="display:flex;align-items:center;gap:8px;background:linear-gradient(135deg,#fff8e1,#fff3cd);border:1px solid #f5a623;border-radius:12px;padding:10px 14px;margin-bottom:14px;color:#7a5a1a;font-size:0.85rem;flex-wrap:wrap;"><span style="font-size:1.2rem;">📝</span><span style="flex:1;min-width:180px;">Черновик матча <strong>${escapeHtml(teamA)} ${gA}:${gB} ${escapeHtml(teamB)}</strong> заполнил <strong>${escapeHtml(name)}</strong>${timeStr?' · '+timeStr:''}</span><button class="btn btn-primary btn-sm" id="applyDraftBtn" style="margin:0;padding:6px 14px;font-size:0.8rem;">Продолжить</button><button class="btn btn-secondary btn-sm" id="clearDraftBtn" style="margin:0;padding:6px 14px;font-size:0.8rem;">Очистить</button></div>`;
-}
+function renderDraftBadge(){let d=null;if(serverState.data && (MATCH_DRAFT_SERVER_KEY in serverState.data)){d=serverState.data[MATCH_DRAFT_SERVER_KEY];}if(!d){try{const s=localStorage.getItem(MATCH_DRAFT_KEY);if(s)d=JSON.parse(s);}catch(e){}}if(!d||!d.savedBy)return'';if(!_draftHasContent(d))return'';const me=getCurrentUser();const isMine=me&&d.savedBy===me;const name=isMine?'вы':d.savedBy;let timeStr='';if(d.savedAt){try{const dt=new Date(d.savedAt);const now=new Date();const diff=Math.floor((now-dt)/1000);if(diff<60)timeStr='только что';else if(diff<3600)timeStr=Math.floor(diff/60)+' мин назад';else if(diff<86400)timeStr=Math.floor(diff/3600)+' ч назад';else timeStr=dt.toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});}catch(e){}}const teamA=d.teamA?(getTeamById(d.teamA)?.name||'?'):'?';const teamB=d.teamB?(getTeamById(d.teamB)?.name||'?'):'?';const gA=(d.goalsA||[]).filter(g=>g.scorerId).length+(d.ownB||[]).filter(g=>g.scorerId).length;const gB=(d.goalsB||[]).filter(g=>g.scorerId).length+(d.ownA||[]).filter(g=>g.scorerId).length;return `<div id="draftBadge" style="display:flex;align-items:center;gap:8px;background:linear-gradient(135deg,#fff8e1,#fff3cd);border:1px solid #f5a623;border-radius:12px;padding:10px 14px;margin-bottom:14px;color:#7a5a1a;font-size:0.85rem;flex-wrap:wrap;"><span style="font-size:1.2rem;">📝</span><span style="flex:1;min-width:180px;">Черновик матча <strong>${escapeHtml(teamA)} ${gA}:${gB} ${escapeHtml(teamB)}</strong> заполнил <strong>${escapeHtml(name)}</strong>${timeStr?' · '+timeStr:''}</span><button class="btn btn-primary btn-sm" id="applyDraftBtn" style="margin:0;padding:6px 14px;font-size:0.8rem;">Продолжить</button><button class="btn btn-secondary btn-sm" id="clearDraftBtn" style="margin:0;padding:6px 14px;font-size:0.8rem;">Очистить</button></div>`;}
 function updateDraftBadge(){const el=document.getElementById('draftBadge');if(!el){const panel=document.getElementById('contentPanel');if(!panel||currentTab!=='settings')return;const firstAcc=panel.querySelector('.acc-section');if(firstAcc){const wrap=document.createElement('div');wrap.innerHTML=renderDraftBadge();const newEl=wrap.firstElementChild;if(newEl)panel.insertBefore(newEl,firstAcc);}return;}const wrap=document.createElement('div');wrap.innerHTML=renderDraftBadge();const newEl=wrap.firstElementChild;if(newEl)el.replaceWith(newEl);else el.remove();}
-function addGoalRow(c,t){
-if(!requireMatchRights())return;
-if(!t)return alert('Выберите команду');
-const p=getPlayersByTeam(t);if(!p.length)return alert('Нет игроков');
-const wrap = document.createElement('div');
-wrap.innerHTML = buildGoalRowHtml(null, null, p);
-const r = wrap.firstElementChild;
-c.appendChild(r);
-r.querySelector('.remove-goal').addEventListener('click',()=>{r.remove();syncScoreFromGoals();saveMatchDraft();});
-}
+function addGoalRow(c,t){if(!requireMatchRights())return;if(!t)return alert('Выберите команду');const p=getPlayersByTeam(t);if(!p.length)return alert('Нет игроков');const wrap = document.createElement('div');wrap.innerHTML = buildGoalRowHtml(null, null, p);const r = wrap.firstElementChild;c.appendChild(r);r.querySelector('.remove-goal').addEventListener('click',()=>{r.remove();syncScoreFromGoals();saveMatchDraft();});}
+
 function handleAddMatch(){
 if(_addingMatch) return;
 if(!requireMatchRights()) return;
@@ -3125,6 +3303,7 @@ const m={id:generateId(),createdAt:new Date().toISOString(),createdBy:u,teamA:tA
 appData.matches.push(m);
 addChangeLog('add', `${ta.name} ${finalA}:${finalB} ${tb.name}`);audit('match','add', `${ta.name} ${finalA}:${finalB} ${tb.name}`);
 saveCurrentData();clearMatchDraft();
+setTimeout(()=>botMatchRecap(m), 400);
 const tA_=document.getElementById('matchTeamA'); if(tA_) tA_.value='';
 const tB_=document.getElementById('matchTeamB'); if(tB_) tB_.value='';
 const scA_=document.getElementById('matchScoreA'); if(scA_) scA_.value=0;
@@ -3141,6 +3320,7 @@ render();
 } finally {_addingMatch=false;}
 },()=>{_addingMatch=false;});
 }
+
 function openVoteModal(){
 if(!currentTournamentId)return;
 const c=canVote();if(!c.ok){alert(c.reason);return;}
@@ -3171,38 +3351,15 @@ let STANDARD_DRAWER_HTML='';
 function captureStandardDrawer(){const el=document.getElementById('drawer');if(el&&!STANDARD_DRAWER_HTML)STANDARD_DRAWER_HTML=el.innerHTML;}
 function openDrawer(){const dr=document.getElementById('drawer');if(STANDARD_DRAWER_HTML)dr.innerHTML=STANDARD_DRAWER_HTML;dr.classList.add('open');document.getElementById('drawerOverlay').classList.add('open');renderMobileUI();}
 function closeDrawer(){document.getElementById('drawer').classList.remove('open');document.getElementById('drawerOverlay').classList.remove('open');}
-function renderTournamentPicker(){
-const dr=document.getElementById('drawer');
-let html='<h3>🏆 Сменить тур</h3>';const tours=getCurrentSeasonTours();const season=getCurrentSeason();
-if(season)html+=`<div style="font-size:0.82rem;color:var(--text-light);margin-bottom:8px;">Сезон: <strong>${escapeHtml(season.name)}</strong></div>`;
-if(!tours.length){html+='<p style="color:var(--text-light);padding:12px 0;text-align:center;">Нет туров.</p>';}
-else{html+='<label style="display:block;font-weight:700;color:var(--text-main);margin-bottom:8px;">Выберите тур:</label>';html+='<select id="drawerTournamentSelect" style="width:100%;padding:14px 12px;border-radius:12px;border:2px solid var(--border-soft);background:var(--input-bg);color:var(--text-main);font-size:1rem;font-weight:700;margin-bottom:12px;cursor:pointer;">';tours.forEach(t=>{html+='<option value="'+t.id+'" '+(t.id===currentTournamentId?'selected':'')+'>'+escapeHtml(t.name)+'</option>';});html+='</select>';}
-html+='<hr style="margin:12px 0;border:none;border-top:1px solid var(--border-soft);">';
-html+='<button class="drawer-item" id="drawerNewTournamentBtn"><span class="di-icon">➕</span> Создать новый тур</button>';
-html+='<button class="drawer-item" id="drawerNewSeasonBtn"><span class="di-icon">➕</span> Создать новый сезон</button>';
-html+='<button class="drawer-item" id="drawerCancelTournamentBtn"><span class="di-icon">↩️</span> Назад</button>';
-dr.innerHTML=html;
-}
+function renderTournamentPicker(){const dr=document.getElementById('drawer');let html='<h3>🏆 Сменить тур</h3>';const tours=getCurrentSeasonTours();const season=getCurrentSeason();if(season)html+=`<div style="font-size:0.82rem;color:var(--text-light);margin-bottom:8px;">Сезон: <strong>${escapeHtml(season.name)}</strong></div>`;if(!tours.length){html+='<p style="color:var(--text-light);padding:12px 0;text-align:center;">Нет туров.</p>';}else{html+='<label style="display:block;font-weight:700;color:var(--text-main);margin-bottom:8px;">Выберите тур:</label>';html+='<select id="drawerTournamentSelect" style="width:100%;padding:14px 12px;border-radius:12px;border:2px solid var(--border-soft);background:var(--input-bg);color:var(--text-main);font-size:1rem;font-weight:700;margin-bottom:12px;cursor:pointer;">';tours.forEach(t=>{html+='<option value="'+t.id+'" '+(t.id===currentTournamentId?'selected':'')+'>'+escapeHtml(t.name)+'</option>';});html+='</select>';}html+='<hr style="margin:12px 0;border:none;border-top:1px solid var(--border-soft);">';html+='<button class="drawer-item" id="drawerNewTournamentBtn"><span class="di-icon">➕</span> Создать новый тур</button>';html+='<button class="drawer-item" id="drawerNewSeasonBtn"><span class="di-icon">➕</span> Создать новый сезон</button>';html+='<button class="drawer-item" id="drawerCancelTournamentBtn"><span class="di-icon">↩️</span> Назад</button>';dr.innerHTML=html;}
 function applyTheme(t){document.documentElement.dataset.theme=t;localStorage.setItem(THEME_KEY,t);const b=document.getElementById('mhThemeBtn');if(b)b.textContent=t==='dark'?'☀️':'🌙';const m=document.querySelector('meta[name="theme-color"]');if(m)m.content=t==='dark'?'#0d2818':'#1a7a2e';}
 function toggleTheme(){const cur=document.documentElement.dataset.theme||'light';applyTheme(cur==='dark'?'light':'dark');}
 let tsX=0,tsY=0,tsT=0;
 const MAIN_TABS=['home','players','stats','chat'];
 document.addEventListener('touchstart',function(e){if(e.touches.length!==1)return;tsX=e.touches[0].clientX;tsY=e.touches[0].clientY;tsT=Date.now();},{passive:true});
-document.addEventListener('touchend',function(e){
-if(!e.changedTouches||!e.changedTouches.length)return;
-const dx=e.changedTouches[0].clientX-tsX,dy=e.changedTouches[0].clientY-tsY,dt=Date.now()-tsT;
-if(dt>600)return;if(Math.abs(dx)<60||Math.abs(dy)>50)return;if(!MAIN_TABS.includes(currentTab))return;
-const tag=(e.target.tagName||'').toLowerCase();if(['input','select','textarea','button'].includes(tag))return;
-if(e.target.closest('.chat-messages,.table-container,.modal,.drawer'))return;
-const i=MAIN_TABS.indexOf(currentTab);let ni=i;
-if(dx<0)ni=Math.min(MAIN_TABS.length-1,i+1);else ni=Math.max(0,i-1);
-if(ni!==i){currentTab=MAIN_TABS[ni];document.querySelectorAll('.nav-tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===currentTab));if(currentTab==='chat')markChatAsRead();render();}
-},{passive:true});
-function openTeamSelectModal(pn){
-if(!requireLogin('добавлять в заявку'))return;
-if(!currentTournamentId){alert('🔒 Нет турнира.');return;}
-pendingPlayerToAdd=pn;document.getElementById('teamSelectPlayerName').textContent=pn;document.getElementById('selectTeamModal').style.display='flex';
-}
+document.addEventListener('touchend',function(e){if(!e.changedTouches||!e.changedTouches.length)return;const dx=e.changedTouches[0].clientX-tsX,dy=e.changedTouches[0].clientY-tsY,dt=Date.now()-tsT;if(dt>600)return;if(Math.abs(dx)<60||Math.abs(dy)>50)return;if(!MAIN_TABS.includes(currentTab))return;const tag=(e.target.tagName||'').toLowerCase();if(['input','select','textarea','button'].includes(tag))return;if(e.target.closest('.chat-messages,.table-container,.modal,.drawer'))return;const i=MAIN_TABS.indexOf(currentTab);let ni=i;if(dx<0)ni=Math.min(MAIN_TABS.length-1,i+1);else ni=Math.max(0,i-1);if(ni!==i){currentTab=MAIN_TABS[ni];document.querySelectorAll('.nav-tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===currentTab));if(currentTab==='chat')markChatAsRead();render();}},{passive:true});
+function openTeamSelectModal(pn){if(!requireLogin('добавлять в заявку'))return;if(!currentTournamentId){alert('🔒 Нет турнира.');return;}pendingPlayerToAdd=pn;document.getElementById('teamSelectPlayerName').textContent=pn;document.getElementById('selectTeamModal').style.display='flex';}
+
 document.addEventListener('click',async function(e){
 if(e.target.closest('[data-goto-chat]')){currentTab='chat';document.querySelectorAll('.nav-tab').forEach(b=>b.classList.toggle('active',b.dataset.tab==='chat'));markChatAsRead();render();return;}
 const bc=e.target.closest('[data-bc-tab]');if(bc){currentTab=bc.dataset.bcTab;document.querySelectorAll('.nav-tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===currentTab));render();return;}
@@ -3219,6 +3376,7 @@ if(e.target.closest('#averagesBtn')){openAveragesModal();return;}
 if(e.target.closest('#trendsBtn')){openTrendsModal();return;}
 if(e.target.closest('#goalkeepersBtn')){openGoalkeepersModal();return;}
 if(e.target.closest('#dashboardBtn')){openDashboardModal();return;}
+if(e.target.closest('#homeBotAnalysisBtn')){openBotAnalysis();return;}
 const dashAct = e.target.closest('[data-dash-action]');
 if(dashAct){const act = dashAct.dataset.dashAction;if(act==='matches') openDashSubView('📋 Все матчи', buildAllMatchesListHtml());else if(act==='goals') openDashSubView('⚽ Бомбардиры', buildScorersListHtml());else if(act==='avggoals') openDashSubView('📈 Средние за матч', buildAveragesListHtml());else if(act==='avgrating') openDashSubView('⭐ Рейтинг игроков', buildTourRatingsListHtml());return;}
 if(e.target.id==='dashBackBtn'){ openDashboardModal(); return; }
@@ -3263,17 +3421,7 @@ if(e.target.closest('[data-open-tournament-picker]')){openTournamentPickerModal(
 const pickTour=e.target.closest('[data-pick-tournament]');
 if(pickTour){switchTournament(pickTour.dataset.pickTournament);document.getElementById('playerModal').style.display='none';return;}
 if(e.target.id==='cancelTournamentPickerBtn'){document.getElementById('playerModal').style.display='none';return;}
-if(e.target.id==='generateInviteBtn'){
-const sel=document.getElementById('inviteTournamentSelect');
-if(!sel||!sel.value)return;
-const tid=sel.value;
-const url=location.origin+location.pathname+'#join-'+tid;
-const res=document.getElementById('inviteLinkResult');
-res.style.display='block';
-res.innerHTML=`<div style="font-weight:700;margin-bottom:8px;color:#1a7a2e;text-align:center;">Ссылка готова!</div><div style="background:#fff;padding:10px;border-radius:8px;border:1px solid #ccc;margin-bottom:10px;user-select:all;font-size:0.9rem;">${url}</div><button class="btn btn-secondary btn-sm" id="copyInviteBtn" style="width:100%;justify-content:center;margin:0;">📋 Скопировать</button>`;
-setTimeout(()=>{const cBtn=document.getElementById('copyInviteBtn');if(cBtn) cBtn.onclick=()=>{if(navigator.clipboard && navigator.clipboard.writeText){navigator.clipboard.writeText(url).then(()=>alert('🔗 Ссылка скопирована!')).catch(()=>prompt('Скопируйте:', url));}else {prompt('Скопируйте:', url);}};}, 50);
-return;
-}
+if(e.target.id==='generateInviteBtn'){const sel=document.getElementById('inviteTournamentSelect');if(!sel||!sel.value)return;const tid=sel.value;const url=location.origin+location.pathname+'#join-'+tid;const res=document.getElementById('inviteLinkResult');res.style.display='block';res.innerHTML=`<div style="font-weight:700;margin-bottom:8px;color:#1a7a2e;text-align:center;">Ссылка готова!</div><div style="background:#fff;padding:10px;border-radius:8px;border:1px solid #ccc;margin-bottom:10px;user-select:all;font-size:0.9rem;">${url}</div><button class="btn btn-secondary btn-sm" id="copyInviteBtn" style="width:100%;justify-content:center;margin:0;">📋 Скопировать</button>`;setTimeout(()=>{const cBtn=document.getElementById('copyInviteBtn');if(cBtn) cBtn.onclick=()=>{if(navigator.clipboard && navigator.clipboard.writeText){navigator.clipboard.writeText(url).then(()=>alert('🔗 Ссылка скопирована!')).catch(()=>prompt('Скопируйте:', url));}else {prompt('Скопируйте:', url);}};}, 50);return;}
 const tp=e.target.closest('.tournament-pick');if(tp){switchTournament(tp.dataset.tid);closeDrawer();return;}
 const mnav=e.target.closest('.mobile-nav-item');
 if(mnav){const t=mnav.dataset.mnav;if(t==='more'){openDrawer();}else{currentTab=t;document.querySelectorAll('.nav-tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===t));if(t==='chat')markChatAsRead();render();}return;}
@@ -3308,7 +3456,7 @@ if(e.target.id==='uploadMyPhotoBtn'){const u=getCurrentUser();if(u)uploadPlayerP
 const teamOpen=e.target.closest('[data-team-open]');if(teamOpen){openTeamModal(teamOpen.dataset.teamOpen);return;}
 const playerFromTeam=e.target.closest('[data-player-profile]');if(playerFromTeam){document.getElementById('playerModal').style.display='none';openPlayerProfile(playerFromTeam.dataset.playerProfile);return;}
 const pl=e.target.closest('.player-link');if(pl){openPlayerProfile(pl.dataset.player);return;}
-const chatUser=e.target.closest('[data-chat-user]');if(chatUser){const n=chatUser.dataset.chatUser;if(n&&!n.includes('Система')&&n!==getCurrentUser())openPlayerProfile(n);return;}
+const chatUser=e.target.closest('[data-chat-user]');if(chatUser){const n=chatUser.dataset.chatUser;if(n&&!n.includes('Система')&&n!==BOT_USER&&n!==getCurrentUser())openPlayerProfile(n);return;}
 const achOpen=e.target.closest('[data-ach-open]');
 if(achOpen){e.preventDefault();document.getElementById('playerModal').style.display='none';openAchievementsModal(achOpen.dataset.achOpen);return;}
 const achHead=e.target.closest('.ach-group-head');
@@ -3357,7 +3505,7 @@ if(t.classList.contains('delete-match')){if(!requireMatchRights())return;if(conf
 if(t.classList.contains('delete-player')){if(!requireLogin('удалять игроков'))return;if(confirm('Удалить из заявки?')){const r=appData.players.find(p=>p.id===t.dataset.id);if(r){const idx=appData.players.indexOf(r);const playerCopy=JSON.parse(JSON.stringify(r));const voteBefore=r.name&&appData.votes?appData.votes[r.name]:undefined;appData.players=appData.players.filter(p=>p.id!==t.dataset.id);if(r.name&&appData.votes)delete appData.votes[r.name];pushUndo('Удалён игрок',()=>({p:playerCopy,idx,vote:voteBefore}),(snap)=>{appData.players.splice(snap.idx,0,snap.p);if(snap.vote!==undefined)appData.votes[snap.p.name]=snap.vote;});saveCurrentData();render();}}return;}
 if(t.id==='addTeamBtn'){if(!requireLogin('добавлять команды'))return;const n=document.getElementById('newTeamName').value.trim();const sc=document.querySelector('#teamColorOptions .color-option.selected');const c=sc?sc.dataset.color:'#1e2a1e';if(n){appData.teams.push({id:generateId(),name:n,color:c});audit('team','add',n);saveCurrentData();render();}else alert('Введите название');return;}
 if(t.id==='addMatchBtn'){handleAddMatch();return;}
-if(t.id==='saveBasePlayerBtn'){if(!requireAdmin('добавлять игроков в базу'))return;const inp=document.getElementById('newBasePlayerName');const n=inp.value.trim();if(n&&!playersDatabase.includes(n)&&!BAD_PLAYERS_TO_DELETE.includes(n)&&n!==SYSTEM_USER){playersDatabase.push(n);savePlayersDatabase();audit('user','add',n);document.getElementById('addPlayerBaseModal').style.display='none';inp.value='';render();}return;}
+if(t.id==='saveBasePlayerBtn'){if(!requireAdmin('добавлять игроков в базу'))return;const inp=document.getElementById('newBasePlayerName');const n=inp.value.trim();if(n&&!playersDatabase.includes(n)&&!BAD_PLAYERS_TO_DELETE.includes(n)&&n!==SYSTEM_USER&&n!==BOT_USER){playersDatabase.push(n);savePlayersDatabase();audit('user','add',n);document.getElementById('addPlayerBaseModal').style.display='none';inp.value='';render();}return;}
 if(t.id==='confirmAddPlayerBtn'){confirmAddPlayerToTournament('confirmed');return;}
 if(t.id==='pendingAddPlayerBtn'){confirmAddPlayerToTournament('pending');return;}
 if(t.id==='renamePlayerBtn'){renamePlayer(t.dataset.player);return;}
@@ -3373,20 +3521,8 @@ document.addEventListener('change',function(e){
 if(e.target.id==='seasonSelect'){switchSeason(e.target.value);return;}
 if(e.target.id==='tournamentSelect')switchTournament(e.target.value);
 if(e.target.id==='drawerTournamentSelect'){switchTournament(e.target.value);closeDrawer();}
-if(e.target.id==='matchTeamA'){
-const c=document.getElementById('substitutionsA');if(c)c.innerHTML='';
-const o=document.getElementById('ownGoalsA');if(o)o.innerHTML='';
-const opt = e.target.options[e.target.selectedIndex];
-if(opt) e.target.style.color = opt.style.color || 'var(--text-main)';
-updateMatchFormLists();
-}
-if(e.target.id==='matchTeamB'){
-const c=document.getElementById('substitutionsB');if(c)c.innerHTML='';
-const o=document.getElementById('ownGoalsB');if(o)o.innerHTML='';
-const opt = e.target.options[e.target.selectedIndex];
-if(opt) e.target.style.color = opt.style.color || 'var(--text-main)';
-updateMatchFormLists();
-}
+if(e.target.id==='matchTeamA'){const c=document.getElementById('substitutionsA');if(c)c.innerHTML='';const o=document.getElementById('ownGoalsA');if(o)o.innerHTML='';const opt = e.target.options[e.target.selectedIndex];if(opt) e.target.style.color = opt.style.color || 'var(--text-main)';updateMatchFormLists();}
+if(e.target.id==='matchTeamB'){const c=document.getElementById('substitutionsB');if(c)c.innerHTML='';const o=document.getElementById('ownGoalsB');if(o)o.innerHTML='';const opt = e.target.options[e.target.selectedIndex];if(opt) e.target.style.color = opt.style.color || 'var(--text-main)';updateMatchFormLists();}
 if(e.target.classList.contains('status-select')){setPlayerStatus(e.target.dataset.id,e.target.value);}
 if(e.target.id==='statsFilterTeamSelect'){statsFilterTeam=e.target.value;render();}
 if(e.target.id==='statsFilterMinInput'){statsFilterMin=parseInt(e.target.value,10)||1;render();}
@@ -3408,97 +3544,15 @@ if(e.target.id==='dmInput'&&e.key==='Enter'){e.preventDefault();const b=document
 if(e.target.id==='loginPassword'&&e.key==='Enter'){e.preventDefault();document.getElementById('loginSubmitBtn').click();}
 if(e.target.id==='loginName'&&e.key==='Enter'){e.preventDefault();document.getElementById('loginPassword').focus();}
 });
-document.addEventListener('click',function(e){
-if(!e.target.closest('.reaction-picker')&&!e.target.closest('[data-react-open]')){document.querySelectorAll('.reaction-picker.open').forEach(p=>p.classList.remove('open'));}
-if(!e.target.closest('#emojiPickerPopup')&&!e.target.closest('#emojiPickerBtn')){const ep=document.getElementById('emojiPickerPopup');if(ep)ep.classList.remove('open');}
-});
-document.addEventListener('focusout',function(){
-if(!pendingRemoteRender)return;
-clearTimeout(deferredRenderTimer);
-deferredRenderTimer=setTimeout(function(){if(!isUserEditing()&&pendingRemoteRender){pendingRemoteRender=false;hideDeferBanner();render();}},800);
-});
+document.addEventListener('click',function(e){if(!e.target.closest('.reaction-picker')&&!e.target.closest('[data-react-open]')){document.querySelectorAll('.reaction-picker.open').forEach(p=>p.classList.remove('open'));}if(!e.target.closest('#emojiPickerPopup')&&!e.target.closest('#emojiPickerBtn')){const ep=document.getElementById('emojiPickerPopup');if(ep)ep.classList.remove('open');}});
+document.addEventListener('focusout',function(){if(!pendingRemoteRender)return;clearTimeout(deferredRenderTimer);deferredRenderTimer=setTimeout(function(){if(!isUserEditing()&&pendingRemoteRender){pendingRemoteRender=false;hideDeferBanner();render();}},800);});
 function cleanupOldBackups(){try{const k=Object.keys(localStorage).filter(x=>x.startsWith(BACKUP_PREFIX));if(k.length>5){k.sort();k.slice(0,k.length-5).forEach(x=>localStorage.removeItem(x));}}catch(e){}}
-function cleanupBadPlayers(){
-let changed=false;
-try{
-BAD_PLAYERS_TO_DELETE.forEach(bad=>{
-if(playersDatabase.includes(bad)){playersDatabase=playersDatabase.filter(x=>x!==bad);serverState.playersDb=playersDatabase;changed=true;}
-tournamentsList.forEach(t=>{const d=getTournamentData(t.id);if(d.players){const before=d.players.length;d.players=d.players.filter(p=>p && p.name!==bad);if(d.players.length!==before)changed=true;}if(d.votes && d.votes[bad]!==undefined){delete d.votes[bad];changed=true;}});
-if(serverState.data[PHOTOS_KEY] && serverState.data[PHOTOS_KEY][bad]){delete serverState.data[PHOTOS_KEY][bad];changed=true;}
-if(serverState.data[PASSWORDS_KEY] && serverState.data[PASSWORDS_KEY][bad]){delete serverState.data[PASSWORDS_KEY][bad];changed=true;}
-if(serverState.data[ADMINS_KEY]){const before=serverState.data[ADMINS_KEY].length;serverState.data[ADMINS_KEY]=serverState.data[ADMINS_KEY].filter(x=>x!==bad);if(serverState.data[ADMINS_KEY].length!==before)changed=true;}
-if(serverState.data[ASSIGNERS_KEY]){const before=serverState.data[ASSIGNERS_KEY].length;serverState.data[ASSIGNERS_KEY]=serverState.data[ASSIGNERS_KEY].filter(x=>x!==bad);if(serverState.data[ASSIGNERS_KEY].length!==before)changed=true;}
-if(serverState.data[PENDING_KEY]){const before=serverState.data[PENDING_KEY].length;serverState.data[PENDING_KEY]=serverState.data[PENDING_KEY].filter(p=>p && p.name!==bad);if(serverState.data[PENDING_KEY].length!==before)changed=true;}
-if(localStorage.getItem(CURRENT_USER_KEY)===bad){localStorage.removeItem(CURRENT_USER_KEY);changed=true;}
-tournamentsList.forEach(t=>{const k=VOTE_KEY_PREFIX+t.id;if(localStorage.getItem(k)===bad){localStorage.removeItem(k);changed=true;}});
-});
-const cu=getCurrentUser();
-if(cu && !playersDatabase.includes(cu) && !getAdmins().includes(cu)){localStorage.removeItem(CURRENT_USER_KEY);changed=true;}
-tournamentsList.forEach(t=>{const d=getTournamentData(t.id);if(d.players){const before=d.players.length;d.players=d.players.filter(p=>p && typeof p.name==='string' && p.name.trim());if(d.players.length!==before)changed=true;}});
-if(changed){saveCurrentData();updateTournamentSelect();renderUserBox();renderGuestBanner();renderNavTabs();}
-}catch(e){console.error('cleanupBadPlayers error:',e);}
-return changed;
-}
-function migrateRemoveStatsFromPlayers(){
-let changed=false;
-tournamentsList.forEach(t=>{const d=getTournamentData(t.id);(d.players||[]).forEach(p=>{if(p.goals!==undefined||p.assists!==undefined||p.matchesPlayed!==undefined||p.goalsConceded!==undefined||p.goalkeeperMatches!==undefined||p.cleanSheets!==undefined){delete p.goals;delete p.assists;delete p.matchesPlayed;delete p.goalsConceded;delete p.goalkeeperMatches;delete p.cleanSheets;changed=true;}});});
-if(changed){scheduleSave();console.log('🧹 Накопленная статистика удалена.');}
-return changed;
-}
+function cleanupBadPlayers(){let changed=false;try{BAD_PLAYERS_TO_DELETE.forEach(bad=>{if(playersDatabase.includes(bad)){playersDatabase=playersDatabase.filter(x=>x!==bad);serverState.playersDb=playersDatabase;changed=true;}tournamentsList.forEach(t=>{const d=getTournamentData(t.id);if(d.players){const before=d.players.length;d.players=d.players.filter(p=>p && p.name!==bad);if(d.players.length!==before)changed=true;}if(d.votes && d.votes[bad]!==undefined){delete d.votes[bad];changed=true;}});if(serverState.data[PHOTOS_KEY] && serverState.data[PHOTOS_KEY][bad]){delete serverState.data[PHOTOS_KEY][bad];changed=true;}if(serverState.data[PASSWORDS_KEY] && serverState.data[PASSWORDS_KEY][bad]){delete serverState.data[PASSWORDS_KEY][bad];changed=true;}if(serverState.data[ADMINS_KEY]){const before=serverState.data[ADMINS_KEY].length;serverState.data[ADMINS_KEY]=serverState.data[ADMINS_KEY].filter(x=>x!==bad);if(serverState.data[ADMINS_KEY].length!==before)changed=true;}if(serverState.data[ASSIGNERS_KEY]){const before=serverState.data[ASSIGNERS_KEY].length;serverState.data[ASSIGNERS_KEY]=serverState.data[ASSIGNERS_KEY].filter(x=>x!==bad);if(serverState.data[ASSIGNERS_KEY].length!==before)changed=true;}if(serverState.data[PENDING_KEY]){const before=serverState.data[PENDING_KEY].length;serverState.data[PENDING_KEY]=serverState.data[PENDING_KEY].filter(p=>p && p.name!==bad);if(serverState.data[PENDING_KEY].length!==before)changed=true;}if(localStorage.getItem(CURRENT_USER_KEY)===bad){localStorage.removeItem(CURRENT_USER_KEY);changed=true;}tournamentsList.forEach(t=>{const k=VOTE_KEY_PREFIX+t.id;if(localStorage.getItem(k)===bad){localStorage.removeItem(k);changed=true;}});});const cu=getCurrentUser();if(cu && !playersDatabase.includes(cu) && !getAdmins().includes(cu)){localStorage.removeItem(CURRENT_USER_KEY);changed=true;}tournamentsList.forEach(t=>{const d=getTournamentData(t.id);if(d.players){const before=d.players.length;d.players=d.players.filter(p=>p && typeof p.name==='string' && p.name.trim());if(d.players.length!==before)changed=true;}});if(changed){saveCurrentData();updateTournamentSelect();renderUserBox();renderGuestBanner();renderNavTabs();}}catch(e){console.error('cleanupBadPlayers error:',e);}return changed;}
+function migrateRemoveStatsFromPlayers(){let changed=false;tournamentsList.forEach(t=>{const d=getTournamentData(t.id);(d.players||[]).forEach(p=>{if(p.goals!==undefined||p.assists!==undefined||p.matchesPlayed!==undefined||p.goalsConceded!==undefined||p.goalkeeperMatches!==undefined||p.cleanSheets!==undefined){delete p.goals;delete p.assists;delete p.matchesPlayed;delete p.goalsConceded;delete p.goalkeeperMatches;delete p.cleanSheets;changed=true;}});});if(changed){scheduleSave();console.log('🧹 Накопленная статистика удалена.');}return changed;}
 function migrateTournamentFormats(){let changed=false;tournamentsList.forEach(t=>{ if(!t.format){ t.format='5x3'; changed=true; }});return changed;}
-function migrateSelfVotes(){
-const me=getCurrentUser();if(!me) return false;let changed=false;
-tournamentsList.forEach(t=>{const k=VOTE_KEY_PREFIX+t.id;if(localStorage.getItem(k)===me){const d=getTournamentData(t.id);if(d.votes && typeof d.votes[me]==='number' && d.votes[me]>0){d.votes[me]=d.votes[me]-1;}localStorage.removeItem(k);changed=true;}});
-return changed;
-}
-function openAutoBalanceModal(){
-if(!requireAdmin('делать авто-балансировку'))return;
-if(appData.teams.length<2){alert('Для балансировки нужно минимум 2 команды.');return;}
-if(appData.players.length<2){alert('Недостаточно игроков в заявке.');return;}
-showConfirmDialog('⚖️ Авто-балансировка','Все игроки заявки будут распределены по командам максимально равномерно по рейтингу.\n\nПродолжить?',()=>{
-const playersWithRating = appData.players.map(p => ({...p,rating: calcRatingForPlayerInTournament(p.name, appData) || 0}));
-playersWithRating.sort((a, b) => b.rating - a.rating);
-const teams = appData.teams;const teamSums = {};
-teams.forEach(t => teamSums[t.id] = 0);
-playersWithRating.forEach(p => {let bestTeamId = teams[0].id;let minSum = teamSums[bestTeamId];teams.forEach(t => {if (teamSums[t.id] < minSum) {minSum = teamSums[t.id];bestTeamId = t.id;}});p.teamId = bestTeamId;teamSums[bestTeamId] += p.rating;});
-appData.players = playersWithRating.map(({rating, ...rest}) => rest);
-saveCurrentData();audit('team', 'autobalance', 'Выполнена авто-балансировка');render();
-alert('✅ Игроки распределены по командам!');
-});
-}
-async function init(){
-captureStandardDrawer();
-const savedTheme=localStorage.getItem(THEME_KEY);
-if(savedTheme)applyTheme(savedTheme);else{const pref=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';applyTheme(pref);}
-applyAccent();applyPitchBg();loadFromLocal();
-if(!serverState.data[PHOTOS_KEY])serverState.data[PHOTOS_KEY]={};
-let _migrated=false;
-tournamentsList.forEach(t=>{const d=getTournamentData(t.id);(d.players||[]).forEach(p=>{if(p.photo&&!serverState.data[PHOTOS_KEY][p.name]){serverState.data[PHOTOS_KEY][p.name]=p.photo;_migrated=true;}});});
-if(_migrated)scheduleSave();
-if(migrateTournamentFormats())scheduleSave();
-if(ensureSeasons())scheduleSave();
-updateTournamentSelect();renderUserBox();renderGuestBanner();renderNotifyButton();renderNavTabs();renderMobileUI();render();
-await pullFromServer(true);
-let ns=false;
-if(!serverState.data[ADMINS_KEY]){serverState.data[ADMINS_KEY]=[PRIMARY_ADMIN];ns=true;}
-if(!serverState.data[ASSIGNERS_KEY])serverState.data[ASSIGNERS_KEY]=[];
-if(!serverState.data[AUDIT_KEY])serverState.data[AUDIT_KEY]=[];
-if(!serverState.data[DM_KEY])serverState.data[DM_KEY]={};
-if(!serverState.data[POLLS_KEY])serverState.data[POLLS_KEY]=[];
-if(!serverState.data[TEMPLATES_KEY])serverState.data[TEMPLATES_KEY]=[];
-if(!serverState.data[PHOTOS_KEY])serverState.data[PHOTOS_KEY]={};
-if(ensureSeasons())ns=true;
-if(ns&&knownVersion>0)scheduleSave();
-cleanupBadPlayers();migrateRemoveStatsFromPlayers();migrateTournamentFormats();
-if(migrateSelfVotes())ns=true;
-updateTournamentSelect();render();
-setInterval(()=>pullFromServer(false),POLL_MS);
-setInterval(cleanupOldBackups,60000);
-window.addEventListener('beforeunload',function(){try{saveMatchDraft();}catch(e){}if(saveTimer){clearTimeout(saveTimer);pushToServer();}});
-document.addEventListener('visibilitychange',function(){if(document.visibilityState==='hidden'){try{saveMatchDraft();}catch(e){}}});
-window.addEventListener('hashchange', handleUrlHash);
-setTimeout(handleUrlHash, 500);
-}
+function migrateSelfVotes(){const me=getCurrentUser();if(!me) return false;let changed=false;tournamentsList.forEach(t=>{const k=VOTE_KEY_PREFIX+t.id;if(localStorage.getItem(k)===me){const d=getTournamentData(t.id);if(d.votes && typeof d.votes[me]==='number' && d.votes[me]>0){d.votes[me]=d.votes[me]-1;}localStorage.removeItem(k);changed=true;}});return changed;}
+function openAutoBalanceModal(){if(!requireAdmin('делать авто-балансировку'))return;if(appData.teams.length<2){alert('Для балансировки нужно минимум 2 команды.');return;}if(appData.players.length<2){alert('Недостаточно игроков в заявке.');return;}showConfirmDialog('⚖️ Авто-балансировка','Все игроки заявки будут распределены по командам максимально равномерно по рейтингу.\n\nПродолжить?',()=>{const playersWithRating = appData.players.map(p => ({...p,rating: calcRatingForPlayerInTournament(p.name, appData) || 0}));playersWithRating.sort((a, b) => b.rating - a.rating);const teams = appData.teams;const teamSums = {};teams.forEach(t => teamSums[t.id] = 0);playersWithRating.forEach(p => {let bestTeamId = teams[0].id;let minSum = teamSums[bestTeamId];teams.forEach(t => {if (teamSums[t.id] < minSum) {minSum = teamSums[t.id];bestTeamId = t.id;}});p.teamId = bestTeamId;teamSums[bestTeamId] += p.rating;});appData.players = playersWithRating.map(({rating, ...rest}) => rest);saveCurrentData();audit('team', 'autobalance', 'Выполнена авто-балансировка');render();alert('✅ Игроки распределены по командам!');});}
+async function init(){captureStandardDrawer();const savedTheme=localStorage.getItem(THEME_KEY);if(savedTheme)applyTheme(savedTheme);else{const pref=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';applyTheme(pref);}applyAccent();applyPitchBg();loadFromLocal();if(!serverState.data[PHOTOS_KEY])serverState.data[PHOTOS_KEY]={};let _migrated=false;tournamentsList.forEach(t=>{const d=getTournamentData(t.id);(d.players||[]).forEach(p=>{if(p.photo&&!serverState.data[PHOTOS_KEY][p.name]){serverState.data[PHOTOS_KEY][p.name]=p.photo;_migrated=true;}});});if(_migrated)scheduleSave();if(migrateTournamentFormats())scheduleSave();if(ensureSeasons())scheduleSave();updateTournamentSelect();renderUserBox();renderGuestBanner();renderNotifyButton();renderNavTabs();renderMobileUI();render();await pullFromServer(true);let ns=false;if(!serverState.data[ADMINS_KEY]){serverState.data[ADMINS_KEY]=[PRIMARY_ADMIN];ns=true;}if(!serverState.data[ASSIGNERS_KEY])serverState.data[ASSIGNERS_KEY]=[];if(!serverState.data[AUDIT_KEY])serverState.data[AUDIT_KEY]=[];if(!serverState.data[DM_KEY])serverState.data[DM_KEY]={};if(!serverState.data[POLLS_KEY])serverState.data[POLLS_KEY]=[];if(!serverState.data[TEMPLATES_KEY])serverState.data[TEMPLATES_KEY]=[];if(!serverState.data[PHOTOS_KEY])serverState.data[PHOTOS_KEY]={};if(ensureSeasons())ns=true;if(ns&&knownVersion>0)scheduleSave();cleanupBadPlayers();migrateRemoveStatsFromPlayers();migrateTournamentFormats();if(migrateSelfVotes())ns=true;updateTournamentSelect();render();setInterval(()=>pullFromServer(false),POLL_MS);setInterval(cleanupOldBackups,60000);window.addEventListener('beforeunload',function(){try{saveMatchDraft();}catch(e){}if(saveTimer){clearTimeout(saveTimer);pushToServer();}});document.addEventListener('visibilitychange',function(){if(document.visibilityState==='hidden'){try{saveMatchDraft();}catch(e){}}});window.addEventListener('hashchange', handleUrlHash);setTimeout(handleUrlHash, 500);}
 function saveTournamentTemplate(){alert('Шаблоны: функция в разработке');}
 function applyTournamentTemplate(){alert('Шаблоны: функция в разработке');}
 function deleteTemplate(){alert('Шаблоны: функция в разработке');}
@@ -3506,4 +3560,4 @@ init();
 })();
 </script>
 </body>
-  </html>
+</html>
