@@ -727,12 +727,10 @@ const tid=player.teamId;
 (d.matches||[]).forEach(m=>{
 const isA=m.teamA===tid, isB=m.teamB===tid;
 if(!isA&&!isB)return;
-
 const myTeamPlayers=(d.players||[]).filter(p=>p.teamId===tid);
 if(myTeamPlayers.some(p=>p.id===player.id)){
     res.matchesPlayed++;
 }
-
 const goals=isA?(m.goalsA||[]):(m.goalsB||[]);
 let matchGoals=0;
 goals.forEach(g=>{
@@ -1164,11 +1162,9 @@ return ac<bc?-1:(ac>bc?1:0);
 });
 const idx = tours.findIndex(t=>t.id===currentTournamentId);
 if(idx<=0) return null;
-
 let prevTour = null;
 let prevData = null;
 let prevSt = null;
-
 for(let i=idx-1; i>=0; i--){
     const td = getTournamentData(tours[i].id);
     if((td.matches||[]).length > 0){
@@ -1181,7 +1177,6 @@ for(let i=idx-1; i>=0; i--){
         }
     }
 }
-
 if(!prevTour) return null;
 const prevRating = calcRatingForPlayerInTournament(name, prevData);
 if(prevRating<=0) return null;
@@ -1300,49 +1295,81 @@ document.getElementById('newPollModal').style.display='flex';
 function dmKey(a,b){return[a,b].sort().join('|');}
 function getDMAll(){if(!serverState.data[DM_KEY])serverState.data[DM_KEY]={};return serverState.data[DM_KEY];}
 function getDMThread(other){const all=getDMAll();const me=getCurrentUser();if(!me||!other)return[];return all[dmKey(me,other)]||[];}
-function sendDM(other,text){const me=getCurrentUser();if(!me||!other||!text)return;if(other===SYSTEM_USER)return;const all=getDMAll();const k=dmKey(me,other);if(!all[k])all[k]=[];const msg={id:'dm_'+generateId(),from:me,to:other,text,timestamp:new Date().toISOString()};all[k].push(msg);if(all[k].length>300)all[k]=all[k].slice(-300);localStorage.setItem(DM_LAST_READ_KEY+':'+k,new Date().toISOString());audit('dm','send',`${me} → ${other}`);scheduleSave();}
+function sendDM(other,text){
+const me=getCurrentUser();if(!me||!other||!text)return;
+if(other===SYSTEM_USER)return;
+if(other===BOT_USER){sendBotCommand(text);return;}
+const all=getDMAll();const k=dmKey(me,other);if(!all[k])all[k]=[];
+const msg={id:'dm_'+generateId(),from:me,to:other,text,timestamp:new Date().toISOString()};
+all[k].push(msg);if(all[k].length>300)all[k]=all[k].slice(-300);
+localStorage.setItem(DM_LAST_READ_KEY+':'+k,new Date().toISOString());
+audit('dm','send',`${me} → ${other}`);scheduleSave();
+}
 function sendSystemDM(playerName,text){if(!playerName||!text)return false;const exists=playersDatabase.includes(playerName)||(appData.players||[]).some(p=>p.name===playerName);if(!exists)return false;if(playerName===SYSTEM_USER)return false;const all=getDMAll();const k=dmKey(SYSTEM_USER,playerName);if(!all[k])all[k]=[];const msg={id:'dm_'+generateId(),from:SYSTEM_USER,to:playerName,text:text,timestamp:new Date().toISOString(),isSystem:true};all[k].push(msg);if(all[k].length>300)all[k]=all[k].slice(-300);return true;}
 function getDMUnread(other){const me=getCurrentUser();if(!me||!other)return 0;const k=dmKey(me,other);const lastRead=localStorage.getItem(DM_LAST_READ_KEY+':'+k)||'1970-01-01';return getDMThread(other).filter(m=>m.from===other&&m.timestamp>lastRead).length;}
-function getTotalDMUnread(){const me=getCurrentUser();if(!me)return 0;const all=getDMAll();let total=0;Object.keys(all).forEach(k=>{if(!k.includes(me))return;const other=k.split('|').find(x=>x!==me);if(other)total+=getDMUnread(other);});return total;}
+function getTotalDMUnread(){const me=getCurrentUser();if(!me)return 0;const all=getDMAll();let total=0;Object.keys(all).forEach(k=>{if(!k.includes(me))return;const other=k.split('|').find(x=>x!==me);if(other && other !== BOT_USER)total+=getDMUnread(other);});return total;}
 function openDMModal(other){
 const me=getCurrentUser();
 if(!me){alert('🔒 Войдите');return;}
 if(!other){
 const all=getDMAll();
 const partners=new Set();
-Object.keys(all).forEach(k=>{if(k.includes(me)){const o=k.split('|').find(x=>x!==me);if(o)partners.add(o);}});
+partners.add(BOT_USER);
 partners.add(SYSTEM_USER);
-playersDatabase.forEach(n=>{if(n!==me&&n!==SYSTEM_USER)partners.add(n);});
-let h=`<h2>✉️ Личные сообщения</h2>`;
-const list=[...partners].sort((a,b)=>{const aSys=a===SYSTEM_USER;const bSys=b===SYSTEM_USER;if(aSys&&!bSys)return -1;if(!aSys&&bSys)return 1;return a.localeCompare(b);});
+Object.keys(all).forEach(k=>{if(k.includes(me)){const o=k.split('|').find(x=>x!==me);if(o)partners.add(o);}});
+playersDatabase.forEach(n=>{if(n!==me&&n!==SYSTEM_USER&&n!==BOT_USER)partners.add(n);});
+let h=`<h2>✉️ Сообщения</h2>`;
+const list=[...partners].sort((a,b)=>{if(a===BOT_USER)return -1;if(b===BOT_USER)return 1;if(a===SYSTEM_USER)return -1;if(b===SYSTEM_USER)return 1;return a.localeCompare(b);});
 if(!list.length)h+=`<p style="color:#9aab9a;text-align:center;padding:20px 0;">Нет других игроков.</p>`;
 else list.forEach(p=>{
 const unread=getDMUnread(p);
 const last=getDMThread(p).slice(-1)[0];
 const isSys=p===SYSTEM_USER;
-const icon=isSys?'🔔':'👤';
-const borderColor=isSys?'#f5a623':'#4a90d9';
+const isBot=p===BOT_USER;
+const icon=isBot?'🤖':(isSys?'🔔':'👤');
+const borderColor=isBot?'#8b5cf6':(isSys?'#f5a623':'#4a90d9');
 const previewText=last?escapeHtml(last.text.substring(0,50))+(last.text.length>50?'...':''):'';
-h+=`<div class="dm-list-item" style="border-left-color:${borderColor};" data-dm-open="${escapeHtml(p)}"><div style="flex:1;"><div style="font-weight:700;">${icon} ${escapeHtml(p)}${unread>0?` <span style="background:#e74c3c;color:#fff;padding:2px 7px;border-radius:10px;font-size:0.7rem;">${unread}</span>`:''}</div>${last?`<div style="font-size:0.78rem;color:var(--text-light);margin-top:2px;">${previewText}</div>`:`<div style="font-size:0.78rem;color:var(--text-light);margin-top:2px;">${isSys?'Системные уведомления':'Начните переписку'}</div>`}</div><span style="color:var(--text-light);">›</span></div>`;
+const hint=isBot?'Умный аналитик · напиши /help':(isSys?'Системные уведомления':'Начните переписку');
+h+=`<div class="dm-list-item" style="border-left-color:${borderColor};${isBot?'background:linear-gradient(135deg,#f5eafc,#ede4fb);':''}" data-dm-open="${escapeHtml(p)}"><div style="flex:1;"><div style="font-weight:700;">${icon} ${escapeHtml(p)}${unread>0?` <span style="background:#e74c3c;color:#fff;padding:2px 7px;border-radius:10px;font-size:0.7rem;">${unread}</span>`:''}</div><div style="font-size:0.78rem;color:var(--text-light);margin-top:2px;">${last?previewText:hint}</div></div><span style="color:var(--text-light);">›</span></div>`;
 });
 document.getElementById('dmContent').innerHTML=h;
 }else{
 dmTarget=other;
 const isSystemThread=(other===SYSTEM_USER);
+const isBotThread=(other===BOT_USER);
 const thread=getDMThread(other);
-let h=`<h2>${isSystemThread?'🔔':'✉️'} ${escapeHtml(other)}</h2><div class="dm-thread" id="dmThread">`;
-if(!thread.length)h+=`<p style="color:#9aab9a;text-align:center;padding:20px 0;">${isSystemThread?'Поздравлений пока нет.':'Начните переписку.'}</p>`;
-else thread.forEach(m=>{
+const titleIcon=isBotThread?'🤖':(isSystemThread?'🔔':'✉️');
+const titleColor=isBotThread?'#8b5cf6':'inherit';
+let h=`<h2 style="color:${titleColor};">${titleIcon} ${escapeHtml(other)}</h2>`;
+if(isBotThread){
+h+=`<div style="background:#f5eafc;border:1px solid #c39bd3;border-radius:12px;padding:10px 14px;margin-bottom:12px;font-size:0.85rem;color:#6a2c8a;">💡 Команды: <code>/help</code> · прогнозы, составы, рейтинги, рекорды. Ответы видишь только ты.</div>`;
+}
+h+=`<div class="dm-thread" id="dmThread">`;
+if(!thread.length){
+if(isBotThread){
+h+=`<div style="text-align:center;padding:20px 0;color:#9aab9a;"><div style="font-size:3rem;margin-bottom:10px;">🤖</div><p>Привет! Я — Аналитик LAGUNA CUP.<br>Напиши <code>/help</code>, чтобы увидеть все команды.</p></div>`;
+}else if(isSystemThread){
+h+=`<p style="color:#9aab9a;text-align:center;padding:20px 0;">Поздравлений пока нет.</p>`;
+}else{
+h+=`<p style="color:#9aab9a;text-align:center;padding:20px 0;">Начните переписку.</p>`;
+}
+}else{
+thread.forEach(m=>{
 const own=m.from===me;
 const isSys=m.from===SYSTEM_USER;
-h+=`<div class="dm-msg${own?' own':''}${isSys?' system':''}"><div>${escapeHtml(m.text)}</div><div class="dm-meta">${own?'Вы':escapeHtml(m.from)} · ${fmtShort(m.timestamp)}</div></div>`;
+const isBot=m.from===BOT_USER;
+const cls=own?' own':(isSys?' system':(isBot?' bot':''));
+const style=isBot?'background:#f5eafc;border-left:3px solid #8b5cf6;':'';
+h+=`<div class="dm-msg${cls}" style="${style}"><div style="white-space:pre-wrap;">${isBot?'🤖 ':''}${escapeHtml(m.text)}</div><div class="dm-meta">${own?'Вы':escapeHtml(m.from)} · ${fmtShort(m.timestamp)}</div></div>`;
 });
+}
 h+=`</div>`;
 if(isSystemThread){
 h+=`<div style="text-align:center;color:var(--text-light);font-size:0.82rem;padding:10px;margin-bottom:8px;background:#fff8e1;border-radius:10px;">🔔 Системные сообщения. Ответить нельзя.</div>`;
 h+=`<button class="btn btn-secondary" id="dmBackBtn" style="width:100%;justify-content:center;margin:0;">‹ Назад</button>`;
 }else{
-h+=`<div class="chat-input-area"><input type="text" id="dmInput" placeholder="Сообщение..." maxlength="500" autocomplete="off"><div style="display:flex;gap:6px;"><button class="btn btn-secondary btn-sm" id="dmBackBtn">‹ Назад</button><button class="btn btn-primary" id="dmSendBtn">📤</button></div></div>`;
+const ph=isBotThread?'Команда или вопрос... (/help)':'Сообщение...';
+h+=`<div class="chat-input-area"><input type="text" id="dmInput" placeholder="${ph}" maxlength="500" autocomplete="off"><div style="display:flex;gap:6px;"><button class="btn btn-secondary btn-sm" id="dmBackBtn">‹ Назад</button><button class="btn btn-primary" id="dmSendBtn">📤</button></div></div>`;
 }
 document.getElementById('dmContent').innerHTML=h;
 const k=dmKey(me,other);
@@ -2728,26 +2755,37 @@ h+=`<div class="chat-messages" id="chatMessages">`;
 if(!c.length)h+=`<div class="empty-state" style="padding:30px 10px;"><span class="emoji" style="font-size:3rem;">💬</span><p>Сообщений нет.</p></div>`;
 else{const s=[...c].sort((a,b)=>(a.timestamp>b.timestamp?1:-1));s.forEach(m=>{const own=u&&m.playerName===u,sys=m.system===true;const isBot=m.isBot===true||m.playerName===BOT_USER;h+=`<div class="chat-msg${own?' own':''}${sys?' system':''}${isBot?' bot':''}" data-msg-id="${m.id}">`;const pinBtn=isCurrentUserAdmin()?`<button class="pin-btn" data-pin="${m.id}" title="${m.pinned?'Открепить':'Закрепить'}" style="opacity:${m.pinned?'1':'0.55'};font-size:1.1rem;padding:2px 8px;background:${m.pinned?'#fff3cd':'transparent'};border-radius:8px;">${m.pinned?'📌':'📍'}</button>`:'';h+=`<div class="chat-msg-header"><span class="chat-msg-player" data-chat-user="${escapeHtml(m.playerName)}" ${isBot?'style="color:#8b5cf6;"':''}>${isBot?'🤖 ':''}${escapeHtml(m.playerName)}</span><span style="display:flex;gap:6px;align-items:baseline;"><span class="chat-msg-time">${fmtDate(m.timestamp)}</span>${pinBtn}</span></div><div class="chat-msg-text">${renderChatText(m.text)}</div>`;const rxn=m.reactions||{};const rxnKeys=Object.keys(rxn);if(rxnKeys.length||u){h+=`<div class="reaction-bar">`;rxnKeys.forEach(k=>{const users=rxn[k]||[];if(!users.length)return;const mine=u&&users.includes(u);h+=`<span class="reaction-chip${mine?' mine':''}" data-react="${m.id}" data-emoji="${k}">${k} ${users.length}</span>`;});if(u){h+=`<span class="reaction-chip" data-react-open="${m.id}" style="font-size:1rem;">➕</span>`;}h+=`</div><div class="reaction-picker" id="rp_${m.id}">${REACTION_EMOJIS.map(e=>`<button data-react="${m.id}" data-emoji="${e}">${e}</button>`).join('')}</div>`;}h+=`</div>`;});}
 h+=`</div>`;
-if(u){h+=`<div class="chat-as-label">От: <strong>${escapeHtml(u)}</strong> · 💡 <code>#m_ID</code> · <code>@имя</code> · 🤖 <code>/help</code> · 📎</div><div class="chat-input-area" style="position:relative;"><input type="text" id="chatMessageInput" placeholder="Сообщение или /команда..." maxlength="500" autocomplete="off"><div style="display:flex;gap:6px;position:relative;"><button class="emoji-picker-btn" id="emojiPickerBtn" type="button">😀</button><div class="emoji-picker-popup" id="emojiPickerPopup">${EMOJI_SET.map(e=>`<button type="button" data-emoji="${e}">${e}</button>`).join('')}</div><label class="btn btn-secondary btn-sm" for="chatFileInput" style="margin:0;cursor:pointer;min-height:44px;display:inline-flex;align-items:center;justify-content:center;">📎</label><input type="file" id="chatFileInput" accept="image/*,audio/*" style="display:none;"><button class="btn btn-primary" id="chatSendBtn">📤</button></div></div>`;}
+if(u){h+=`<div class="chat-as-label">От: <strong>${escapeHtml(u)}</strong> · 💡 <code>#m_ID</code> · <code>@имя</code> · 📎</div><div class="chat-input-area" style="position:relative;"><input type="text" id="chatMessageInput" placeholder="Сообщение..." maxlength="500" autocomplete="off"><div style="display:flex;gap:6px;position:relative;"><button class="emoji-picker-btn" id="emojiPickerBtn" type="button">😀</button><div class="emoji-picker-popup" id="emojiPickerPopup">${EMOJI_SET.map(e=>`<button type="button" data-emoji="${e}">${e}</button>`).join('')}</div><label class="btn btn-secondary btn-sm" for="chatFileInput" style="margin:0;cursor:pointer;min-height:44px;display:inline-flex;align-items:center;justify-content:center;">📎</label><input type="file" id="chatFileInput" accept="image/*,audio/*" style="display:none;"><button class="btn btn-primary" id="chatSendBtn">📤</button></div></div>`;}
 else{h+=`<div style="background:#fff3cd;border-radius:12px;padding:14px;color:#7a5a1a;text-align:center;font-size:0.9rem;">Войдите, чтобы писать.<br><br><button class="btn btn-primary btn-sm" id="openLoginBtnChat" style="margin:0;">👤 Войти</button></div>`;}
 return h;
 }
 
 function sendChatMessage(){
-const u=getCurrentUser();if(!u){alert('🔒 Войдите');return;}
-const i=document.getElementById('chatMessageInput');if(!i)return;const t=i.value.trim();if(!t)return;
+const u=getCurrentUser();
+if(!u){alert('🔒 Войдите');return;}
+const i=document.getElementById('chatMessageInput');
+if(!i)return;
+const t=i.value.trim();
+if(!t)return;
+if(t.startsWith('/')){
+alert('🤖 Это команда для бота. Напиши её в личные сообщения Аналитику (кнопка ✉️ → 🤖 Аналитик).');
+return;
+}
 if(!playersDatabase.includes(u)){playersDatabase.push(u);serverState.playersDb=playersDatabase;}
 if(!serverState.data[CHAT_KEY])serverState.data[CHAT_KEY]=[];
 const msg={id:'msg_'+generateId(),playerName:u,text:t,timestamp:new Date().toISOString(),reactions:{}};
 serverState.data[CHAT_KEY].push(msg);
 if(serverState.data[CHAT_KEY].length>200)serverState.data[CHAT_KEY]=serverState.data[CHAT_KEY].slice(-200);
-if(t.startsWith('/')){
-i.value='';localStorage.setItem(LAST_NOTIFIED_MSG_KEY,msg.id);markChatAsRead();scheduleSave();render();
-setTimeout(()=>{handleBotCommand(t);render();setTimeout(()=>{const el=document.getElementById('chatMessages');if(el)el.scrollTop=el.scrollHeight;},100);},400);
-return;
-}
-localStorage.setItem(LAST_NOTIFIED_MSG_KEY,msg.id);markChatAsRead();i.value='';scheduleSave();render();
-setTimeout(()=>{const el=document.getElementById('chatMessages');if(el)el.scrollTop=el.scrollHeight;const inp=document.getElementById('chatMessageInput');if(inp)inp.focus();},60);
+localStorage.setItem(LAST_NOTIFIED_MSG_KEY,msg.id);
+markChatAsRead();
+i.value='';
+scheduleSave();render();
+setTimeout(()=>{
+const el=document.getElementById('chatMessages');
+if(el)el.scrollTop=el.scrollHeight;
+const inp=document.getElementById('chatMessageInput');
+if(inp)inp.focus();
+},60);
 }
 
 function sendChatFile(file){
@@ -2762,14 +2800,119 @@ reader.readAsDataURL(file);
 function renderDMTab(){
 const me=getCurrentUser();
 if(!me)return`<div class="empty-state"><span class="emoji">🔒</span><p>Войдите, чтобы видеть личные сообщения.</p></div>`;
-const all=getDMAll();const partners=new Set();partners.add(SYSTEM_USER);
+const all=getDMAll();const partners=new Set();partners.add(BOT_USER);partners.add(SYSTEM_USER);
 Object.keys(all).forEach(k=>{if(k.includes(me)){const o=k.split('|').find(x=>x!==me);if(o)partners.add(o);}});
-playersDatabase.forEach(n=>{if(n!==me&&n!==SYSTEM_USER)partners.add(n);});
-const list=[...partners].sort((a,b)=>{const aSys=a===SYSTEM_USER;const bSys=b===SYSTEM_USER;if(aSys&&!bSys)return -1;if(!aSys&&bSys)return 1;return a.localeCompare(b);});
-let h=`<div class="panel-title"><span class="icon">✉️</span> Личные сообщения</div>`;
+playersDatabase.forEach(n=>{if(n!==me&&n!==SYSTEM_USER&&n!==BOT_USER)partners.add(n);});
+const list=[...partners].sort((a,b)=>{if(a===BOT_USER)return -1;if(b===BOT_USER)return 1;if(a===SYSTEM_USER)return -1;if(b===SYSTEM_USER)return 1;return a.localeCompare(b);});
+let h=`<div class="panel-title"><span class="icon">✉️</span> Сообщения</div>`;
 if(!list.length)h+=`<p style="color:#9aab9a; text-align:center; padding:40px 20px;">Нет других игроков.</p>`;
-else list.forEach(p=>{const unread=getDMUnread(p);const last=getDMThread(p).slice(-1)[0];const isSys=p===SYSTEM_USER;const icon=isSys?'🔔':'👤';const borderColor=isSys?'#f5a623':'#2e9e44';const previewText=last?escapeHtml(last.text.substring(0,60))+(last.text.length>60?'...':''):(isSys?'Системные уведомления':'Начните переписку');h+=`<div class="record-card" style="cursor:pointer;border-left-color:${borderColor};" data-dm-open="${escapeHtml(p)}"><div class="info"><strong>${icon} ${escapeHtml(p)}${unread>0?` <span style="background:#e74c3c;color:#fff;padding:2px 8px;border-radius:10px;font-size:0.75rem;">${unread}</span>`:''}</strong><div style="font-size:0.85rem;color:var(--text-light);margin-top:4px;">${previewText}</div></div><span style="color:var(--text-light);font-size:1.5rem;">›</span></div>`;});
+else list.forEach(p=>{const unread=getDMUnread(p);const last=getDMThread(p).slice(-1)[0];const isSys=p===SYSTEM_USER;const isBot=p===BOT_USER;const icon=isBot?'🤖':(isSys?'🔔':'👤');const borderColor=isBot?'#8b5cf6':(isSys?'#f5a623':'#2e9e44');const hint=isBot?'Умный аналитик · напиши /help':(isSys?'Системные уведомления':'Начните переписку');const previewText=last?escapeHtml(last.text.substring(0,60))+(last.text.length>60?'...':''):hint;h+=`<div class="record-card" style="cursor:pointer;border-left-color:${borderColor};${isBot?'background:linear-gradient(135deg,#f5eafc,#ede4fb);':''}" data-dm-open="${escapeHtml(p)}"><div class="info"><strong>${icon} ${escapeHtml(p)}${unread>0?` <span style="background:#e74c3c;color:#fff;padding:2px 8px;border-radius:10px;font-size:0.75rem;">${unread}</span>`:''}</strong><div style="font-size:0.85rem;color:var(--text-light);margin-top:4px;">${previewText}</div></div><span style="color:var(--text-light);font-size:1.5rem;">›</span></div>`;});
 return h;
+}
+
+function sendDM(other,text){
+const me=getCurrentUser();
+if(!me||!other||!text)return;
+if(other===SYSTEM_USER)return;
+if(other===BOT_USER){sendBotCommand(text);return;}
+const all=getDMAll();
+const k=dmKey(me,other);
+if(!all[k])all[k]=[];
+const msg={id:'dm_'+generateId(),from:me,to:other,text,timestamp:new Date().toISOString()};
+all[k].push(msg);
+if(all[k].length>300)all[k]=all[k].slice(-300);
+localStorage.setItem(DM_LAST_READ_KEY+':'+k,new Date().toISOString());
+audit('dm','send',`${me} → ${other}`);
+scheduleSave();
+}
+
+function sendSystemDM(playerName,text){
+if(!playerName||!text)return false;
+const exists=playersDatabase.includes(playerName)||(appData.players||[]).some(p=>p.name===playerName);
+if(!exists)return false;
+if(playerName===SYSTEM_USER)return false;
+const all=getDMAll();
+const k=dmKey(SYSTEM_USER,playerName);
+if(!all[k])all[k]=[];
+const msg={id:'dm_'+generateId(),from:SYSTEM_USER,to:playerName,text:text,timestamp:new Date().toISOString(),isSystem:true};
+all[k].push(msg);
+if(all[k].length>300)all[k]=all[k].slice(-300);
+return true;
+}
+
+function getDMUnread(other){const me=getCurrentUser();if(!me||!other)return 0;const k=dmKey(me,other);const lastRead=localStorage.getItem(DM_LAST_READ_KEY+':'+k)||'1970-01-01';return getDMThread(other).filter(m=>m.from===other&&m.timestamp>lastRead).length;}
+
+function getTotalDMUnread(){const me=getCurrentUser();if(!me)return 0;const all=getDMAll();let total=0;Object.keys(all).forEach(k=>{if(!k.includes(me))return;const other=k.split('|').find(x=>x!==me);if(other && other !== BOT_USER)total+=getDMUnread(other);});return total;}
+
+function openDMModal(other){
+const me=getCurrentUser();
+if(!me){alert('🔒 Войдите');return;}
+if(!other){
+const all=getDMAll();
+const partners=new Set();
+partners.add(BOT_USER);
+partners.add(SYSTEM_USER);
+Object.keys(all).forEach(k=>{if(k.includes(me)){const o=k.split('|').find(x=>x!==me);if(o)partners.add(o);}});
+playersDatabase.forEach(n=>{if(n!==me&&n!==SYSTEM_USER&&n!==BOT_USER)partners.add(n);});
+let h=`<h2>✉️ Сообщения</h2>`;
+const list=[...partners].sort((a,b)=>{if(a===BOT_USER)return -1;if(b===BOT_USER)return 1;if(a===SYSTEM_USER)return -1;if(b===SYSTEM_USER)return 1;return a.localeCompare(b);});
+if(!list.length)h+=`<p style="color:#9aab9a;text-align:center;padding:20px 0;">Нет других игроков.</p>`;
+else list.forEach(p=>{
+const unread=getDMUnread(p);
+const last=getDMThread(p).slice(-1)[0];
+const isSys=p===SYSTEM_USER;
+const isBot=p===BOT_USER;
+const icon=isBot?'🤖':(isSys?'🔔':'👤');
+const borderColor=isBot?'#8b5cf6':(isSys?'#f5a623':'#4a90d9');
+const previewText=last?escapeHtml(last.text.substring(0,50))+(last.text.length>50?'...':''):'';
+const hint=isBot?'Умный аналитик · напиши /help':(isSys?'Системные уведомления':'Начните переписку');
+h+=`<div class="dm-list-item" style="border-left-color:${borderColor};${isBot?'background:linear-gradient(135deg,#f5eafc,#ede4fb);':''}" data-dm-open="${escapeHtml(p)}"><div style="flex:1;"><div style="font-weight:700;">${icon} ${escapeHtml(p)}${unread>0?` <span style="background:#e74c3c;color:#fff;padding:2px 7px;border-radius:10px;font-size:0.7rem;">${unread}</span>`:''}</div><div style="font-size:0.78rem;color:var(--text-light);margin-top:2px;">${last?previewText:hint}</div></div><span style="color:var(--text-light);">›</span></div>`;
+});
+document.getElementById('dmContent').innerHTML=h;
+}else{
+dmTarget=other;
+const isSystemThread=(other===SYSTEM_USER);
+const isBotThread=(other===BOT_USER);
+const thread=getDMThread(other);
+const titleIcon=isBotThread?'🤖':(isSystemThread?'🔔':'✉️');
+const titleColor=isBotThread?'#8b5cf6':'inherit';
+let h=`<h2 style="color:${titleColor};">${titleIcon} ${escapeHtml(other)}</h2>`;
+if(isBotThread){
+h+=`<div style="background:#f5eafc;border:1px solid #c39bd3;border-radius:12px;padding:10px 14px;margin-bottom:12px;font-size:0.85rem;color:#6a2c8a;">💡 Команды: <code>/help</code> · прогнозы, составы, рейтинги, рекорды. Ответы видишь только ты.</div>`;
+}
+h+=`<div class="dm-thread" id="dmThread">`;
+if(!thread.length){
+if(isBotThread){
+h+=`<div style="text-align:center;padding:20px 0;color:#9aab9a;"><div style="font-size:3rem;margin-bottom:10px;">🤖</div><p>Привет! Я — Аналитик LAGUNA CUP.<br>Напиши <code>/help</code>, чтобы увидеть все команды.</p></div>`;
+}else if(isSystemThread){
+h+=`<p style="color:#9aab9a;text-align:center;padding:20px 0;">Поздравлений пока нет.</p>`;
+}else{
+h+=`<p style="color:#9aab9a;text-align:center;padding:20px 0;">Начните переписку.</p>`;
+}
+}else{
+thread.forEach(m=>{
+const own=m.from===me;
+const isSys=m.from===SYSTEM_USER;
+const isBot=m.from===BOT_USER;
+const cls=own?' own':(isSys?' system':(isBot?' bot':''));
+const style=isBot?'background:#f5eafc;border-left:3px solid #8b5cf6;':'';
+h+=`<div class="dm-msg${cls}" style="${style}"><div style="white-space:pre-wrap;">${isBot?'🤖 ':''}${escapeHtml(m.text)}</div><div class="dm-meta">${own?'Вы':escapeHtml(m.from)} · ${fmtShort(m.timestamp)}</div></div>`;
+});
+}
+h+=`</div>`;
+if(isSystemThread){
+h+=`<div style="text-align:center;color:var(--text-light);font-size:0.82rem;padding:10px;margin-bottom:8px;background:#fff8e1;border-radius:10px;">🔔 Системные сообщения. Ответить нельзя.</div>`;
+h+=`<button class="btn btn-secondary" id="dmBackBtn" style="width:100%;justify-content:center;margin:0;">‹ Назад</button>`;
+}else{
+const ph=isBotThread?'Команда или вопрос... (/help)':'Сообщение...';
+h+=`<div class="chat-input-area"><input type="text" id="dmInput" placeholder="${ph}" maxlength="500" autocomplete="off"><div style="display:flex;gap:6px;"><button class="btn btn-secondary btn-sm" id="dmBackBtn">‹ Назад</button><button class="btn btn-primary" id="dmSendBtn">📤</button></div></div>`;
+}
+document.getElementById('dmContent').innerHTML=h;
+const k=dmKey(me,other);
+localStorage.setItem(DM_LAST_READ_KEY+':'+k,new Date().toISOString());
+setTimeout(()=>{const el=document.getElementById('dmThread');if(el)el.scrollTop=el.scrollHeight;const inp=document.getElementById('dmInput');if(inp)inp.focus();},50);
+}
+document.getElementById('dmModal').style.display='flex';
 }
 
 function renderRecordsTab(){
@@ -2818,13 +2961,33 @@ return h;
 }
 
 // ============ БОТ-АНАЛИТИК ============
-function botPush(text){
-if(!serverState.data[CHAT_KEY])serverState.data[CHAT_KEY]=[];
-const chat=serverState.data[CHAT_KEY];
-chat.push({id:'msg_'+generateId(),playerName:BOT_USER,text,timestamp:new Date().toISOString(),system:true,isBot:true});
-if(chat.length>200)serverState.data[CHAT_KEY]=chat.slice(-200);
+function botPush(text, targetUser){
+targetUser=targetUser||getCurrentUser();
+if(!targetUser)return;
+const all=getDMAll();
+const k=dmKey(targetUser,BOT_USER);
+if(!all[k])all[k]=[];
+const msg={id:'dm_'+generateId(),from:BOT_USER,to:targetUser,text:text,timestamp:new Date().toISOString(),isBot:true};
+all[k].push(msg);
+if(all[k].length>300)all[k]=all[k].slice(-300);
 scheduleSave();
 }
+
+function sendBotCommand(text){
+const me=getCurrentUser();
+if(!me||!text)return;
+const all=getDMAll();
+const k=dmKey(me,BOT_USER);
+if(!all[k])all[k]=[];
+all[k].push({id:'dm_'+generateId(),from:me,to:BOT_USER,text:text,timestamp:new Date().toISOString()});
+if(all[k].length>300)all[k]=all[k].slice(-300);
+scheduleSave();
+setTimeout(()=>{
+handleBotCommand(text,me);
+if(currentTab==='dm'&&dmTarget===BOT_USER)openDMModal(BOT_USER);
+},300);
+}
+
 function findTeamByName(q){if(!q)return null;q=q.trim().toLowerCase();const teams=appData.teams||[];let t=teams.find(x=>x.name.toLowerCase()===q);if(t)return t;return teams.find(x=>x.name.toLowerCase().includes(q))||null;}
 function findPlayerByName(q){if(!q)return null;q=q.trim().toLowerCase();const ps=appData.players||[];let p=ps.find(x=>x.name.toLowerCase()===q);if(p)return p;return ps.find(x=>x.name.toLowerCase().includes(q))||null;}
 function findBestGoalkeeperForTeam(tid){const count={};appData.matches.forEach(m=>{const isA=m.teamA===tid;if(!isA&&m.teamB!==tid)return;const gkId=isA?m.goalkeeperA:m.goalkeeperB;if(gkId)count[gkId]=(count[gkId]||0)+1;});let best=null,bc=0;Object.keys(count).forEach(k=>{if(count[k]>bc){bc=count[k];best=k;}});return best;}
@@ -2846,6 +3009,7 @@ else if(p.pA>p.pB)h+=`\n🏆 Фаворит — ${ta.name}.`;
 else h+=`\n🏆 Фаворит — ${tb.name}.`;
 return h;
 }
+
 function botLineup(teamName){
 const t=findTeamByName(teamName);if(!t)return'⚠️ Не нашёл команду. /teams — список.';
 const players=appData.players.filter(p=>p.teamId===t.id);if(!players.length)return`⚠️ В «${t.name}» нет игроков.`;
@@ -2860,6 +3024,7 @@ const noGames=players.filter(p=>getComputedPlayerStats(p.name,appData).matchesPl
 if(noGames.length)h+=`\n⚠️ Без игр: ${noGames.join(', ')}`;
 return h;
 }
+
 function botChems(playerName){
 const pl=findPlayerByName(playerName);if(!pl)return'⚠️ Не нашёл игрока.';
 const assistTo={},assistsFrom={};
@@ -2872,6 +3037,7 @@ h+=`\n`;
 if(topB.length){h+=`🤝 Получает ассисты от:\n`;topB.forEach(([n,c])=>h+=`• ${n} — ${c}\n`);} else h+=`🤝 Пока не получал ассистов.\n`;
 return h;
 }
+
 function botWeak(teamName){
 const t=findTeamByName(teamName);if(!t)return'⚠️ Не нашёл команду.';
 const players=appData.players.filter(p=>p.teamId===t.id);const notes=[];
@@ -2883,11 +3049,13 @@ const reserve=players.filter(p=>p.status==='reserve');if(reserve.length)notes.pu
 if(!notes.length)notes.push('✅ Явных слабых мест нет.');
 return `🔍 Анализ ${t.name}\n\n`+notes.join('\n');
 }
+
 function botTop(){
 const rows=appData.players.map(p=>({n:p.name,r:calcRatingForPlayerInTournament(p.name,appData),st:getComputedPlayerStats(p.name,appData)})).filter(x=>x.st.matchesPlayed>0).sort((a,b)=>b.r-a.r).slice(0,5);
 if(!rows.length)return'⚠️ Нет данных.';
 return `🏆 Топ-5 турнира\n\n`+rows.map((x,i)=>`${i+1}. ${x.n} — ⭐${x.r} (${x.st.goals}⚽ / ${x.st.assists}🎯)`).join('\n');
 }
+
 function botForm(target){
 const t=findTeamByName(target);
 if(t){const form=getTeamForm(t.id,5);return `📈 Форма ${t.name}: `+form.map(x=>x==='W'?'🟢':x==='D'?'🟡':'🔴').join('')||'—';}
@@ -2895,12 +3063,14 @@ const pl=findPlayerByName(target);
 if(pl){const tr=getPlayerTrend(pl.name,5);const line=tr.ratings.slice(0,5).map(r=>r+'очк').join(' · ')||'—';const tip=tr.trend==='up'?'📈 растёт':tr.trend==='down'?'📉 падает':'➖ стабильно';return `📈 ${pl.name}: ${line}\nТренд: ${tip} (${tr.diff.toFixed(1)})`;}
 return'⚠️ Не нашёл команду или игрока.';
 }
+
 function botVs(a,b){
 const pa=findPlayerByName(a),pb=findPlayerByName(b);if(!pa||!pb)return'⚠️ /vs Игрок1 Игрок2';
 const sa=getComputedPlayerStats(pa.name,appData),sb=getComputedPlayerStats(pb.name,appData);
 const ra=calcRatingForPlayerInTournament(pa.name,appData),rb=calcRatingForPlayerInTournament(pb.name,appData);
 return `⚖️ ${pa.name} vs ${pb.name}\n\nРейтинг: ⭐${ra} vs ⭐${rb}\nМатчи: ${sa.matchesPlayed} vs ${sb.matchesPlayed}\nГолы: ${sa.goals} vs ${sb.goals}\nАссисты: ${sa.assists} vs ${sb.assists}\nГ+П: ${sa.goals+sa.assists} vs ${sb.goals+sb.assists}`;
 }
+
 function botStat(plName){
 const pl=findPlayerByName(plName);if(!pl)return'⚠️ Не нашёл игрока.';
 const s=getComputedPlayerStats(pl.name,appData);const r=calcRatingForPlayerInTournament(pl.name,appData);const t=getTeamById(pl.teamId);
@@ -2908,7 +3078,9 @@ let h=`👤 ${pl.name} ${t?'('+t.name+')':''}\n⭐ Рейтинг: ${r}\nМат�
 if(s.goalkeeperMatches>0)h+=`🧤 В воротах: ${s.goalkeeperMatches} · пропущено ${s.goalsConceded}\n`;
 return h;
 }
+
 function botTeams(){if(!appData.teams.length)return'⚠️ Команд нет.';return `📋 Команды:\n`+appData.teams.map(t=>`• ${t.name}`).join('\n');}
+
 function botMatchRecap(m){
 const ta=getTeamById(m.teamA),tb=getTeamById(m.teamB);if(!ta||!tb)return;
 const sa=parseInt(m.scoreA,10)||0,sb=parseInt(m.scoreB,10)||0;
@@ -2926,8 +3098,15 @@ allGoals.forEach(g=>{const p=getPlayerById(g.scorerId);if(p)seen.add(p.name);if(
 seen.forEach(name=>{const pts=getMatchPointsForPlayer(name,m);if(pts)candidates.push({name,pts:pts.pts});});
 candidates.sort((a,b)=>b.pts-a.pts);
 if(candidates.length)h+=`⭐ Лучший в матче: ${candidates[0].name} (${candidates[0].pts} очк.)\n`;
-botPush(h);
+
+// В ОБЩИЙ ЧАТ
+if(!serverState.data[CHAT_KEY])serverState.data[CHAT_KEY]=[];
+const chat=serverState.data[CHAT_KEY];
+chat.push({id:'msg_'+generateId(),playerName:BOT_USER,text:h,timestamp:new Date().toISOString(),system:true,isBot:true});
+if(chat.length>200)serverState.data[CHAT_KEY]=chat.slice(-200);
+scheduleSave();
 }
+
 function openBotAnalysis(){
 if(!currentTournamentId){alert('Нет турнира');return;}
 let h='<h2>🤖 Анализ турнира</h2>';
@@ -2946,6 +3125,7 @@ const matches=appData.matches||[];
 if(matches.length){h+='<h3 style="margin-top:20px;">🔥 Рекорды</h3>';let bigScore=0,bigMatch=null;matches.forEach(m=>{const total=(parseInt(m.scoreA,10)||0)+(parseInt(m.scoreB,10)||0);if(total>bigScore){bigScore=total;bigMatch=m;}});if(bigMatch){const ta=getTeamById(bigMatch.teamA),tb=getTeamById(bigMatch.teamB);h+=`<div style="background:#f8faf8;border-radius:10px;padding:10px;">⚽ Самый результативный: <strong>${escapeHtml(ta?.name||'?')} ${bigMatch.scoreA}:${bigMatch.scoreB} ${escapeHtml(tb?.name||'?')}</strong> (${bigScore})</div>`;}}
 document.getElementById('modalContent').innerHTML=h;document.getElementById('playerModal').style.display='flex';
 }
+
 function botRecap(){
 const matches=appData.matches||[];if(!matches.length)return'⚠️ Матчей нет.';
 const now=Date.now();const dayMs=24*60*60*1000;
@@ -2963,8 +3143,9 @@ const topA=Object.entries(topAssists).sort((a,b)=>b[1]-a[1]).slice(0,3);
 if(topA.length){h+=`\n🎯 Ассистенты:\n`;topA.forEach(([n,c])=>h+=`• ${n} — ${c}\n`);}
 return h;
 }
-function botWhoami(){
-const me=getCurrentUser();if(!me)return'⚠️ Войди в аккаунт.';
+
+function botWhoami(targetUser){
+const me=targetUser||getCurrentUser();if(!me)return'⚠️ Войди в аккаунт.';
 const myPlayer=appData.players.find(p=>p.name===me);
 const myTeam=myPlayer?.teamId?getTeamById(myPlayer.teamId):null;
 const st=getComputedPlayerStats(me,appData);const rating=calcRatingForPlayerInTournament(me,appData);const tr=getPlayerTrend(me,5);
@@ -2983,45 +3164,348 @@ else if(rating>=15)h+=`📈 Растёшь. Больше времени на п�
 else h+=`🌱 Новичок. Участвуй чаще.`;
 return h;
 }
-function botHelp(){
-return `🤖 Я — Аналитик LAGUNA CUP:
 
-🔮 /predict A B — прогноз
-📋 /lineup Команда — состав
-📋 /lineup — все составы
-🏆 /top — топ-5
-📈 /form Команда/Игрок — форма
-⚖️ /vs A B — сравнение
-🔗 /chemi Игрок — связки
-🔍 /weak Команда — слабые места
-👤 /stat Игрок — статистика
-📋 /teams — команды
-📰 /recap — итоги за 24ч
-🙋 /whoami — личные советы
+function botHelp(){
+return `🤖 Аналитик LAGUNA CUP
+
+📊 Матчи и прогнозы
+/predict A B — прогноз
+/h2h A B — история встреч
+/gap A B — разрыв между командами
+/next — последний матч
+
+👤 Игроки
+/top — топ-5
+/best goals|assists|gk|mvp|form — топы
+/stat Игрок — статистика
+/vs A B — сравнение
+/form Игрок/Команда — форма
+/streak — мои серии
+/last N — мои последние N
+/lastgoal — мой последний гол
+/duo A B — связка двух
+/chemi Игрок — связки игрока
+
+🏆 Команды
+/table — таблица
+/myteam — моя команда
+/weak Команда — слабые места
+/lineup Команда — состав
+/lineup — все составы
+/teams — список команд
+
+📈 Общее
+/rank — моя позиция
+/whoami — мой разбор
+/recap — итоги за 24ч
+/records — рекорды
+/awards — награды
+/vote — голосование
+
+🎁 Бонус
+/cheer Команда — кричалка
+/fact — факт
+/quote — цитата
+/meme — мем
+
+👑 Админ
+/pending — заявки
+/approve Имя — одобрить
+/reject Имя — отклонить
+/audit — лог действий
+
 ❓ /help — это меню`;
 }
-function handleBotCommand(text){
-const raw=text.trim();if(!raw.startsWith('/'))return false;
-const parts=raw.slice(1).split(/\s+/);const cmd=(parts[0]||'').toLowerCase();const args=parts.slice(1);
+
+function handleBotCommand(text, targetUser){
+targetUser=targetUser||getCurrentUser();
+if(!targetUser)return;
+const raw=text.trim();
+if(!raw.startsWith('/')){botPush('🤔 Не понял. Напиши /help для списка команд.',targetUser);return;}
+const parts=raw.slice(1).split(/\s+/);
+const cmd=(parts[0]||'').toLowerCase();
+const args=parts.slice(1);
 let reply='';
 try{
 switch(cmd){
 case 'help': reply=botHelp(); break;
 case 'teams': reply=botTeams(); break;
 case 'top': reply=botTop(); break;
-case 'predict':{if(args.length<2){reply='⚠️ /predict A B';break;}const ta=findTeamByName(args[0]);const tb=findTeamByName(args.slice(1).join(' '));if(!ta||!tb){reply='⚠️ Не нашёл одну из команд.';break;}reply=botPredict(ta,tb);break;}
-case 'lineup':{if(!args.length){reply='📋 Составы всех команд:\n\n'+appData.teams.map(t=>{const pls=appData.players.filter(p=>p.teamId===t.id);const r=pls.map(p=>({n:p.name,r:calcRatingForPlayerInTournament(p.name,appData)})).sort((a,b)=>b.r-a.r).slice(0,5);return `**${t.name}** (${pls.length}):\n`+r.map((x,i)=>`${i+1}. ${x.n} (${x.r})`).join('\n');}).join('\n\n');}else reply=botLineup(args.join(' '));break;}
-case 'form':{if(!args.length){reply='⚠️ /form Команда или /form Игрок';break;}reply=botForm(args.join(' '));break;}
-case 'vs':{if(args.length<2){reply='⚠️ /vs Игрок1 Игрок2';break;}reply=botVs(args[0],args.slice(1).join(' '));break;}
-case 'chemi':{if(!args.length){reply='⚠️ /chemi Игрок';break;}reply=botChems(args.join(' '));break;}
-case 'weak':{if(!args.length){reply='⚠️ /weak Команда';break;}reply=botWeak(args.join(' '));break;}
-case 'stat':{if(!args.length){reply='⚠️ /stat Игрок';break;}reply=botStat(args.join(' '));break;}
-case 'recap': reply=botRecap(); break;
-case 'whoami': reply=botWhoami(); break;
-default: reply='🤔 Не знаю. /help — список.';
+case 'predict': {
+if(args.length < 2){ reply = '⚠️ /predict КомандаА КомандаБ'; break; }
+const ta = findTeamByName(args[0]);
+const tb = findTeamByName(args.slice(1).join(' '));
+if(!ta || !tb){ reply = '⚠️ Не нашёл одну из команд. /teams — список.'; break; }
+reply = botPredict(ta, tb); break;
 }
-}catch(e){reply='❌ Ошибка: '+e.message;}
-botPush(reply);return true;
+case 'lineup': {
+if(!args.length){
+reply = '📋 Составы всех команд:\n\n' + appData.teams.map(t => {
+const pls = appData.players.filter(p => p.teamId === t.id);
+const r = pls.map(p => ({n:p.name, r:calcRatingForPlayerInTournament(p.name, appData)})).sort((a,b)=>b.r-a.r).slice(0,5);
+return `**${t.name}** (${pls.length}):\n` + r.map((x,i)=>`${i+1}. ${x.n} (${x.r})`).join('\n');
+}).join('\n\n');
+} else reply = botLineup(args.join(' '));
+break;
+}
+case 'form': {
+if(!args.length){ reply = '⚠️ /form Команда или /form Игрок'; break; }
+reply = botForm(args.join(' ')); break;
+}
+case 'vs': {
+if(args.length < 2){ reply = '⚠️ /vs Игрок1 Игрок2'; break; }
+reply = botVs(args[0], args.slice(1).join(' ')); break;
+}
+case 'chemi': {
+if(!args.length){ reply = '⚠️ /chemi Игрок'; break; }
+reply = botChems(args.join(' ')); break;
+}
+case 'weak': {
+if(!args.length){ reply = '⚠️ /weak Команда'; break; }
+reply = botWeak(args.join(' ')); break;
+}
+case 'stat': {
+if(!args.length){ reply = '⚠️ /stat Игрок'; break; }
+reply = botStat(args.join(' ')); break;
+}
+case 'recap': reply = botRecap(); break;
+case 'whoami': reply = botWhoami(targetUser); break;
+case 'table': reply = botTable(); break;
+case 'h2h': reply = botH2H(args); break;
+case 'rank': reply = botRank(targetUser); break;
+case 'myteam': reply = botMyTeam(targetUser); break;
+case 'next': reply = botNext(targetUser); break;
+case 'best': reply = botBest(args); break;
+case 'streak': reply = botStreak(targetUser); break;
+case 'last': reply = botLast(targetUser, args); break;
+case 'duo': reply = botDuo(args); break;
+case 'gap': reply = botGap(args); break;
+case 'records': reply = botRecords(); break;
+case 'awards': reply = botAwards(); break;
+case 'lastgoal': reply = botLastGoal(targetUser); break;
+case 'vote': reply = botVote(); break;
+case 'cheer': reply = botCheer(args); break;
+case 'fact': reply = botFact(); break;
+case 'quote': reply = botQuote(); break;
+case 'meme': reply = botMeme(); break;
+case 'pending': reply = botPending(targetUser); break;
+case 'approve': reply = botApprove(args, targetUser); break;
+case 'reject': reply = botReject(args, targetUser); break;
+case 'audit': reply = botAudit(targetUser); break;
+default: reply = '🤔 Не знаю такую команду. /help — список.';
+}
+}catch(e){ reply = '❌ Ошибка: ' + e.message; }
+botPush(reply, targetUser);
+}
+
+// ============ НОВЫЕ КОМАНДЫ БОТА ============
+function botTable(){
+const t=calculateTable();
+if(!t.length)return '⚠️ Нет команд в турнире.';
+let h=`🏆 Турнирная таблица\n\n`;
+t.forEach((r,i)=>{const rm=r.goalsFor-r.goalsAgainst;const rmStr=rm>=0?'+'+rm:String(rm);h+=`${i+1}. ${r.name} — ${r.points} очк (${r.games} игр, ${r.wins}П ${r.draws}Н ${r.losses}Пор, РМ ${rmStr})\n`;});
+return h;
+}
+function botH2H(args){
+if(args.length<2)return '⚠️ /h2h КомандаА КомандаБ';
+const ta=findTeamByName(args[0]);const tb=findTeamByName(args.slice(1).join(' '));
+if(!ta||!tb)return '⚠️ Не нашёл одну из команд. /teams — список.';
+const matches=appData.matches.filter(m=>(m.teamA===ta.id&&m.teamB===tb.id)||(m.teamA===tb.id&&m.teamB===ta.id));
+if(!matches.length)return `⚔️ ${ta.name} vs ${tb.name}\n\nМатчей ещё не было.`;
+let winsA=0,winsB=0,draws=0,gfA=0,gfB=0;
+matches.forEach(m=>{const isA=m.teamA===ta.id;const sa=parseInt(m.scoreA,10)||0,sb=parseInt(m.scoreB,10)||0;const my=isA?sa:sb,opp=isA?sb:sa;gfA+=my;gfB+=opp;if(my>opp)winsA++;else if(my<opp)winsB++;else draws++;});
+let h=`⚔️ ${ta.name} vs ${tb.name}\n\nВсего: ${matches.length}\nПобеды: ${winsA}:${winsB} (ничьих ${draws})\nГолы: ${gfA}:${gfB}\n\n`;
+[...matches].sort((a,b)=>(b.createdAt||b.id)>(a.createdAt||a.id)?1:-1).slice(0,5).forEach(m=>{const isA=m.teamA===ta.id;const a=isA?m.scoreA:m.scoreB;const b=isA?m.scoreB:m.scoreA;const dt=getMatchTime(m);h+=`• ${a}:${b}${dt?' ('+fmtShort(dt)+')':''}\n`;});
+return h;
+}
+function botRank(user){
+const players=appData.players.map(p=>({name:p.name,r:calcRatingForPlayerInTournament(p.name,appData),st:getComputedPlayerStats(p.name,appData)})).filter(x=>x.st.matchesPlayed>0).sort((a,b)=>b.r-a.r);
+const idx=players.findIndex(p=>p.name===user);
+if(idx<0)return `📊 ${user} — пока нет рейтинга.`;
+const me=players[idx];const prev=players[idx-1];const next=players[idx+1];const tr=getPlayerTrend(user,5);
+let h=`📊 Твоя позиция: #${idx+1}\n\n⭐ Рейтинг: ${me.r}\n`;
+if(prev)h+=`📈 До #${idx} (${prev.name}): ${prev.r-me.r} очк\n`;
+if(next)h+=`📉 От #${idx+2} (${next.name}): ${me.r-next.r} очк\n`;
+if(tr.ratings.length>=2)h+=`Тренд: ${tr.trend==='up'?'📈 +':(tr.trend==='down'?'📉 ':'➖ ')}${tr.diff.toFixed(1)}\n`;
+h+=`\nВсего в рейтинге: ${players.length} игроков`;
+return h;
+}
+function botMyTeam(user){
+const p=appData.players.find(x=>x.name===user);
+if(!p||!p.teamId)return `⚠️ ${user} — без команды.`;
+const t=getTeamById(p.teamId);if(!t)return '⚠️ Команда не найдена.';
+const table=calculateTable();const row=table.find(r=>r.id===t.id);
+const players=appData.players.filter(x=>x.teamId===t.id).map(x=>({name:x.name,r:calcRatingForPlayerInTournament(x.name,appData)})).sort((a,b)=>b.r-a.r);
+const rating=calcTeamRating(t.id,appData);const form=getTeamForm(t.id,5).map(x=>x==='W'?'🟢':(x==='D'?'🟡':'🔴')).join('')||'—';
+let h=`🔵 ${t.name} (твоя команда)\n\n`;
+if(row){const pos=table.findIndex(r=>r.id===t.id)+1;h+=`Место: ${pos} (${row.points} очк)\nФорма: ${form}\n`;}
+h+=`Рейтинг: ⭐${rating}\n\n⭐ Лидеры:\n`;
+players.slice(0,3).forEach(x=>{const st=getComputedPlayerStats(x.name,appData);h+=`• ${x.name} (${x.r}) — ${st.goals}⚽ / ${st.assists}🎯\n`;});
+return h;
+}
+function botNext(user){
+const p=appData.players.find(x=>x.name===user);
+if(!p||!p.teamId)return '⚠️ У тебя нет команды.';
+const matches=appData.matches.filter(m=>m.teamA===p.teamId||m.teamB===p.teamId);
+if(!matches.length)return `🕒 У ${getTeamById(p.teamId)?.name || 'команды'} нет матчей.`;
+const last=[...matches].sort((a,b)=>(b.createdAt||b.id)>(a.createdAt||a.id)?1:-1)[0];
+const ta=getTeamById(last.teamA),tb=getTeamById(last.teamB);const dt=getMatchTime(last);
+let h=`🕒 Последний матч\n\n⚽ ${ta?.name} ${last.scoreA}:${last.scoreB} ${tb?.name}\n`;
+if(dt)h+=`📅 ${fmtDate(dt)}\n`;
+const candidates=[];const all=[...(last.goalsA||[]),...(last.goalsB||[])];
+all.forEach(g=>{const pl=getPlayerById(g.scorerId);if(pl){const pts=getMatchPointsForPlayer(pl.name,last);if(pts)candidates.push({name:pl.name,pts:pts.pts});}});
+candidates.sort((a,b)=>b.pts-a.pts);
+if(candidates.length)h+=`⭐ Лучший: ${candidates[0].name} (${candidates[0].pts} очк.)`;
+return h;
+}
+function botBest(args){
+const cat=(args[0]||'').toLowerCase();
+const players=appData.players.map(p=>({name:p.name,st:getComputedPlayerStats(p.name,appData),r:calcRatingForPlayerInTournament(p.name,appData)})).filter(x=>x.st.matchesPlayed>0);
+if(cat==='goals'){const sorted=players.sort((a,b)=>b.st.goals-a.st.goals).slice(0,5);if(!sorted.length)return '⚠️ Нет данных.';return `⚽ Топ-5 бомбардиров\n\n`+sorted.map((x,i)=>`${i+1}. ${x.name} — ${x.st.goals}⚽`).join('\n');}
+if(cat==='assists'){const sorted=players.sort((a,b)=>b.st.assists-a.st.assists).slice(0,5);if(!sorted.length)return '⚠️ Нет данных.';return `🎯 Топ-5 ассистентов\n\n`+sorted.map((x,i)=>`${i+1}. ${x.name} — ${x.st.assists}🎯`).join('\n');}
+if(cat==='gk'){const sorted=players.filter(x=>x.st.goalkeeperMatches>0).map(x=>({...x,gkr:calcGoalkeeperRating(x.st)})).sort((a,b)=>b.gkr-a.gkr).slice(0,5);if(!sorted.length)return '⚠️ Вратарей нет.';return `🧤 Топ-5 вратарей\n\n`+sorted.map((x,i)=>`${i+1}. ${x.name} — ${x.gkr} (${x.st.cleanSheets} сухих)`).join('\n');}
+if(cat==='mvp'){const sorted=players.sort((a,b)=>(b.st.goals+b.st.assists)-(a.st.goals+a.st.assists)).slice(0,5);if(!sorted.length)return '⚠️ Нет данных.';return `🏅 Топ-5 по Г+П\n\n`+sorted.map((x,i)=>`${i+1}. ${x.name} — ${x.st.goals+x.st.assists}`).join('\n');}
+if(cat==='form'){const sorted=players.map(x=>({...x,tr:getPlayerTrend(x.name,5)})).filter(x=>x.tr.ratings.length>=2).sort((a,b)=>b.tr.diff-a.tr.diff).slice(0,5);if(!sorted.length)return '⚠️ Нет данных.';return `📈 Топ-5 по форме\n\n`+sorted.map((x,i)=>`${i+1}. ${x.name} — ${x.tr.diff>0?'+':''}${x.tr.diff.toFixed(1)}`).join('\n');}
+return '⚠️ /best goals|assists|gk|mvp|form';
+}
+function botStreak(user){
+const player=appData.players.find(p=>p.name===user);if(!player||!player.teamId)return '⚠️ У тебя нет команды.';
+const matches=appData.matches.filter(m=>m.teamA===player.teamId||m.teamB===player.teamId).sort((a,b)=>(a.createdAt||a.id)>(b.createdAt||b.id)?1:-1);
+if(!matches.length)return `🕒 У ${user} нет матчей.`;
+let goalStreak=0,winStreak=0;
+for(const m of [...matches].reverse()){const isA=m.teamA===player.teamId;const goals=[...(m.goalsA||[]),...(m.goalsB||[])].filter(g=>{const p=getPlayerById(g.scorerId);return p&&p.name===user;}).length;if(goals>0)goalStreak++;else break;}
+for(const m of [...matches].reverse()){const isA=m.teamA===player.teamId;const sa=parseInt(m.scoreA,10)||0,sb=parseInt(m.scoreB,10)||0;const my=isA?sa:sb,opp=isA?sb:sa;if(my>opp)winStreak++;else break;}
+return `🔥 Твои серии (${user})\n\n🎯 Голы: ${goalStreak} подряд\n🟢 Победы: ${winStreak} подряд`;
+}
+function botLast(user, args){
+const n=parseInt(args[0],10)||5;const player=appData.players.find(p=>p.name===user);if(!player||!player.teamId)return '⚠️ У тебя нет команды.';
+const matches=appData.matches.filter(m=>m.teamA===player.teamId||m.teamB===player.teamId).sort((a,b)=>(b.createdAt||b.id)>(a.createdAt||a.id)?1:-1).slice(0,n);
+if(!matches.length)return `📅 Нет матчей.`;
+let h=`📅 Твои последние ${matches.length} матчей\n\n`;
+matches.forEach(m=>{const isA=m.teamA===player.teamId;const opp=getTeamById(isA?m.teamB:m.teamA);const my=isA?parseInt(m.scoreA,10)||0:parseInt(m.scoreB,10)||0;const oppS=isA?parseInt(m.scoreB,10)||0:parseInt(m.scoreA,10)||0;const res=my>oppS?'🟢':(my<oppS?'🔴':'🟡');const pts=getMatchPointsForPlayer(user,m);h+=`${res} vs ${opp?.name||'?'} ${my}:${oppS} — ${pts?pts.goals:0}⚽ ${pts?pts.assists:0}🎯 → ${pts?pts.pts:0} очк\n`;});
+return h;
+}
+function botDuo(args){
+if(args.length<2)return '⚠️ /duo Игрок1 Игрок2';
+const p1=findPlayerByName(args[0]);const p2=findPlayerByName(args.slice(1).join(' '));
+if(!p1||!p2)return '⚠️ Не нашёл одного из игроков.';
+let aAssistB=0,bAssistA=0;
+appData.matches.forEach(m=>{[...(m.goalsA||[]),...(m.goalsB||[])].forEach(g=>{if(!g.assistId)return;const scorer=getPlayerById(g.scorerId);const assist=getPlayerById(g.assistId);if(!scorer||!assist)return;if(assist.name===p1.name&&scorer.name===p2.name)aAssistB++;if(assist.name===p2.name&&scorer.name===p1.name)bAssistA++;});});
+return `🤝 Связка: ${p1.name} + ${p2.name}\n\n${p2.name} забил с паса ${p1.name}: ${aAssistB}\n${p1.name} забил с паса ${p2.name}: ${bAssistA}\nВсего: ${aAssistB+bAssistA}`;
+}
+function botGap(args){
+if(args.length<2)return '⚠️ /gap Команда1 Команда2';
+const t1=findTeamByName(args[0]);const t2=findTeamByName(args.slice(1).join(' '));
+if(!t1||!t2)return '⚠️ Не нашёл одну из команд.';
+const table=calculateTable();const r1=table.find(r=>r.id===t1.id);const r2=table.find(r=>r.id===t2.id);
+if(!r1||!r2)return '⚠️ Нет данных.';
+let h=`📊 ${t1.name} vs ${t2.name}\n\n📈 Очки: ${r1.points} : ${r2.points}\n⚽ Голы: ${r1.goalsFor}:${r1.goalsAgainst} : ${r2.goalsFor}:${r2.goalsAgainst}\n🟢 Побед: ${r1.wins} : ${r2.wins}\n`;
+const diff=r1.points-r2.points;
+if(diff>0)h+=`\n💡 ${t1.name} впереди на ${diff} очк.`;else if(diff<0)h+=`\n💡 ${t2.name} впереди на ${-diff} очк.`;else h+=`\n💡 Равные очки.`;
+return h;
+}
+function botRecords(){
+const matches=appData.matches||[];if(!matches.length)return '⚠️ Матчей нет.';
+let bigWin=null,topMatch=null,maxGoals=0;
+matches.forEach(m=>{const sa=parseInt(m.scoreA,10)||0,sb=parseInt(m.scoreB,10)||0;const diff=Math.abs(sa-sb);if(!bigWin||diff>bigWin.diff)bigWin={diff,sa,sb,ta:getTeamById(m.teamA),tb:getTeamById(m.teamB)};if(sa+sb>maxGoals){maxGoals=sa+sb;topMatch={sa,sb,ta:getTeamById(m.teamA),tb:getTeamById(m.teamB)};}});
+let h=`🏆 Рекорды турнира\n\n`;
+if(bigWin)h+=`🔥 Крупнейшая победа:\n   ${bigWin.ta?.name} ${bigWin.sa}:${bigWin.sb} ${bigWin.tb?.name} (разница ${bigWin.diff})\n\n`;
+if(topMatch)h+=`⚽ Самый результативный:\n   ${topMatch.ta?.name} ${topMatch.sa}:${topMatch.sb} ${topMatch.tb?.name} (${maxGoals} голов)\n`;
+return h;
+}
+function botAwards(){
+if(!tournamentsList.length)return '⚠️ Турниров нет.';
+const awards={};
+tournamentsList.forEach(t=>{const d=getTournamentData(t.id);const check=(award,obj)=>{if(!obj)return;if(!awards[award])awards[award]={};awards[award][obj.name]=(awards[award][obj.name]||0)+1;};check('mvp',getMVPTournament(d));check('bombardier',getBestScorer(d));check('assist',getBestAssister(d));check('gk',getBestGoalkeeper(d));check('voted',getBestVoted(d));});
+const labels={mvp:'🏅 MVP',bombardier:'⚽ Бомбардир',assist:'🎯 Ассистент',gk:'🧤 Вратарь',voted:'⭐ Лучший игрок'};
+let h=`🏅 Награды турнира\n\n`;let any=false;
+Object.keys(awards).forEach(k=>{const sorted=Object.entries(awards[k]).sort((a,b)=>b[1]-a[1]).slice(0,3);if(!sorted.length)return;any=true;h+=`${labels[k]||k}:\n`;sorted.forEach(([n,c],i)=>h+=`   ${i+1}. ${n} — ${c} раз\n`);h+=`\n`;});
+if(!any)return '⚠️ Наград пока нет.';
+return h;
+}
+function botLastGoal(user){
+const player=appData.players.find(p=>p.name===user);if(!player||!player.teamId)return '⚠️ У тебя нет команды.';
+const myMatches=appData.matches.filter(m=>m.teamA===player.teamId||m.teamB===player.teamId).sort((a,b)=>(b.createdAt||b.id)>(a.createdAt||a.id)?1:-1);
+for(const m of myMatches){const isA=m.teamA===player.teamId;const goals=isA?(m.goalsA||[]):(m.goalsB||[]);const myGoals=goals.filter(g=>{const p=getPlayerById(g.scorerId);return p&&p.name===user;});if(myGoals.length){const g=myGoals[myGoals.length-1];const assist=g.assistId?getPlayerById(g.assistId):null;const dt=getMatchTime(m);const opp=getTeamById(isA?m.teamB:m.teamA);let h=`⚽ Твой последний гол\n\n`;if(dt)h+=`📅 ${fmtDate(dt)}\n`;h+=`🆚 Против ${opp?.name||'?'}\n`;if(assist)h+=`🤝 Ассист: ${assist.name}\n`;return h;}}
+return `⚽ ${user} — голов пока нет.`;
+}
+function botVote(){
+if(!currentTournamentId)return '⚠️ Нет турнира.';
+const votes=appData.votes||{};const total=Object.values(votes).reduce((a,b)=>a+(typeof b==='number'?b:0),0);
+if(!total)return '🗳️ Голосов пока нет.';
+const sorted=Object.entries(votes).sort((a,b)=>b[1]-a[1]);const leader=sorted[0];
+const me=getCurrentUser();const vKey=VOTE_KEY_PREFIX+currentTournamentId;const myVote=localStorage.getItem(vKey);
+let h=`🗳️ Голосование «Лучший игрок»\n\nВсего: ${total} голосов\n\n👑 Лидер: ${leader[0]} — ${leader[1]} (${Math.round(leader[1]/total*100)}%)\n\nТоп-5:\n`;
+sorted.slice(0,5).forEach(([n,c],i)=>h+=`${i+1}. ${n} — ${c} (${Math.round(c/total*100)}%)\n`);
+if(myVote)h+=`\n✅ Твой голос: ${myVote}`;else h+=`\n💡 Ещё не голосовал.`;
+return h;
+}
+function botCheer(args){
+const teamName=args.join(' ');const t=findTeamByName(teamName);const name=t?t.name:(teamName||'Команда');
+const cheers=[
+`⚽ ${name}, вперёд, к победе!\nМы — команда, мы — семья,\nНас не сломит никогда!\nГол за голом, шаг за шагом,\n${name} идут к наградам! 💪`,
+`🔥 ${name} — сила!\n${name} — мощь!\nВсех соперников порвём!\nИ победу принесём! 🏆`,
+`⚡ Эй, ${name}, не сдавайся!\nБей вперёд и не сдавай!\nМы с тобой, ты — лучший самый,\nВсех врагов ты побеждай! 🥇`
+];
+return cheers[Math.floor(Math.random()*cheers.length)];
+}
+function botFact(){
+const facts=[
+'⚽ Самый быстрый гол в истории — 2.1 секунды (Рикардо Оливейра, Бразилия).',
+'🏆 Кубок мира 1950 года ни разу не вручали — Бразилия проиграла финал Уругваю, и трофей так и не нашли.',
+'🥅 Вратари забивали в 5% случаев с пенальти и 1% — с игры.',
+'⚡ Средний футболист пробегает за матч 10–13 км. Вратарь — всего 4 км.',
+'🎯 Лучший бомбардир в истории — Криштиану Роналду (900+ голов).'
+];
+return '⚽ Факт дня\n\n'+facts[Math.floor(Math.random()*facts.length)];
+}
+function botQuote(){
+const quotes=[
+'«Не важно, как медленно ты идёшь, главное — ты не останавливаешься.» — Конфуций',
+'«Победа любит подготовку.» — Пеле',
+'«Футбол — это не жизнь и смерть, это гораздо важнее.» — Билл Шенкли',
+'«Команда важнее любого игрока.» — сэр Алекс Фергюсон',
+'«Всё, что нужно — это верить и работать.» — Лионель Месси'
+];
+return '💬 Цитата дня\n\n'+quotes[Math.floor(Math.random()*quotes.length)];
+}
+function botMeme(){
+const memes=[
+'😂 Когда тренер говорит «играем в пас», а ты бьёшь с 30 метров:\n[🥅 → 🚀 → 🌌]\n\n💬 Реакция команды: «Опять...»',
+'😅 Когда обещал забить и не забил:\n«Я не проиграл, я просто дал шанс другим» 🤷',
+'🤣 Когда капитан команды говорит «давай последний рывок»:\n[Все падают на поле]',
+'😎 Ты после хет-трика:\n«Нормально, просто размялся»'
+];
+return '😂 Мем дня\n\n'+memes[Math.floor(Math.random()*memes.length)];
+}
+function botPending(user){
+if(!isAdmin(user))return '🔒 Только для админов.';
+const p=getPending();if(!p.length)return '⏳ Заявок нет.';
+let h=`⏳ Заявки (${p.length})\n\n`;
+p.forEach((x,i)=>{h+=`${i+1}. 👤 ${x.name} — ${fmtDate(x.requestedAt)}\n   /approve ${x.name} · /reject ${x.name}\n\n`;});
+return h;
+}
+function botApprove(args, user){
+if(!isAdmin(user))return '🔒 Только для админов.';
+if(!args.length)return '⚠️ /approve Имя';
+const name=args.join(' ');const p=getPending();
+if(!p.some(x=>x.name===name))return `⚠️ Заявки «${name}» нет.`;
+approvePending(name);return `✅ Игрок «${name}» одобрен.`;
+}
+function botReject(args, user){
+if(!isAdmin(user))return '🔒 Только для админов.';
+if(!args.length)return '⚠️ /reject Имя';
+const name=args.join(' ');const p=getPending();
+if(!p.some(x=>x.name===name))return `⚠️ Заявки «${name}» нет.`;
+rejectPending(name);return `❌ Заявка «${name}» отклонена.`;
+}
+function botAudit(user){
+if(!isAdmin(user))return '🔒 Только для админов.';
+const a=getAudit().slice(-10).reverse();
+if(!a.length)return '📋 Журнал пуст.';
+let h=`📋 Последние действия\n\n`;
+a.forEach(item=>{h+=`• 👤 ${item.author} · ${item.category} · ${item.action}`;if(item.details)h+=` (${item.details})`;h+=`\n`;});
+return h;
 }
 function isUserEditing(){
 const ae=document.activeElement;
@@ -3259,7 +3743,6 @@ syncScoreFromGoals();_lastDraftHash=_draftBodyToHash(draft);
 function renderDraftBadge(){let d=null;if(serverState.data && (MATCH_DRAFT_SERVER_KEY in serverState.data)){d=serverState.data[MATCH_DRAFT_SERVER_KEY];}if(!d){try{const s=localStorage.getItem(MATCH_DRAFT_KEY);if(s)d=JSON.parse(s);}catch(e){}}if(!d||!d.savedBy)return'';if(!_draftHasContent(d))return'';const me=getCurrentUser();const isMine=me&&d.savedBy===me;const name=isMine?'вы':d.savedBy;let timeStr='';if(d.savedAt){try{const dt=new Date(d.savedAt);const now=new Date();const diff=Math.floor((now-dt)/1000);if(diff<60)timeStr='только что';else if(diff<3600)timeStr=Math.floor(diff/60)+' мин назад';else if(diff<86400)timeStr=Math.floor(diff/3600)+' ч назад';else timeStr=dt.toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});}catch(e){}}const teamA=d.teamA?(getTeamById(d.teamA)?.name||'?'):'?';const teamB=d.teamB?(getTeamById(d.teamB)?.name||'?'):'?';const gA=(d.goalsA||[]).filter(g=>g.scorerId).length+(d.ownB||[]).filter(g=>g.scorerId).length;const gB=(d.goalsB||[]).filter(g=>g.scorerId).length+(d.ownA||[]).filter(g=>g.scorerId).length;return `<div id="draftBadge" style="display:flex;align-items:center;gap:8px;background:linear-gradient(135deg,#fff8e1,#fff3cd);border:1px solid #f5a623;border-radius:12px;padding:10px 14px;margin-bottom:14px;color:#7a5a1a;font-size:0.85rem;flex-wrap:wrap;"><span style="font-size:1.2rem;">📝</span><span style="flex:1;min-width:180px;">Черновик матча <strong>${escapeHtml(teamA)} ${gA}:${gB} ${escapeHtml(teamB)}</strong> заполнил <strong>${escapeHtml(name)}</strong>${timeStr?' · '+timeStr:''}</span><button class="btn btn-primary btn-sm" id="applyDraftBtn" style="margin:0;padding:6px 14px;font-size:0.8rem;">Продолжить</button><button class="btn btn-secondary btn-sm" id="clearDraftBtn" style="margin:0;padding:6px 14px;font-size:0.8rem;">Очистить</button></div>`;}
 function updateDraftBadge(){const el=document.getElementById('draftBadge');if(!el){const panel=document.getElementById('contentPanel');if(!panel||currentTab!=='settings')return;const firstAcc=panel.querySelector('.acc-section');if(firstAcc){const wrap=document.createElement('div');wrap.innerHTML=renderDraftBadge();const newEl=wrap.firstElementChild;if(newEl)panel.insertBefore(newEl,firstAcc);}return;}const wrap=document.createElement('div');wrap.innerHTML=renderDraftBadge();const newEl=wrap.firstElementChild;if(newEl)el.replaceWith(newEl);else el.remove();}
 function addGoalRow(c,t){if(!requireMatchRights())return;if(!t)return alert('Выберите команду');const p=getPlayersByTeam(t);if(!p.length)return alert('Нет игроков');const wrap = document.createElement('div');wrap.innerHTML = buildGoalRowHtml(null, null, p);const r = wrap.firstElementChild;c.appendChild(r);r.querySelector('.remove-goal').addEventListener('click',()=>{r.remove();syncScoreFromGoals();saveMatchDraft();});}
-
 function handleAddMatch(){
 if(_addingMatch) return;
 if(!requireMatchRights()) return;
@@ -3320,7 +3803,6 @@ render();
 } finally {_addingMatch=false;}
 },()=>{_addingMatch=false;});
 }
-
 function openVoteModal(){
 if(!currentTournamentId)return;
 const c=canVote();if(!c.ok){alert(c.reason);return;}
@@ -3359,7 +3841,6 @@ const MAIN_TABS=['home','players','stats','chat'];
 document.addEventListener('touchstart',function(e){if(e.touches.length!==1)return;tsX=e.touches[0].clientX;tsY=e.touches[0].clientY;tsT=Date.now();},{passive:true});
 document.addEventListener('touchend',function(e){if(!e.changedTouches||!e.changedTouches.length)return;const dx=e.changedTouches[0].clientX-tsX,dy=e.changedTouches[0].clientY-tsY,dt=Date.now()-tsT;if(dt>600)return;if(Math.abs(dx)<60||Math.abs(dy)>50)return;if(!MAIN_TABS.includes(currentTab))return;const tag=(e.target.tagName||'').toLowerCase();if(['input','select','textarea','button'].includes(tag))return;if(e.target.closest('.chat-messages,.table-container,.modal,.drawer'))return;const i=MAIN_TABS.indexOf(currentTab);let ni=i;if(dx<0)ni=Math.min(MAIN_TABS.length-1,i+1);else ni=Math.max(0,i-1);if(ni!==i){currentTab=MAIN_TABS[ni];document.querySelectorAll('.nav-tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===currentTab));if(currentTab==='chat')markChatAsRead();render();}},{passive:true});
 function openTeamSelectModal(pn){if(!requireLogin('добавлять в заявку'))return;if(!currentTournamentId){alert('🔒 Нет турнира.');return;}pendingPlayerToAdd=pn;document.getElementById('teamSelectPlayerName').textContent=pn;document.getElementById('selectTeamModal').style.display='flex';}
-
 document.addEventListener('click',async function(e){
 if(e.target.closest('[data-goto-chat]')){currentTab='chat';document.querySelectorAll('.nav-tab').forEach(b=>b.classList.toggle('active',b.dataset.tab==='chat'));markChatAsRead();render();return;}
 const bc=e.target.closest('[data-bc-tab]');if(bc){currentTab=bc.dataset.bcTab;document.querySelectorAll('.nav-tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===currentTab));render();return;}
@@ -3560,4 +4041,4 @@ init();
 })();
 </script>
 </body>
-</html>
+    </html>
