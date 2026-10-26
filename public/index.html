@@ -713,6 +713,7 @@ m.querySelector('#ccYesBtn').onclick = () => { close(); if(onYes) onYes(); };
 m.querySelector('#ccNoBtn').onclick = () => { close(); if(onNo) onNo(); };
 m.addEventListener('click', e => { if(e.target === m){ close(); if(onNo) onNo(); } });
 }
+
 function getComputedPlayerStats(name,d){
 d=d||appData;
 const res={goals:0,assists:0,matchesPlayed:0,goalsConceded:0,goalkeeperMatches:0,cleanSheets:0,ownGoals:0,hatTricks:0};
@@ -723,16 +724,12 @@ const tid=player.teamId;
 (d.matches||[]).forEach(m=>{
 const isA=m.teamA===tid, isB=m.teamB===tid;
 if(!isA&&!isB)return;
-const subsA=m.substitutionsA||[], subsB=m.substitutionsB||[];
-const subbedOut=new Set();
-const subbedIn=new Set();
-subsA.forEach(s=>{subbedOut.add(s.outId);subbedIn.add(s.inId);});
-subsB.forEach(s=>{subbedOut.add(s.outId);subbedIn.add(s.inId);});
+
 const myTeamPlayers=(d.players||[]).filter(p=>p.teamId===tid);
-const starterIds=new Set(myTeamPlayers.filter(p=>!subbedIn.has(p.id)).map(p=>p.id));
-subbedIn.forEach(id=>{const p=(d.players||[]).find(x=>x.id===id&&x.teamId===tid);if(p)starterIds.add(id);});
-subbedOut.forEach(id=>{if(!subbedIn.has(id))starterIds.delete(id);});
-if(starterIds.has(player.id))res.matchesPlayed++;
+if(myTeamPlayers.some(p=>p.id===player.id)){
+    res.matchesPlayed++;
+}
+
 const goals=isA?(m.goalsA||[]):(m.goalsB||[]);
 let matchGoals=0;
 goals.forEach(g=>{
@@ -1155,6 +1152,7 @@ function renderChartsSection(){if(!currentTournamentId)return'';let h=`<h3 style
 function applyStatsFilters(list){let r=list;if(statsFilterTeam!=='all')r=r.filter(p=>p.teamId===statsFilterTeam);if(statsFilterMin>1)r=r.filter(p=>getComputedPlayerStats(p.name,appData).matchesPlayed>=statsFilterMin);return r;}
 function renderStatsFilters(){let h=`<div class="stats-filters">`;h+=`<label>Команда:</label><select id="statsFilterTeamSelect"><option value="all">Все</option>${appData.teams.map(t=>`<option value="${t.id}" ${statsFilterTeam===t.id?'selected':''}>${escapeHtml(t.name)}</option>`).join('')}</select>`;h+=`<label>Мин. матчей:</label><input type="number" id="statsFilterMinInput" min="1" value="${statsFilterMin}" style="width:70px;">`;h+=`<button class="btn btn-secondary btn-sm" id="statsResetFilters">↺ Сбросить</button>`;h+=`</div>`;return h;}
 function renderFormatFilter(id,current){return `<div class="stats-filters" style="margin-bottom:12px;"><label>Формат:</label><select id="${id}"><option value="all" ${current==='all'?'selected':''}>Все</option>${FORMATS.map(f=>`<option value="${f.id}" ${current===f.id?'selected':''}>${f.name} --- ${f.desc}</option>`).join('')}</select></div>`;}
+
 function getTourRatingChange(name){
 const tours = _getSeasonToursByFormat(statsFormatFilter).slice().sort((a,b)=>{
 const ac=a.createdAt||'', bc=b.createdAt||'';
@@ -1162,21 +1160,32 @@ return ac<bc?-1:(ac>bc?1:0);
 });
 const idx = tours.findIndex(t=>t.id===currentTournamentId);
 if(idx<=0) return null;
+
 let prevTour = null;
+let prevData = null;
+let prevSt = null;
+
 for(let i=idx-1; i>=0; i--){
-const td = getTournamentData(tours[i].id);
-if((td.matches||[]).length>0){ prevTour = tours[i]; break; }
+    const td = getTournamentData(tours[i].id);
+    if((td.matches||[]).length > 0){
+        const st = getComputedPlayerStats(name, td);
+        if(st.matchesPlayed > 0) {
+            prevTour = tours[i];
+            prevData = td;
+            prevSt = st;
+            break;
+        }
+    }
 }
+
 if(!prevTour) return null;
-const prevData = getTournamentData(prevTour.id);
-const prevSt = getComputedPlayerStats(name, prevData);
-if(prevSt.matchesPlayed<=0) return null;
 const prevRating = calcRatingForPlayerInTournament(name, prevData);
-const curRating = calcRatingForPlayerInTournament(name, appData);
 if(prevRating<=0) return null;
+const curRating = calcRatingForPlayerInTournament(name, appData);
 const pct = ((curRating-prevRating)/prevRating)*100;
 return {pct, curRating, prevRating};
 }
+
 function renderTourTrendBadge(name){
 const c = getTourRatingChange(name);
 if(!c) return '<span class="trend-flat">---</span>';
@@ -3498,4 +3507,3 @@ init();
 </script>
 </body>
   </html>
-                                   
