@@ -510,6 +510,12 @@ input,select,textarea{font-size:16px !important;}
 <script>
 (function() {
 
+const _c = { rating: new Map(), ratingTour: new Map(), ach: new Map() };
+let _dIdSeq = 0;
+const _dIds = new WeakMap();
+function _did(d){ if(!d) return 0; let id=_dIds.get(d); if(!id){ id=++_dIdSeq; _dIds.set(d,id); } return id; }
+function _bumpCache(){ _c.rating.clear(); _c.ratingTour.clear(); _c.ach.clear(); }
+
 const API_URL='https://script.google.com/macros/s/AKfycbxrxo4AQuw6Re-41kEdxom5epgXPIg-oJZJGC3WnwuimMnMgkypIY5LvZLuD7ywKI3y5A/exec';
 const POLL_MS=30000;
 const LOCAL_STATE_KEY='laguna_full_state', LOCAL_VERSION_KEY='laguna_state_version', CURRENT_TOURNAMENT_KEY='laguna_current_tournament';
@@ -1042,6 +1048,8 @@ return r;
 }
 function calcRatingForPlayer(name, T){
 T = T || tournamentsList;
+const key = name + '|' + (T===tournamentsList ? '_main' : T.map(t=>t.id).join(','));
+if(_c.rating.has(key)) return _c.rating.get(key);
 let total=0,count=0;
 T.forEach(t=>{
 const d=getTournamentData(t.id);
@@ -1052,12 +1060,15 @@ if(st.matchesPlayed<=0)return;
 total+=calcRatingForPlayerInTournament(name,d);
 count++;
 });
-if(count===0)return 0;
-return Math.round(total/count);
+const val = count===0 ? 0 : Math.round(total/count);
+_c.rating.set(key, val);
+return val;
 }
 function calcRatingForPlayerInTournament(name,d,skipBtBonus,skipScorerAward){
+const ck = name+'|'+_did(d)+'|'+(skipBtBonus?1:0)+'|'+(skipScorerAward?1:0);
+if(_c.ratingTour.has(ck)) return _c.ratingTour.get(ck);
 const p=(d.players||[]).find(x=>x.name===name);
-if(!p)return 0;
+if(!p){ _c.ratingTour.set(ck,0); return 0; }
 const st=getComputedPlayerStats(name,d);
 let tot=0;
 if(!skipScorerAward){const s=getBestScorer(d);if(s&&s.name===name)tot++;}
@@ -1066,12 +1077,14 @@ const gk=getBestGoalkeeper(d);if(gk&&gk.name===name)tot++;
 const mv=getMVPTournament(d);if(mv&&mv.name===name)tot++;
 const v=getBestVoted(d); if(v&&v.name===name)tot++;
 const res=getPlayerResults(name,d.matches||[],d.players||[]);
-return calcRatingFromStats(
+const val = calcRatingFromStats(
 st.matchesPlayed, st.goals, st.assists, tot,
 res.wins, res.draws, res.losses,
 st.goalkeeperMatches, st.cleanSheets, st.goalsConceded,
 st.ownGoals, st.hatTricks
 );
+_c.ratingTour.set(ck, val);
+return val;
 }
 function calcTeamRating(tid,d){
 d = d || appData;
@@ -1149,7 +1162,12 @@ return ac<bc?-1:(ac>bc?1:0);
 });
 const idx = tours.findIndex(t=>t.id===currentTournamentId);
 if(idx<=0) return null;
-const prevTour = tours[idx-1];
+let prevTour = null;
+for(let i=idx-1; i>=0; i--){
+const td = getTournamentData(tours[i].id);
+if((td.matches||[]).length>0){ prevTour = tours[i]; break; }
+}
+if(!prevTour) return null;
 const prevData = getTournamentData(prevTour.id);
 const prevSt = getComputedPlayerStats(name, prevData);
 if(prevSt.matchesPlayed<=0) return null;
@@ -1340,7 +1358,7 @@ loadTournamentData(currentTournamentId);
 }catch(e){}
 }
 function setStatus(st){const el=document.getElementById('syncStatus');if(!el)return;const m={online:'🟢 Онлайн',saving:'🟡 Сохранение...',saved:'🟢 Сохранено',offline:'🔴 Нет связи',conflict:'🟠 Синхронизация...'};el.textContent=m[st]||'';}
-function scheduleSave(){hasUnsavedChanges=true;clearTimeout(saveTimer);setStatus('saving');saveToLocal();saveTimer=setTimeout(pushToServer,500);}
+function scheduleSave(){hasUnsavedChanges=true;clearTimeout(saveTimer);setStatus('saving');_bumpCache();saveToLocal();saveTimer=setTimeout(pushToServer,500);}
 async function pushToServer(){
 try{
 const real=Object.keys(serverState.data||{}).some(k=>k!==ADMINS_KEY&&k!==ASSIGNERS_KEY&&k!==CHAT_KEY&&k!==PASSWORDS_KEY&&k!==AUDIT_KEY&&k!==DM_KEY&&k!==POLLS_KEY&&k!==TEMPLATES_KEY&&k!==PHOTOS_KEY&&k!==MATCH_DRAFT_SERVER_KEY)||(serverState.tournaments&&serverState.tournaments.length>0)||(serverState.playersDb&&serverState.playersDb.length>0);
@@ -1394,7 +1412,7 @@ loadTournamentData(currentTournamentId);updateTournamentSelect();saveToLocal();r
 syncInFlight=false;
 }
 function loadTournamentData(id){
-if(!id||!serverState.data[id]){appData=emptyTournament();return;}
+if(!id||!serverState.data[id]){appData=emptyTournament();_bumpCache();return;}
 appData=serverState.data[id];
 appData.teams=appData.teams||[];
 appData.matches=appData.matches||[];
@@ -1404,6 +1422,7 @@ appData.changeLog=appData.changeLog||[];
 const bt=Date.now()-1000*60*60*24*365;
 appData.players.forEach((p,i)=>{if(!p.addedAt)p.addedAt=new Date(bt+i*1000).toISOString();if(!p.status)p.status='confirmed';});
 appData.matches.forEach(m=>{if(!m.goalsA)m.goalsA=[];if(!m.goalsB)m.goalsB=[];if(!m.substitutionsA)m.substitutionsA=[];if(!m.substitutionsB)m.substitutionsB=[];if(!m.ownGoalsA)m.ownGoalsA=[];if(!m.ownGoalsB)m.ownGoalsB=[];});
+_bumpCache();
 }
 function saveCurrentData(){if(currentTournamentId)serverState.data[currentTournamentId]=appData;scheduleSave();}
 function savePlayersDatabase(){serverState.playersDb=playersDatabase;scheduleSave();}
@@ -2101,10 +2120,13 @@ const currentTarget=allDone?g.stages[g.stages.length-1]:nextTarget;
 return{earned,total,nextTarget,allDone,currentTarget};
 }
 function _achievementsTotalCount(name){
+if(_c.ach.has(name)) return _c.ach.get(name);
 const groups=_buildAchievementGroups(name);
 let total=0,earned=0;
 groups.forEach(g=>{total+=g.stages.length;earned+=g.stages.filter(t=>g.val>=t).length;});
-return{total,earned};
+const val = {total,earned};
+_c.ach.set(name, val);
+return val;
 }
 function renderAchievementsBtn(name){
 const {total,earned}=_achievementsTotalCount(name);
@@ -3475,4 +3497,5 @@ init();
 })();
 </script>
 </body>
-</html>
+  </html>
+                                   
