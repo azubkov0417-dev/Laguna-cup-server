@@ -509,6 +509,7 @@ input,select,textarea{font-size:16px !important;}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script>
 (function() {
+
 const API_URL='https://script.google.com/macros/s/AKfycbxrxo4AQuw6Re-41kEdxom5epgXPIg-oJZJGC3WnwuimMnMgkypIY5LvZLuD7ywKI3y5A/exec';
 const POLL_MS=30000;
 const LOCAL_STATE_KEY='laguna_full_state', LOCAL_VERSION_KEY='laguna_state_version', CURRENT_TOURNAMENT_KEY='laguna_current_tournament';
@@ -1072,7 +1073,18 @@ st.goalkeeperMatches, st.cleanSheets, st.goalsConceded,
 st.ownGoals, st.hatTricks
 );
 }
-function calcTeamRating(tid,d){const p=(d.players||[]).filter(x=>x.teamId===tid);if(!p.length)return 0;return Math.round(p.reduce((s,x)=>s+calcRatingForPlayerInTournament(x.name,d),0)/p.length);}
+function calcTeamRating(tid,d){
+d = d || appData;
+const p=(d.players||[]).filter(x=>x.teamId===tid);
+if(!p.length)return 0;
+const hasMatches=(d.matches||[]).length>0;
+if(!hasMatches){
+const ratings=p.map(x=>calcRatingForPlayer(x.name)).filter(r=>r>0);
+if(!ratings.length)return 0;
+return Math.round(ratings.reduce((s,r)=>s+r,0)/ratings.length);
+}
+return Math.round(p.reduce((s,x)=>s+calcRatingForPlayerInTournament(x.name,d),0)/p.length);
+}
 function getRatingStyle(r){if(r>=75)return{border:'#f5a623',bg:'linear-gradient(135deg,#fff8e1 0%,#ffeaa7 100%)',color:'#b87333',shadow:'rgba(245,166,35,0.35)',medal:'🥇',label:'Золото'};if(r>=35)return{border:'#a8a8a8',bg:'linear-gradient(135deg,#f8f8f8 0%,#d0d0d0 100%)',color:'#4a4a4a',shadow:'rgba(168,168,168,0.35)',medal:'🥈',label:'Серебро'};return{border:'#cd7f32',bg:'linear-gradient(135deg,#fbe9d7 0%,#e8b98a 100%)',color:'#7a4a1a',shadow:'rgba(205,127,50,0.35)',medal:'🥉',label:'Бронза'};}
 function getTeamForm(teamId,n){n=n||5;return appData.matches.filter(m=>m.teamA===teamId||m.teamB===teamId).sort((a,b)=>(b.id>a.id?1:-1)).slice(0,n).map(m=>{const isA=m.teamA===teamId;const sa=parseInt(m.scoreA,10)||0,sb=parseInt(m.scoreB,10)||0;const my=isA?sa:sb,opp=isA?sb:sa;if(my>opp)return'W';if(my<opp)return'L';return'D';});}
 function renderFormBadges(form){if(!form.length)return'<span style="color:#9aab9a;font-size:0.8rem;">---</span>';return`<span class="form-row">${form.map(f=>`<span class="form-badge ${f}" title="${f==='W'?'Победа':f==='D'?'Ничья':'Поражение'}">${f==='W'?'В':f==='D'?'Н':'П'}</span>`).join('')}</span>`;}
@@ -2239,7 +2251,7 @@ else {h += `<p style="color:var(--text-light);font-size:0.9rem;margin-bottom:15p
 h += `<button class="btn btn-secondary" id="joinCloseBtn2" style="width:100%;justify-content:center;margin-top:10px;">Закрыть</button></div>`;
 document.getElementById('modalContent').innerHTML = h;
 document.getElementById('playerModal').style.display = 'flex';
-const cl = () => {document.getElementById('playerModal').style.display = 'none';history.replaceState(null, null, window.location.pathname + window.location.search);};
+const cl = () =>{document.getElementById('playerModal').style.display = 'none';history.replaceState(null, null, window.location.pathname + window.location.search);};
 const cBtn1 = document.getElementById('joinCloseBtn');if(cBtn1) cBtn1.onclick = cl;
 const cBtn2 = document.getElementById('joinCloseBtn2');if(cBtn2) cBtn2.onclick = cl;
 const lBtn = document.getElementById('joinLoginBtn');if(lBtn) lBtn.onclick = () => { cl(); openLoginModal(); };
@@ -2541,79 +2553,68 @@ h+=renderDraftBadge();
 setTimeout(function(){try{if(!document.getElementById('draftBadge'))return;const s=document.querySelector('[data-acc="add-match"]');if(s)s.classList.add('open');restoreMatchDraft();}catch(e){console.error(e);}},80);
 h+=`<div class="acc-section" data-acc="add-match"><div class="acc-header">⚔️ Добавить матч</div><div class="acc-body">
 <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 0; border: 2px solid var(--border-soft); border-radius: 12px; overflow: hidden; background: var(--panel-bg); margin-bottom:20px;">
-    <!-- Счёт -->
-    <div style="padding: 10px; border-right: 1px solid var(--border-soft); border-bottom: 1px solid var(--border-soft);">
-        <input type="number" id="matchScoreA" min="0" value="0" style="width:100%; text-align:center; font-size:1.5rem; border:none; background:transparent; color:var(--text-main); font-weight:900; outline:none;">
-    </div>
-    <div style="padding: 10px; border-bottom: 1px solid var(--border-soft);">
-        <input type="number" id="matchScoreB" min="0" value="0" style="width:100%; text-align:center; font-size:1.5rem; border:none; background:transparent; color:var(--text-main); font-weight:900; outline:none;">
-    </div>
-
-    <!-- Команды -->
-    <div style="padding: 10px; border-right: 1px solid var(--border-soft); border-bottom: 1px solid var(--border-soft);">
-        <select id="matchTeamA" style="width:100%; padding:8px; border-radius:8px; border:1px solid var(--border-soft); background:var(--input-bg); color:var(--text-main); font-weight:800; font-size:1rem;">
-            <option value="" style="color:var(--text-main);">Команда А</option>
-            ${appData.teams.map(t=>{
-                const tc = getTeamColor(t);
-                return `<option value="${t.id}" style="color:${escapeHtml(tc)};">${escapeHtml(t.name)}</option>`;
-            }).join('')}
-        </select>
-    </div>
-    <div style="padding: 10px; border-bottom: 1px solid var(--border-soft);">
-        <select id="matchTeamB" style="width:100%; padding:8px; border-radius:8px; border:1px solid var(--border-soft); background:var(--input-bg); color:var(--text-main); font-weight:800; font-size:1rem;">
-            <option value="" style="color:var(--text-main);">Команда Б</option>
-            ${appData.teams.map(t=>{
-                const tc = getTeamColor(t);
-                return `<option value="${t.id}" style="color:${escapeHtml(tc)};">${escapeHtml(t.name)}</option>`;
-            }).join('')}
-        </select>
-    </div>
-
-    <!-- Голы -->
-    <div style="padding: 10px; border-right: 1px solid var(--border-soft); border-bottom: 1px solid var(--border-soft);">
-        <div style="font-weight:700; margin-bottom:8px; color:var(--text-light); font-size:0.9rem;">Голы А</div>
-        <div id="goalsA" class="scorer-list"></div>
-        <button class="btn btn-secondary btn-sm" id="addGoalA" style="width:100%; justify-content:center; margin-top:8px; font-size:0.8rem; padding:4px;">➕ Гол А</button>
-    </div>
-    <div style="padding: 10px; border-bottom: 1px solid var(--border-soft);">
-        <div style="font-weight:700; margin-bottom:8px; color:var(--text-light); font-size:0.9rem;">Голы Б</div>
-        <div id="goalsB" class="scorer-list"></div>
-        <button class="btn btn-secondary btn-sm" id="addGoalB" style="width:100%; justify-content:center; margin-top:8px; font-size:0.8rem; padding:4px;">➕ Гол Б</button>
-    </div>
-
-    <!-- Вратари -->
-    <div style="padding: 10px; border-right: 1px solid var(--border-soft); border-bottom: 1px solid var(--border-soft);">
-        <div style="font-weight:700; margin-bottom:8px; color:var(--text-light); font-size:0.9rem;">Вратарь А</div>
-        <select id="goalkeeperA" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border-soft);background:var(--input-bg);color:var(--text-main); font-size:0.85rem;"><option value="">-- нет --</option></select>
-    </div>
-    <div style="padding: 10px; border-bottom: 1px solid var(--border-soft);">
-        <div style="font-weight:700; margin-bottom:8px; color:var(--text-light); font-size:0.9rem;">Вратарь Б</div>
-        <select id="goalkeeperB" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border-soft);background:var(--input-bg);color:var(--text-main); font-size:0.85rem;"><option value="">-- нет --</option></select>
-    </div>
-
-    <!-- Автоголы -->
-    <div style="padding: 10px; border-right: 1px solid var(--border-soft); border-bottom: 1px solid var(--border-soft);">
-        <div style="font-weight:700; margin-bottom:8px; color:#b91c1c; text-decoration: underline dotted #b91c1c; font-size:0.9rem;">Автоголы А</div>
-        <div id="ownGoalsA" class="scorer-list"></div>
-        <button class="btn btn-secondary btn-sm" id="addOwnGoalA" style="width:100%; justify-content:center; margin-top:8px; border:1px solid #b91c1c; color:#b91c1c; font-size:0.8rem; padding:4px;">➕ Автогол А</button>
-    </div>
-    <div style="padding: 10px; border-bottom: 1px solid var(--border-soft);">
-        <div style="font-weight:700; margin-bottom:8px; color:#b91c1c; text-decoration: underline dotted #b91c1c; font-size:0.9rem;">Автоголы Б</div>
-        <div id="ownGoalsB" class="scorer-list"></div>
-        <button class="btn btn-secondary btn-sm" id="addOwnGoalB" style="width:100%; justify-content:center; margin-top:8px; border:1px solid #b91c1c; color:#b91c1c; font-size:0.8rem; padding:4px;">➕ Автогол Б</button>
-    </div>
-
-    <!-- Замены -->
-    <div style="padding: 10px; border-right: 1px solid var(--border-soft);">
-        <div style="font-weight:700; margin-bottom:8px; color:var(--text-light); font-size:0.9rem;">Замена А</div>
-        <div id="substitutionsA" class="substitution-list"></div>
-        <button class="btn btn-secondary btn-sm" id="addSubA" style="width:100%; justify-content:center; margin-top:8px; font-size:0.8rem; padding:4px;">➕ Замена А</button>
-    </div>
-    <div style="padding: 10px;">
-        <div style="font-weight:700; margin-bottom:8px; color:var(--text-light); font-size:0.9rem;">Замена Б</div>
-        <div id="substitutionsB" class="substitution-list"></div>
-        <button class="btn btn-secondary btn-sm" id="addSubB" style="width:100%; justify-content:center; margin-top:8px; font-size:0.8rem; padding:4px;">➕ Замена Б</button>
-    </div>
+<div style="padding: 10px; border-right: 1px solid var(--border-soft); border-bottom: 1px solid var(--border-soft);">
+<input type="number" id="matchScoreA" min="0" value="0" style="width:100%; text-align:center; font-size:1.5rem; border:none; background:transparent; color:var(--text-main); font-weight:900; outline:none;">
+</div>
+<div style="padding: 10px; border-bottom: 1px solid var(--border-soft);">
+<input type="number" id="matchScoreB" min="0" value="0" style="width:100%; text-align:center; font-size:1.5rem; border:none; background:transparent; color:var(--text-main); font-weight:900; outline:none;">
+</div>
+<div style="padding: 10px; border-right: 1px solid var(--border-soft); border-bottom: 1px solid var(--border-soft);">
+<select id="matchTeamA" style="width:100%; padding:8px; border-radius:8px; border:1px solid var(--border-soft); background:var(--input-bg); color:var(--text-main); font-weight:800; font-size:1rem;">
+<option value="" style="color:var(--text-main);">Команда А</option>
+${appData.teams.map(t=>{
+const tc = getTeamColor(t);
+return `<option value="${t.id}" style="color:${escapeHtml(tc)};">${escapeHtml(t.name)}</option>`;
+}).join('')}
+</select>
+</div>
+<div style="padding: 10px; border-bottom: 1px solid var(--border-soft);">
+<select id="matchTeamB" style="width:100%; padding:8px; border-radius:8px; border:1px solid var(--border-soft); background:var(--input-bg); color:var(--text-main); font-weight:800; font-size:1rem;">
+<option value="" style="color:var(--text-main);">Команда Б</option>
+${appData.teams.map(t=>{
+const tc = getTeamColor(t);
+return `<option value="${t.id}" style="color:${escapeHtml(tc)};">${escapeHtml(t.name)}</option>`;
+}).join('')}
+</select>
+</div>
+<div style="padding: 10px; border-right: 1px solid var(--border-soft); border-bottom: 1px solid var(--border-soft);">
+<div style="font-weight:700; margin-bottom:8px; color:var(--text-light); font-size:0.9rem;">Голы А</div>
+<div id="goalsA" class="scorer-list"></div>
+<button class="btn btn-secondary btn-sm" id="addGoalA" style="width:100%; justify-content:center; margin-top:8px; font-size:0.8rem; padding:4px;">➕ Гол А</button>
+</div>
+<div style="padding: 10px; border-bottom: 1px solid var(--border-soft);">
+<div style="font-weight:700; margin-bottom:8px; color:var(--text-light); font-size:0.9rem;">Голы Б</div>
+<div id="goalsB" class="scorer-list"></div>
+<button class="btn btn-secondary btn-sm" id="addGoalB" style="width:100%; justify-content:center; margin-top:8px; font-size:0.8rem; padding:4px;">➕ Гол Б</button>
+</div>
+<div style="padding: 10px; border-right: 1px solid var(--border-soft); border-bottom: 1px solid var(--border-soft);">
+<div style="font-weight:700; margin-bottom:8px; color:var(--text-light); font-size:0.9rem;">Вратарь А</div>
+<select id="goalkeeperA" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border-soft);background:var(--input-bg);color:var(--text-main); font-size:0.85rem;"><option value="">-- нет --</option></select>
+</div>
+<div style="padding: 10px; border-bottom: 1px solid var(--border-soft);">
+<div style="font-weight:700; margin-bottom:8px; color:var(--text-light); font-size:0.9rem;">Вратарь Б</div>
+<select id="goalkeeperB" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border-soft);background:var(--input-bg);color:var(--text-main); font-size:0.85rem;"><option value="">-- нет --</option></select>
+</div>
+<div style="padding: 10px; border-right: 1px solid var(--border-soft); border-bottom: 1px solid var(--border-soft);">
+<div style="font-weight:700; margin-bottom:8px; color:#b91c1c; text-decoration: underline dotted #b91c1c; font-size:0.9rem;">Автоголы А</div>
+<div id="ownGoalsA" class="scorer-list"></div>
+<button class="btn btn-secondary btn-sm" id="addOwnGoalA" style="width:100%; justify-content:center; margin-top:8px; border:1px solid #b91c1c; color:#b91c1c; font-size:0.8rem; padding:4px;">➕ Автогол А</button>
+</div>
+<div style="padding: 10px; border-bottom: 1px solid var(--border-soft);">
+<div style="font-weight:700; margin-bottom:8px; color:#b91c1c; text-decoration: underline dotted #b91c1c; font-size:0.9rem;">Автоголы Б</div>
+<div id="ownGoalsB" class="scorer-list"></div>
+<button class="btn btn-secondary btn-sm" id="addOwnGoalB" style="width:100%; justify-content:center; margin-top:8px; border:1px solid #b91c1c; color:#b91c1c; font-size:0.8rem; padding:4px;">➕ Автогол Б</button>
+</div>
+<div style="padding: 10px; border-right: 1px solid var(--border-soft);">
+<div style="font-weight:700; margin-bottom:8px; color:var(--text-light); font-size:0.9rem;">Замена А</div>
+<div id="substitutionsA" class="substitution-list"></div>
+<button class="btn btn-secondary btn-sm" id="addSubA" style="width:100%; justify-content:center; margin-top:8px; font-size:0.8rem; padding:4px;">➕ Замена А</button>
+</div>
+<div style="padding: 10px;">
+<div style="font-weight:700; margin-bottom:8px; color:var(--text-light); font-size:0.9rem;">Замена Б</div>
+<div id="substitutionsB" class="substitution-list"></div>
+<button class="btn btn-secondary btn-sm" id="addSubB" style="width:100%; justify-content:center; margin-top:8px; font-size:0.8rem; padding:4px;">➕ Замена Б</button>
+</div>
 </div>
 <button class="btn btn-primary" id="addMatchBtn" style="width:100%;justify-content:center; padding:15px; font-size:1.1rem; margin:0;">💾 Добавить матч</button>
 </div></div>`;
@@ -2885,34 +2886,34 @@ addChangeLog('rename',`«${oldN}» → «${t}»`);audit('user','rename',`${oldN}
 saveCurrentData();document.getElementById('playerModal').style.display='none';renderUserBox();renderNavTabs();render();alert('✅ Имя изменено');
 }
 function buildGoalRowHtml(sc,as,players){
-    let h=`<div class="goal-row" style="display:flex; flex-direction:column; gap:4px; padding:8px; background:var(--panel-bg); border-radius:8px; border:1px solid var(--border-soft); position:relative; margin-bottom:8px;">`;
-    h+=`<select class="scorer-select" style="width:100%; padding:6px 8px; border-radius:6px; border:1px solid var(--border-soft); background:var(--input-bg); color:var(--text-main); font-weight:700; font-size:0.85rem;"><option value="">⚽ Бомбардир</option>`;
-    players.forEach(p=>{h+=`<option value="${p.id}" ${sc===p.id?'selected':''}>${escapeHtml(p.name)}</option>`;});
-    h+=`</select>`;
-    h+=`<select class="assist-select" style="width:100%; padding:4px 8px; border-radius:6px; border:1px solid var(--border-soft); background:var(--input-bg); color:var(--text-main); font-size:0.8rem;"><option value="">🎯 Ассистент</option>`;
-    players.forEach(p=>{h+=`<option value="${p.id}" ${as===p.id?'selected':''}>${escapeHtml(p.name)}</option>`;});
-    h+=`</select>`;
-    h+=`<button class="btn btn-danger btn-sm remove-goal" type="button" style="position:absolute; top:-6px; right:-6px; width:22px; height:22px; border-radius:50%; padding:0; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 6px rgba(0,0,0,0.2); background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; font-size:0.7rem;">✕</button></div>`;
-    return h;
+let h=`<div class="goal-row" style="display:flex; flex-direction:column; gap:4px; padding:8px; background:var(--panel-bg); border-radius:8px; border:1px solid var(--border-soft); position:relative; margin-bottom:8px;">`;
+h+=`<select class="scorer-select" style="width:100%; padding:6px 8px; border-radius:6px; border:1px solid var(--border-soft); background:var(--input-bg); color:var(--text-main); font-weight:700; font-size:0.85rem;"><option value="">⚽ Бомбардир</option>`;
+players.forEach(p=>{h+=`<option value="${p.id}" ${sc===p.id?'selected':''}>${escapeHtml(p.name)}</option>`;});
+h+=`</select>`;
+h+=`<select class="assist-select" style="width:100%; padding:4px 8px; border-radius:6px; border:1px solid var(--border-soft); background:var(--input-bg); color:var(--text-main); font-size:0.8rem;"><option value="">🎯 Ассистент</option>`;
+players.forEach(p=>{h+=`<option value="${p.id}" ${as===p.id?'selected':''}>${escapeHtml(p.name)}</option>`;});
+h+=`</select>`;
+h+=`<button class="btn btn-danger btn-sm remove-goal" type="button" style="position:absolute; top:-6px; right:-6px; width:22px; height:22px; border-radius:50%; padding:0; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 6px rgba(0,0,0,0.2); background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; font-size:0.7rem;">✕</button></div>`;
+return h;
 }
 function buildOwnGoalRowHtml(scorerId, players){
-    let h = `<div class="goal-row own-goal-row" style="display:flex; flex-direction:column; gap:4px; padding:8px; background:#fee2e2; border-radius:8px; border:1px solid #fca5a5; position:relative; margin-bottom:8px;">`;
-    h += `<select class="own-scorer-select" style="width:100%; padding:6px 8px; border-radius:6px; border:1px solid #fca5a5; background:var(--input-bg); color:#b91c1c; font-weight:700; font-size:0.85rem;"><option value="">🥅 Кто забил себе</option>`;
-    players.forEach(p=>{ h += `<option value="${p.id}" ${scorerId===p.id?'selected':''}>${escapeHtml(p.name)}</option>`; });
-    h += `</select><button class="btn btn-danger btn-sm remove-goal" type="button" style="position:absolute; top:-6px; right:-6px; width:22px; height:22px; border-radius:50%; padding:0; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 6px rgba(0,0,0,0.2); background:#fff; border:1px solid #fca5a5; color:#b91c1c; font-size:0.7rem;">✕</button></div>`;
-    return h;
+let h = `<div class="goal-row own-goal-row" style="display:flex; flex-direction:column; gap:4px; padding:8px; background:#fee2e2; border-radius:8px; border:1px solid #fca5a5; position:relative; margin-bottom:8px;">`;
+h += `<select class="own-scorer-select" style="width:100%; padding:6px 8px; border-radius:6px; border:1px solid #fca5a5; background:var(--input-bg); color:#b91c1c; font-weight:700; font-size:0.85rem;"><option value="">🥅 Кто забил себе</option>`;
+players.forEach(p=>{ h += `<option value="${p.id}" ${scorerId===p.id?'selected':''}>${escapeHtml(p.name)}</option>`; });
+h += `</select><button class="btn btn-danger btn-sm remove-goal" type="button" style="position:absolute; top:-6px; right:-6px; width:22px; height:22px; border-radius:50%; padding:0; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 6px rgba(0,0,0,0.2); background:#fff; border:1px solid #fca5a5; color:#b91c1c; font-size:0.7rem;">✕</button></div>`;
+return h;
 }
 function buildSubRowInner(teamId,outId,inId){const tp=getPlayersByTeam(teamId),ap=appData.players||[];let h=`<select class="sub-out-select"><option value="">Кого меняем</option>`;tp.forEach(p=>{h+=`<option value="${p.id}" ${outId===p.id?'selected':''}>${escapeHtml(p.name)}</option>`;});h+=`</select><span class="sub-arrow">→</span><select class="sub-in-select"><option value="">На кого</option>`;ap.forEach(p=>{h+=`<option value="${p.id}" ${inId===p.id?'selected':''}>${escapeHtml(p.name)}</option>`;});h+=`</select><button class="btn btn-danger btn-sm remove-sub" type="button">✕</button>`;return h;}
 function addSubRow(c,t){if(!t){alert('Выберите команду');return;}const r=document.createElement('div');r.className='sub-row';r.innerHTML=buildSubRowInner(t,null,null);c.appendChild(r);}
 function addOwnGoalRow(c, t){
-    if(!t){ alert('Выберите команду'); return; }
-    const players = getPlayersByTeam(t);
-    if(!players.length) return alert('Нет игроков');
-    const wrap = document.createElement('div');
-    wrap.innerHTML = buildOwnGoalRowHtml(null, players);
-    const r = wrap.firstElementChild;
-    c.appendChild(r);
-    r.querySelector('.remove-goal').addEventListener('click', ()=>{ r.remove(); syncScoreFromGoals(); saveMatchDraft(); });
+if(!t){ alert('Выберите команду'); return; }
+const players = getPlayersByTeam(t);
+if(!players.length) return alert('Нет игроков');
+const wrap = document.createElement('div');
+wrap.innerHTML = buildOwnGoalRowHtml(null, players);
+const r = wrap.firstElementChild;
+c.appendChild(r);
+r.querySelector('.remove-goal').addEventListener('click', ()=>{ r.remove(); syncScoreFromGoals(); saveMatchDraft(); });
 }
 function openEditMatchModal(mid){
 if(!requireMatchRights())return;
@@ -2965,12 +2966,10 @@ const tA=document.getElementById('matchTeamA'),tB=document.getElementById('match
 const gA=document.getElementById('goalkeeperA'),gB=document.getElementById('goalkeeperB');
 const cA=document.getElementById('goalsA'),cB=document.getElementById('goalsB');
 if(!tA||!tB)return;
-// Обновляем цвет самого селекта при выборе
 const optA = tA.options[tA.selectedIndex];
 if(optA) tA.style.color = optA.style.color || 'var(--text-main)';
 const optB = tB.options[tB.selectedIndex];
 if(optB) tB.style.color = optB.style.color || 'var(--text-main)';
-
 gA.innerHTML='<option value="">-- нет --</option>';gB.innerHTML='<option value="">-- нет --</option>';
 cA.innerHTML='';cB.innerHTML='';
 if(tA.value)getPlayersByTeam(tA.value).forEach(p=>gA.innerHTML+=`<option value="${p.id}">${escapeHtml(p.name)}</option>`);
@@ -3043,14 +3042,14 @@ return `<div id="draftBadge" style="display:flex;align-items:center;gap:8px;back
 }
 function updateDraftBadge(){const el=document.getElementById('draftBadge');if(!el){const panel=document.getElementById('contentPanel');if(!panel||currentTab!=='settings')return;const firstAcc=panel.querySelector('.acc-section');if(firstAcc){const wrap=document.createElement('div');wrap.innerHTML=renderDraftBadge();const newEl=wrap.firstElementChild;if(newEl)panel.insertBefore(newEl,firstAcc);}return;}const wrap=document.createElement('div');wrap.innerHTML=renderDraftBadge();const newEl=wrap.firstElementChild;if(newEl)el.replaceWith(newEl);else el.remove();}
 function addGoalRow(c,t){
-    if(!requireMatchRights())return;
-    if(!t)return alert('Выберите команду');
-    const p=getPlayersByTeam(t);if(!p.length)return alert('Нет игроков');
-    const wrap = document.createElement('div');
-    wrap.innerHTML = buildGoalRowHtml(null, null, p);
-    const r = wrap.firstElementChild;
-    c.appendChild(r);
-    r.querySelector('.remove-goal').addEventListener('click',()=>{r.remove();syncScoreFromGoals();saveMatchDraft();});
+if(!requireMatchRights())return;
+if(!t)return alert('Выберите команду');
+const p=getPlayersByTeam(t);if(!p.length)return alert('Нет игроков');
+const wrap = document.createElement('div');
+wrap.innerHTML = buildGoalRowHtml(null, null, p);
+const r = wrap.firstElementChild;
+c.appendChild(r);
+r.querySelector('.remove-goal').addEventListener('click',()=>{r.remove();syncScoreFromGoals();saveMatchDraft();});
 }
 function handleAddMatch(){
 if(_addingMatch) return;
@@ -3344,18 +3343,18 @@ if(e.target.id==='seasonSelect'){switchSeason(e.target.value);return;}
 if(e.target.id==='tournamentSelect')switchTournament(e.target.value);
 if(e.target.id==='drawerTournamentSelect'){switchTournament(e.target.value);closeDrawer();}
 if(e.target.id==='matchTeamA'){
-    const c=document.getElementById('substitutionsA');if(c)c.innerHTML='';
-    const o=document.getElementById('ownGoalsA');if(o)o.innerHTML='';
-    const opt = e.target.options[e.target.selectedIndex];
-    if(opt) e.target.style.color = opt.style.color || 'var(--text-main)';
-    updateMatchFormLists();
+const c=document.getElementById('substitutionsA');if(c)c.innerHTML='';
+const o=document.getElementById('ownGoalsA');if(o)o.innerHTML='';
+const opt = e.target.options[e.target.selectedIndex];
+if(opt) e.target.style.color = opt.style.color || 'var(--text-main)';
+updateMatchFormLists();
 }
 if(e.target.id==='matchTeamB'){
-    const c=document.getElementById('substitutionsB');if(c)c.innerHTML='';
-    const o=document.getElementById('ownGoalsB');if(o)o.innerHTML='';
-    const opt = e.target.options[e.target.selectedIndex];
-    if(opt) e.target.style.color = opt.style.color || 'var(--text-main)';
-    updateMatchFormLists();
+const c=document.getElementById('substitutionsB');if(c)c.innerHTML='';
+const o=document.getElementById('ownGoalsB');if(o)o.innerHTML='';
+const opt = e.target.options[e.target.selectedIndex];
+if(opt) e.target.style.color = opt.style.color || 'var(--text-main)';
+updateMatchFormLists();
 }
 if(e.target.classList.contains('status-select')){setPlayerStatus(e.target.dataset.id,e.target.value);}
 if(e.target.id==='statsFilterTeamSelect'){statsFilterTeam=e.target.value;render();}
@@ -3477,4 +3476,3 @@ init();
 </script>
 </body>
 </html>
-                                                                                           </html>
