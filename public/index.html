@@ -1015,16 +1015,16 @@ let best=null;
 (d.players||[]).forEach(p=>{
 const st=getComputedPlayerStats(p.name,d);
 if(st.matchesPlayed<=0 || st.goals<=0) return;
-if(!best){best={name:p.name,goals:st.goals,assists:st.assists,rating:calcRatingForPlayerInTournament(p.name,d,false,true)};return;}
+if(!best){best={name:p.name,goals:st.goals,assists:st.assists,rating:calcRatingForPlayerInTournament(p.name,d,true,true,true)};return;}
 if(st.goals<best.goals) return;
 if(st.goals===best.goals && st.assists<best.assists) return;
 if(st.goals===best.goals && st.assists===best.assists){
-const r=calcRatingForPlayerInTournament(p.name,d,false,true);
+const r=calcRatingForPlayerInTournament(p.name,d,true,true,true);
 if(r<best.rating) return;
 if(r===best.rating && p.name.localeCompare(best.name)>=0) return;
 best={name:p.name,goals:st.goals,assists:st.assists,rating:r};return;
 }
-best={name:p.name,goals:st.goals,assists:st.assists,rating:calcRatingForPlayerInTournament(p.name,d,false,true)};
+best={name:p.name,goals:st.goals,assists:st.assists,rating:calcRatingForPlayerInTournament(p.name,d,true,true,true)};
 });
 return best;
 }
@@ -1047,7 +1047,7 @@ const t=(d.teams||[]);if(!t.length)return null;
 const r=t.map(x=>{
 const pl=(d.players||[]).filter(p=>p.teamId===x.id);
 if(!pl.length)return null;
-const a=Math.round(pl.reduce((s,p)=>s+calcRatingForPlayerInTournament(p.name,d,true),0)/pl.length);
+const a=Math.round(pl.reduce((s,p)=>s+calcRatingForPlayerInTournament(p.name,d,true,true,true),0)/pl.length);
 return{name:x.name,color:x.color,avatar:x.avatar,rating:a,players:pl.map(p=>p.name)};
 }).filter(x=>x&&x.rating>0);
 if(!r.length)return null;
@@ -2575,7 +2575,7 @@ return h;
 function getTeamOfTheTournament(d) {
     const players = (d.players || []).map(p => {
         const st = getComputedPlayerStats(p.name, d);
-        const rating = calcRatingForPlayerInTournament(p.name, d, false, false, true);
+        const rating = calcRatingForPlayerInTournament(p.name, d, true, true, true);
         const gkRating = calcGoalkeeperRating(st);
         return { ...p, st, rating, gkRating };
     }).filter(p => p.st.matchesPlayed > 0);
