@@ -2272,8 +2272,8 @@ const m=appData.matches.find(x=>x.id===mid); if(!m) return null;
 const ta=getTeamById(m.teamA),tb=getTeamById(m.teamB); if(!ta||!tb) return null;
 const date=getMatchTime(m);const ca=getTeamColor(ta),cb=getTeamColor(tb);
 const fmtGoal=(g,isOwn)=>{const p=getPlayerById(g.scorerId);if(!p)return null;const a=g.assistId?getPlayerById(g.assistId):null;return `<div style="padding:3px 0;">⚽ <strong>${escapeHtml(p.name)}</strong>${a?` <span style="opacity:0.7;">(пас: ${escapeHtml(a.name)})</span>`:''}${isOwn?' (автогол)':''}</div>`;};
-const g1=(m.goalsA||[]).map(g=>fmtGoal(g,false)).filter(Boolean).concat((m.ownGoalsB||[]).map(g=>fmtGoal(g,true)).filter(Boolean)).join('');
-const g2=(m.goalsB||[]).map(g=>fmtGoal(g,false)).filter(Boolean).concat((m.ownGoalsA||[]).map(g=>fmtGoal(g,true)).filter(Boolean)).join('');
+const g1=(m.goalsA||[]).map(g=>fmtGoal(g,false)).filter(Boolean).concat((m.ownGoalsB||[]).map(g=>fmtGoal(g,true).filter(Boolean))).join('');
+const g2=(m.goalsB||[]).map(g=>fmtGoal(g,false)).filter(Boolean).concat((m.ownGoalsA||[]).map(g=>fmtGoal(g,true).filter(Boolean))).join('');
 let h='<div style="background:#fff;color:#1e2a1e;border-radius:20px;padding:24px;">';
 h+=`<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:20px;"><div style="flex:1;text-align:left;font-weight:800;color:${escapeHtml(ca)};font-size:1.2rem;word-break:break-word;">${escapeHtml(ta.name)}</div><div style="font-size:1.8rem;font-weight:900;padding:8px 20px;background:#f0f7f0;border-radius:14px;white-space:nowrap;">${m.scoreA} : ${m.scoreB}</div><div style="flex:1;text-align:right;font-weight:800;color:${escapeHtml(cb)};font-size:1.2rem;word-break:break-word;">${escapeHtml(tb.name)}</div></div>`;
 if(date) h+=`<div style="text-align:center;opacity:0.6;font-size:0.85rem;margin-bottom:12px;">📅 ${escapeHtml(fmtDate(date))}${m.createdBy?` · 👤 ${escapeHtml(m.createdBy)}`:''}</div>`;
@@ -2573,15 +2573,37 @@ function getTeamOfTheTournament(d) {
         return null;
     };
 
-    team.gk = pickNext((a, b) => b.gkRating - a.gkRating, p => p.st.goalkeeperMatches > 0);
-    team.rating = pickNext((a, b) => b.rating - a.rating);
-    team.bomb = pickNext((a, b) => b.st.goals - a.st.goals || b.st.assists - a.st.assists || b.rating - a.rating);
-    team.assist = pickNext((a, b) => b.st.assists - a.st.assists || b.st.goals - a.st.goals || b.rating - a.rating);
-    team.mvp = pickNext((a, b) => (b.st.goals + b.st.assists) - (a.st.goals + a.st.assists) || b.st.goals - a.st.goals || b.rating - a.rating);
+    // 1. Вратарь (при равенстве рейтинга вратаря — смотрим на общий рейтинг)
+    team.gk = pickNext(
+        (a, b) => (b.gkRating - a.gkRating) || (b.rating - a.rating),
+        p => p.st.goalkeeperMatches > 0
+    );
+
+    // 2. Лучший по рейтингу (при равенстве рейтинга — смотрим на гол+пас)
+    team.rating = pickNext(
+        (a, b) => (b.rating - a.rating) || ((b.st.goals + b.st.assists) - (a.st.goals + a.st.assists))
+    );
+
+    // 3. Бомбардир (сначала голы, при равенстве — рейтинг)
+    team.bomb = pickNext((a, b) => 
+        (b.st.goals - a.st.goals) || 
+        (b.rating - a.rating)
+    );
+
+    // 4. Ассистент (сначала пасы, при равенстве — рейтинг)
+    team.assist = pickNext((a, b) => 
+        (b.st.assists - a.st.assists) || 
+        (b.rating - a.rating)
+    );
+
+    // 5. MVP (сначала гол+пас, при равенстве — рейтинг)
+    team.mvp = pickNext((a, b) => 
+        ((b.st.goals + b.st.assists) - (a.st.goals + a.st.assists)) || 
+        (b.rating - a.rating)
+    );
 
     return team;
 }
-
 function renderTeamOfTheTournament() {
     if (!currentTournamentId) return '';
     const team = getTeamOfTheTournament(appData);
@@ -4125,4 +4147,4 @@ init();
 })();
 </script>
 </body>
-    </html>
+</html>
