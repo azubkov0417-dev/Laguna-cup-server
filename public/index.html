@@ -1146,6 +1146,79 @@ st.ownGoals, st.hatTricks
 _c.ratingTour.set(ck, val);
 return val;
 }
+// ═══════════════ АТАКА / ЗАЩИТА (перцентили) ═══════════════
+function calcPlayerAttackDefenseRaw(name, T){
+T = T || tournamentsList;
+let matches = 0, goals = 0, assists = 0;
+let teamGA = 0, cleanSheets = 0;
+T.forEach(t => {
+const d = getTournamentData(t.id);
+const p = (d.players || []).find(x => x.name === name);
+if (!p || !p.teamId) return;
+(d.matches || []).forEach(m => {
+const isA = m.teamA === p.teamId, isB = m.teamB === p.teamId;
+if (!isA && !isB) return;
+matches++;
+const opp = isA ? (+m.scoreB || 0) : (+m.scoreA || 0);
+teamGA += opp;
+if (opp === 0) cleanSheets++;
+const allGoals = [...(m.goalsA || []), ...(m.goalsB || [])];
+allGoals.forEach(g => {
+const scorer = (d.players || []).find(x => x.id === g.scorerId);
+const assist = g.assistId ? (d.players || []).find(x => x.id === g.assistId) : null;
+if (scorer && scorer.name === name) goals++;
+if (assist && assist.name === name) assists++;
+});
+});
+});
+if (matches === 0) return null;
+return {
+matches, goals, assists,
+attackRaw:  (goals * 5 + assists * 3) / matches,
+defenseRaw: ((3 - teamGA / matches) * 3 + cleanSheets * 2) / matches
+};
+}
+function getPlayerAttackDefense(name, tours){
+tours = tours || tournamentsList;
+const all = [];
+playersDatabase.forEach(n => {
+const r = calcPlayerAttackDefenseRaw(n, tours);
+if (r) all.push({ name: n, ...r });
+});
+if (!all.length) return { attack: 0, defense: 0, matches: 0 };
+const target = all.find(x => x.name === name);
+if (!target) return { attack: 0, defense: 0, matches: 0 };
+const aVals = all.map(x => x.attackRaw).sort((a, b) => a - b);
+const dVals = all.map(x => x.defenseRaw).sort((a, b) => a - b);
+const aMin = aVals[0], aMax = aVals[aVals.length - 1];
+const dMin = dVals[0], dMax = dVals[dVals.length - 1];
+const attack  = aMin === aMax ? 50 : Math.round(100 * aVals.filter(v => v <= target.attackRaw).length / all.length);
+const defense = dMin === dMax ? 50 : Math.round(100 * dVals.filter(v => v <= target.defenseRaw).length / all.length);
+return { attack, defense, matches: target.matches };
+}
+function renderAttackDefenseBars(ad, compact){
+if(!ad || !ad.matches) return '';
+const h = compact ? 6 : 8;
+const fs = compact ? '0.75rem' : '0.8rem';
+const min = compact ? 100 : 140;
+return `<div style="display:flex;flex-direction:column;gap:6px;min-width:${min}px;font-size:${fs};">
+<div style="display:flex;align-items:center;gap:6px;">
+<span style="font-weight:700;min-width:${compact?22:70}px;">⚔️${compact?'':' Атака'}</span>
+<div style="flex:1;height:${h}px;background:#eef3ee;border-radius:4px;overflow:hidden;min-width:60px;">
+<div style="height:100%;width:${ad.attack}%;background:linear-gradient(90deg,#f5a623,#ff6b35);"></div>
+</div>
+<span style="font-weight:800;color:#d35400;min-width:26px;text-align:right;">${ad.attack}</span>
+</div>
+<div style="display:flex;align-items:center;gap:6px;">
+<span style="font-weight:700;min-width:${compact?22:70}px;">🛡️${compact?'':' Защита'}</span>
+<div style="flex:1;height:${h}px;background:#eef3ee;border-radius:4px;overflow:hidden;min-width:60px;">
+<div style="height:100%;width:${ad.defense}%;background:linear-gradient(90deg,#4a90d9,#2e9e44);"></div>
+</div>
+<span style="font-weight:800;color:#1a7a2e;min-width:26px;text-align:right;">${ad.defense}</span>
+</div>
+</div>`;
+}
+// ═══════════════════════════════════════════════════════════
 function calcTeamRating(tid,d){
 d = d || appData;
 const p=(d.players||[]).filter(x=>x.teamId===tid);
@@ -3704,10 +3777,12 @@ const uploadBtn=me?`<button class="btn btn-secondary" id="uploadMyPhotoBtn" styl
 const achBtn=renderAchievementsBtn(name);
 const shareBtn=`<button class="btn btn-secondary" data-share-player="${escapeHtml(name)}" style="margin-top:10px;width:100%;justify-content:center;">📷 Сохранить картинкой</button>`;
 const fmtSelector=renderFormatFilter('profileFormatFilterSelect',profileFormatFilter);
+const adStats = getPlayerAttackDefense(name, T);
+const adHtml = renderAttackDefenseBars(adStats, false);
 const ratingBoxHtml = canViewRatingHistory
 ? `<div data-rating-history="${escapeHtml(name)}" title="👆 Нажмите, чтобы увидеть историю изменения рейтинга" style="cursor:pointer;display:flex;align-items:center;justify-content:center;min-width:64px;height:64px;padding:0 12px;border:3px solid ${rs.border};border-radius:16px;background:${rs.bg};transition:transform 0.15s;" onmouseenter="this.style.transform='scale(1.08)'" onmouseleave="this.style.transform=''"><span style="font-size:1.6rem;font-weight:800;color:${rs.color};">${r}</span></div>`
 : `<div title="🔒 Историю рейтинга видит только сам игрок и админ" style="display:flex;align-items:center;justify-content:center;min-width:64px;height:64px;padding:0 12px;border:3px solid ${rs.border};border-radius:16px;background:${rs.bg};opacity:0.9;position:relative;"><span style="font-size:1.6rem;font-weight:800;color:${rs.color};">${r}</span><span style="position:absolute;bottom:2px;right:4px;font-size:0.85rem;line-height:1;">🔒</span></div>`;
-document.getElementById('modalContent').innerHTML=fmtSelector+`<div style="display:flex;align-items:center;gap:14px;margin-bottom:15px;flex-wrap:wrap;">${photo}${ratingBoxHtml}<div style="flex:1;min-width:180px;"><h2 style="margin:0;font-size:1.5rem;">👤 ${escapeHtml(name)} ${adm?'👑':''} ${me?'<span style="color:#2b6cb0;font-size:0.9rem;">(вы)</span>':''}</h2><div style="font-size:0.85rem;color:${rs.color};font-weight:700;margin-top:2px;">${rs.medal} ${rs.label}</div>${canViewRatingHistory?`<div style="font-size:0.72rem;color:var(--text-light);margin-top:4px;">👆 Нажмите на рейтинг --- разбор по баллам</div>`:`<div style="font-size:0.72rem;color:var(--text-light);margin-top:4px;">🔒 История рейтинга скрыта</div>`}</div></div><p style="color:${hp?'#2e9e44':'#b8860b'};font-size:0.9rem;margin-bottom:15px;">${hp?'🔐 Профиль':'⚠️ Нет профиля'}${adm?'<br>👑 Админ':''}${ass?'<br>🎯 Назначает команды':''}${b?`<br><span style="color:${b.color};">${b.label}</span>`:''}</p><table><tr><th>Показатель</th><th>Значение</th></tr><tr><td>Турниров</td><td>${pr.tournamentsCount}</td></tr><tr><td>Матчей</td><td>${pr.matches}</td></tr><tr><td>🟢 Победы</td><td>${pr.wins}</td></tr><tr><td>🟡 Ничьи</td><td>${pr.draws}</td></tr><tr><td>🔴 Поражения</td><td>${pr.losses}</td></tr><tr><td>Голов</td><td>${pr.goals}</td></tr><tr><td>Передач</td><td>${pr.assists}</td></tr>${pr.own>0?`<tr><td>🥅 Автоголов</td><td>${pr.own}</td></tr>`:''}<tr><td>🏆 Бомбардир</td><td>${aw.bestScorer}</td></tr><tr><td>🏆 Ассистент</td><td>${aw.bestAssister}</td></tr><tr><td>🏆 Вратарь</td><td>${aw.bestGoalkeeper}</td></tr><tr><td>🏅 MVP</td><td>${aw.mvp}</td></tr><tr><td>⭐ Лучший игрок</td><td>${aw.bestVoted}</td></tr><tr><td>🏆 Лучшая команда</td><td>${aw.bestTeam||0}</td></tr><tr><td>⭐ Сборная LAGUNA</td><td>${aw.sbornaya||0}</td></tr>${tricks.length?`<tr><td>🎩 Хет-трики</td><td>${tricks.length}</td></tr>`:''}</table>${ach.length?`<div style="margin-top:15px;"><div style="font-weight:700;margin-bottom:6px;">🎖️ Достижения:</div><div style="display:flex;gap:6px;flex-wrap:wrap;">${ach.map(a=>`<span style="background:#fff8e1;color:#7a5a1a;padding:4px 10px;border-radius:12px;font-size:0.78rem;font-weight:700;">${a.icon} ${escapeHtml(a.label)}</span>`).join('')}</div></div>`:''}${achBtn}${shareBtn}${dmBtn}${uploadBtn}${(me||isCurrentUserAdmin())?`<button class="btn btn-secondary" id="renamePlayerBtn" data-player="${escapeHtml(name)}" style="margin-top:10px;width:100%;justify-content:center;">✏️ ${me?'Изменить моё имя':'Изменить имя'}</button>`:''}`;
+document.getElementById('modalContent').innerHTML=fmtSelector+`<div style="display:flex;align-items:center;gap:14px;margin-bottom:15px;flex-wrap:wrap;">${photo}${ratingBoxHtml}${adHtml}<div style="flex:1;min-width:180px;"><h2 style="margin:0;font-size:1.5rem;">👤 ${escapeHtml(name)} ${adm?'👑':''} ${me?'<span style="color:#2b6cb0;font-size:0.9rem;">(вы)</span>':''}</h2><div style="font-size:0.85rem;color:${rs.color};font-weight:700;margin-top:2px;">${rs.medal} ${rs.label}</div>${canViewRatingHistory?`<div style="font-size:0.72rem;color:var(--text-light);margin-top:4px;">👆 Нажмите на рейтинг --- разбор по баллам</div>`:`<div style="font-size:0.72rem;color:var(--text-light);margin-top:4px;">🔒 История рейтинга скрыта</div>`}</div></div><p style="color:${hp?'#2e9e44':'#b8860b'};font-size:0.9rem;margin-bottom:15px;">${hp?'🔐 Профиль':'⚠️ Нет профиля'}${adm?'<br>👑 Админ':''}${ass?'<br>🎯 Назначает команды':''}${b?`<br><span style="color:${b.color};">${b.label}</span>`:''}</p><table><tr><th>Показатель</th><th>Значение</th></tr><tr><td>Турниров</td><td>${pr.tournamentsCount}</td></tr><tr><td>Матчей</td><td>${pr.matches}</td></tr><tr><td>🟢 Победы</td><td>${pr.wins}</td></tr><tr><td>🟡 Ничьи</td><td>${pr.draws}</td></tr><tr><td>🔴 Поражения</td><td>${pr.losses}</td></tr><tr><td>Голов</td><td>${pr.goals}</td></tr><tr><td>Передач</td><td>${pr.assists}</td></tr>${pr.own>0?`<tr><td>🥅 Автоголов</td><td>${pr.own}</td></tr>`:''}<tr><td>🏆 Бомбардир</td><td>${aw.bestScorer}</td></tr><tr><td>🏆 Ассистент</td><td>${aw.bestAssister}</td></tr><tr><td>🏆 Вратарь</td><td>${aw.bestGoalkeeper}</td></tr><tr><td>🏅 MVP</td><td>${aw.mvp}</td></tr><tr><td>⭐ Лучший игрок</td><td>${aw.bestVoted}</td></tr><tr><td>🏆 Лучшая команда</td><td>${aw.bestTeam||0}</td></tr><tr><td>⭐ Сборная LAGUNA</td><td>${aw.sbornaya||0}</td></tr>${tricks.length?`<tr><td>🎩 Хет-трики</td><td>${tricks.length}</td></tr>`:''}</table>${ach.length?`<div style="margin-top:15px;"><div style="font-weight:700;margin-bottom:6px;">🎖️ Достижения:</div><div style="display:flex;gap:6px;flex-wrap:wrap;">${ach.map(a=>`<span style="background:#fff8e1;color:#7a5a1a;padding:4px 10px;border-radius:12px;font-size:0.78rem;font-weight:700;">${a.icon} ${escapeHtml(a.label)}</span>`).join('')}</div></div>`:''}${achBtn}${shareBtn}${dmBtn}${uploadBtn}${(me||isCurrentUserAdmin())?`<button class="btn btn-secondary" id="renamePlayerBtn" data-player="${escapeHtml(name)}" style="margin-top:10px;width:100%;justify-content:center;">✏️ ${me?'Изменить моё имя':'Изменить имя'}</button>`:''}`;
 document.getElementById('playerModal').style.display='flex';
 }
 function renderRatingGraph(tourData){
@@ -3731,15 +3806,20 @@ const T=_getTournamentsByFormat(profileFormatFilter);const tourData=[];
 T.forEach(t=>{const d=getTournamentData(t.id);const p=(d.players||[]).find(x=>x.name===name);if(!p)return;const st=getComputedPlayerStats(name,d);if(st.matchesPlayed<=0)return;const res=getPlayerResults(name,d.matches||[],d.players||[]);let awardsCount=0;const awardsList=[];const bs=getBestScorer(d);if(bs&&bs.name===name){awardsCount++;awardsList.push('⚽ Бомбардир');}const ba=getBestAssister(d);if(ba&&ba.name===name){awardsCount++;awardsList.push('🎯 Ассистент');}const bg=getBestGoalkeeper(d);if(bg&&bg.name===name){awardsCount++;awardsList.push('🧤 Вратарь');}const mv=getMVPTournament(d);if(mv&&mv.name===name){awardsCount++;awardsList.push('🏅 MVP');}const bv=getBestVoted(d);if(bv&&bv.name===name){awardsCount++;awardsList.push('⭐ Лучший игрок');}const P=(st.matchesPlayed||0)*2+(res.wins||0)*4+(res.draws||0)*2-(res.losses||0)*1+(st.goals||0)*5+(st.assists||0)*3+(st.goalkeeperMatches||0)*1.5+(st.cleanSheets||0)*5-(st.goalsConceded||0)*1+(awardsCount||0)*6-(st.ownGoals||0)*3+(st.hatTricks||0)*3;let r=Math.round(P);if(r>99)r=99;if(r<0)r=0;const playerMatches=(d.matches||[]).filter(m=>m.teamA===p.teamId||m.teamB===p.teamId).map(m=>({match:m,date:getMatchTime(m)})).filter(x=>x.date).sort((x,y)=>x.date<y.date?-1:1);tourData.push({tournament:t,d,p,st,res,awardsList,awardsCount,P,r,firstDate:playerMatches[0]?.date,lastDate:playerMatches[playerMatches.length-1]?.date,playerMatches});});
 tourData.sort((x,y)=>{const xd=x.tournament.createdAt||'';const yd=y.tournament.createdAt||'';return xd.localeCompare(yd);});
 tourData.forEach((td, i) => {td.prevR = i > 0 ? tourData[i-1].r : null;});
+tourData.forEach(td => { td.ad = getPlayerAttackDefense(name, [td.tournament]); });
+const adTours = tourData.filter(td => td.ad && td.ad.matches > 0);
+const avgAttack  = adTours.length ? Math.round(adTours.reduce((s, td) => s + td.ad.attack, 0)  / adTours.length) : 0;
+const avgDefense = adTours.length ? Math.round(adTours.reduce((s, td) => s + td.ad.defense, 0) / adTours.length) : 0;
 let h=`<button class="btn btn-secondary btn-sm" data-rating-back="${escapeHtml(name)}" style="margin-bottom:12px;">‹ К профилю</button><h2>📊 История рейтинга --- ${escapeHtml(name)}</h2><div class="sub-tabs" style="margin-bottom:15px;"><button class="sub-tab ${ratingHistoryMode==='graph'?'active':''}" data-rating-mode="graph">📈 График</button><button class="sub-tab ${ratingHistoryMode==='list'?'active':''}" data-rating-mode="list">📝 Разбор</button></div>`;
 if(!tourData.length){h+=`<p style="color:var(--text-light);text-align:center;padding:20px 0;">Нет данных по матчам --- рейтинг пока не начислен.</p>`;document.getElementById('modalContent').innerHTML=h;document.getElementById('playerModal').style.display='flex';return;}
 const totalRating=Math.round(tourData.reduce((s,td)=>s+td.r,0)/tourData.length);const rs=getRatingStyle(totalRating);
-h+=`<div style="text-align:center;margin-bottom:18px;padding:16px;border-radius:16px;background:${rs.bg};border:2px solid ${rs.border};"><div style="font-size:2.2rem;font-weight:900;color:${rs.color};">${totalRating} ${rs.medal}</div><div style="font-size:0.85rem;color:${rs.color};font-weight:700;">${rs.label} --- средний за ${tourData.length} ${tourData.length===1?'турнир':(tourData.length<5?'турнира':'турниров')}</div></div>`;
+h+=`<div style="text-align:center;margin-bottom:18px;padding:16px;border-radius:16px;background:${rs.bg};border:2px solid ${rs.border};"><div style="font-size:2.2rem;font-weight:900;color:${rs.color};">${totalRating} ${rs.medal}</div><div style="font-size:0.85rem;color:${rs.color};font-weight:700;">${rs.label} --- средний за ${tourData.length} ${tourData.length===1?'турнир':(tourData.length<5?'турнира':'турниров')}</div>${adTours.length ? `<div style="display:flex;justify-content:center;gap:20px;margin-top:12px;flex-wrap:wrap;"><div style="display:flex;flex-direction:column;align-items:center;gap:2px;font-size:0.78rem;"><div style="font-weight:700;color:var(--text-main);">⚔️ Атака</div><div style="font-weight:900;font-size:1.35rem;color:#d35400;">${avgAttack}</div></div><div style="display:flex;flex-direction:column;align-items:center;gap:2px;font-size:0.78rem;"><div style="font-weight:700;color:var(--text-main);">🛡️ Защита</div><div style="font-weight:900;font-size:1.35rem;color:#1a7a2e;">${avgDefense}</div></div></div><div style="font-size:0.7rem;color:var(--text-light);margin-top:6px;">среднее по ${adTours.length} ${adTours.length===1?'туру':(adTours.length<5?'турам':'турам')}</div>` : ''}</div>`;
 if(ratingHistoryMode==='graph'){h+=renderRatingGraph(tourData);}
 else{[...tourData].reverse().forEach((td,idx)=>{
 const t=td.tournament;const dateRange=td.firstDate&&td.lastDate?`${fmtShort(td.firstDate)} --- ${fmtShort(td.lastDate)}`:(t.createdAt?fmtDate(t.createdAt):'');const trs=getRatingStyle(td.r);
 let pctBadgeHtml = '';if(td.prevR != null && td.prevR > 0){const pct = ((td.r - td.prevR) / td.prevR) * 100;const rounded = Math.round(pct * 10) / 10;let color = '#1e2a1e';if(rounded > 0) color = '#2e9e44';else if(rounded < 0) color = '#e74c3c';const txt = (rounded > 0 ? '+' : '') + rounded.toFixed(1) + '%';pctBadgeHtml = `<span style="font-size:0.72rem;font-weight:800;color:${color};margin-left:8px;white-space:nowrap;">${txt}</span>`;}
 h+=`<div style="background:var(--input-bg);border-radius:14px;padding:14px;margin-bottom:12px;border-left:4px solid ${trs.border};"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;"><div style="min-width:0;"><div style="font-weight:800;font-size:1rem;">🏆 ${escapeHtml(t.name)}</div>${dateRange?`<div style="font-size:0.78rem;color:var(--text-light);margin-top:2px;">📅 ${escapeHtml(dateRange)}</div>`:''}</div><div style="font-weight:900;font-size:1.3rem;color:${trs.color};white-space:nowrap;">${td.r} ${trs.medal}${pctBadgeHtml}</div></div>`;
+if(td.ad && td.ad.matches > 0){ h += `<div style="margin-bottom:10px;">${renderAttackDefenseBars(td.ad, true)}</div>`; }
 const rows=[{label:'🎮 Сыграно матчей',cnt:td.st.matchesPlayed,coef:2},{label:'🟢 Победы',cnt:td.res.wins,coef:4},{label:'🟡 Ничьи',cnt:td.res.draws,coef:2},{label:'🔴 Поражения',cnt:td.res.losses,coef:-1},{label:'⚽ Голы',cnt:td.st.goals,coef:5},{label:'🎯 Ассисты',cnt:td.st.assists,coef:3},{label:'🧤 Матчи вратарём',cnt:td.st.goalkeeperMatches,coef:1.5},{label:'🥅 Сухие матчи',cnt:td.st.cleanSheets,coef:5},{label:'❌ Пропущено голов',cnt:td.st.goalsConceded,coef:-1},{label:'🏅 Награды турнира',cnt:td.awardsCount,coef:6},{label:'🥅 Автоголы',cnt:td.st.ownGoals||0,coef:-3},{label:'🎩 Хет-трики',cnt:td.st.hatTricks||0,coef:3}].filter(row=>row.cnt!==0);
 h+=`<div style="display:flex;flex-direction:column;gap:4px;font-size:0.85rem;">`;
 rows.forEach(row=>{const contribution=row.cnt*row.coef;const sign=contribution>0?'+':'';const color=contribution>0?'#2e9e44':(contribution<0?'#e74c3c':'#9aab9a');const bg=contribution>0?'#f0f9f2':(contribution<0?'#fee2e2':'transparent');const coefStr=row.coef>0?`+${row.coef}`:String(row.coef);h+=`<div style="display:flex;justify-content:space-between;gap:8px;padding:4px 8px;border-radius:6px;background:${bg};"><span>${row.label}: <strong>${row.cnt}</strong> × ${coefStr}</span><span style="font-weight:800;color:${color};white-space:nowrap;">${sign}${contribution}</span></div>`;});
