@@ -508,6 +508,7 @@ input,select,textarea{font-size:16px !important;}
 <button class="nav-tab" data-tab="players"><span>👥</span> База игроков</button>
 <button class="nav-tab" data-tab="stats"><span>📊</span> Статистика</button>
 <button class="nav-tab" data-tab="overall"><span>🏅</span> Общий рейтинг</button>
+<button class="nav-tab" data-tab="achievements"><span>🏆</span> Достижения</button>
 <button class="nav-tab" data-tab="records"><span>🏆</span> Рекорды</button>
 <button class="nav-tab" data-tab="chat" id="chatNavTab"><span>💬</span> Чат</button>
 </div>
@@ -536,6 +537,7 @@ input,select,textarea{font-size:16px !important;}
 <button class="drawer-item" data-drawer="combinedHistory"><span class="di-icon">📚</span> История</button>
 <button class="drawer-item" data-drawer="players"><span class="di-icon">👥</span> База игроков</button>
 <button class="drawer-item" data-drawer="overall"><span class="di-icon">🏅</span> Общий рейтинг</button>
+<button class="drawer-item" data-drawer="achievements"><span class="di-icon">🏆</span> Достижения</button>
 <button class="drawer-item" data-drawer="records"><span class="di-icon">🏆</span> Рекорды</button>
 <button class="drawer-item" id="drawerHallBtn"><span class="di-icon">🏛️</span> Зал славы</button>
 <button class="drawer-item" data-drawer="dm" id="drawerDmBtn"><span class="di-icon">✉️</span> Личные сообщения</button>
@@ -1080,7 +1082,7 @@ if(my>opp)wins++;else if(my<opp)losses++;else draws++;
 });
 return{wins,draws,losses};
 }
-function calcRatingFromStats(matches,goals,assists,aw,wins,draws,losses,goalkeeperMatches,cleanSheets,goalsConceded,ownGoals,hatTricks){
+function calcRatingFromStats(matches,goals,assists,aw,wins,draws,losses,goalkeeperMatches,cleanSheets,goalsConceded,ownGoals,hatTricks,tottBonus){
 if(matches===0)return 0;
 const P = (matches||0)*2
 + (wins||0)*4
@@ -1093,7 +1095,8 @@ const P = (matches||0)*2
 + (goalsConceded||0)*(-1)
 + (aw||0)*6
 - (ownGoals||0)*3
-+ (hatTricks||0)*3;
++ (hatTricks||0)*3
++ (tottBonus||0);
 let r = Math.round(P);
 if(r>99)r=99;
 if(r<0)r=0;
@@ -1117,8 +1120,8 @@ const val = count===0 ? 0 : Math.round(total/count);
 _c.rating.set(key, val);
 return val;
 }
-function calcRatingForPlayerInTournament(name,d,skipBtBonus,skipScorerAward){
-const ck = name+'|'+_did(d)+'|'+(skipBtBonus?1:0)+'|'+(skipScorerAward?1:0);
+function calcRatingForPlayerInTournament(name,d,skipBtBonus,skipScorerAward,skipTottBonus){
+const ck = name+'|'+_did(d)+'|'+(skipBtBonus?1:0)+'|'+(skipScorerAward?1:0)+'|'+(skipTottBonus?1:0);
 if(_c.ratingTour.has(ck)) return _c.ratingTour.get(ck);
 const p=(d.players||[]).find(x=>x.name===name);
 if(!p){ _c.ratingTour.set(ck,0); return 0; }
@@ -1130,11 +1133,25 @@ const gk=getBestGoalkeeper(d);if(gk&&gk.name===name)tot++;
 const mv=getMVPTournament(d);if(mv&&mv.name===name)tot++;
 const v=getBestVoted(d); if(v&&v.name===name)tot++;
 const res=getPlayerResults(name,d.matches||[],d.players||[]);
+let tottBonus = 0;
+if (!skipTottBonus) {
+    const tott = getTeamOfTheTournament(d);
+    const isInTott = [tott.gk, tott.rating, tott.bomb, tott.assist, tott.mvp].some(pl => pl && pl.name === name);
+    if (isInTott) {
+        const bs = getBestScorer(d);
+        const ba = getBestAssister(d);
+        const bg = getBestGoalkeeper(d);
+        const mv = getMVPTournament(d);
+        const topRatedP = (d.players||[]).map(x=>({name:x.name, r:calcRatingForPlayerInTournament(x.name,d,true,true,true)})).filter(x=>getComputedPlayerStats(x.name,d).matchesPlayed>0).sort((a,b)=>b.r-a.r)[0];
+        const hasMainAward = (bs && bs.name === name) || (ba && ba.name === name) || (bg && bg.name === name) || (mv && mv.name === name) || (topRatedP && topRatedP.name === name);
+        if (!hasMainAward) tottBonus = 2;
+    }
+}
 const val = calcRatingFromStats(
 st.matchesPlayed, st.goals, st.assists, tot,
 res.wins, res.draws, res.losses,
 st.goalkeeperMatches, st.cleanSheets, st.goalsConceded,
-st.ownGoals, st.hatTricks
+st.ownGoals, st.hatTricks, tottBonus
 );
 _c.ratingTour.set(ck, val);
 return val;
@@ -1156,7 +1173,7 @@ function getTeamForm(teamId,n){n=n||5;return appData.matches.filter(m=>m.teamA==
 function renderFormBadges(form){if(!form.length)return'<span style="color:#9aab9a;font-size:0.8rem;">---</span>';return`<span class="form-row">${form.map(f=>`<span class="form-badge ${f}" title="${f==='W'?'Победа':f==='D'?'Ничья':'Поражение'}">${f==='W'?'В':f==='D'?'Н':'П'}</span>`).join('')}</span>`;}
 function renderBreadcrumbs(){
 const wrap=document.getElementById('breadcrumbsWrap');if(!wrap)return;
-const labels={home:'Главная',settings:'Настройки',combinedHistory:'История',players:'База игроков',stats:'Статистика',overall:'Общий рейтинг',records:'Рекорды',chat:'Чат',admin:'Админ-панель',dm:'Личные'};
+const labels={home:'Главная',settings:'Настройки',combinedHistory:'История',players:'База игроков',stats:'Статистика',overall:'Общий рейтинг',achievements:'Достижения',records:'Рекорды',chat:'Чат',admin:'Админ-панель',dm:'Личные'};
 let h=`<div class="breadcrumbs">`;
 h+=`<a data-bc-tab="home">🏠 Главная</a>`;
 if(currentTab!=='home'){h+=`<span class="sep">›</span><span>${labels[currentTab]||''}</span>`;}
@@ -2010,7 +2027,7 @@ return arr;
 function _maxStreak(arr){let mx=0,cur=0;arr.forEach(v=>{ if(v){cur++;mx=Math.max(mx,cur);} else cur=0; });return mx;}
 function _collectCareerStats(name, T){
 T = T || tournamentsList;
-const s={goals:0,assists:0,matches:0,tournaments:0,wins:0,cleanSheets:0,gkMatches:0,hattricks:0,doubles:0,pokers:0,pentas:0,assistHattricks:0,assistFives:0,assistPoker:0,doubleAssistMatches:0,goalAssistCombo:0,doubleCombo:0,tripleCombo:0,maxGoalStreak:0,maxAssistStreak:0,maxWinStreak:0,maxNoLossStreak:0,maxCleanStreak:0,maxStableStreak:0,coldStart:0,teams:new Set(),teamMatchCount:{},bestTeamPlusBestPlayer:0,bestPlayerFirstTournament:false,firstGoalTournament:0,lastGoalTournament:0,champion:0,silver:0,bronze:0,voted50:0,voted100:0,partnerGoals:{},maxConcededByOneTeam:0,maxConcededInMatch:0,maxTeamMatches:0,maxTournamentStreak:0,tournamentsOrganized:0,pollsCreated:0,dmSent:0,reactionsGiven:0,reactionsReceived:0,mentionsReceived:0,hasPhoto:false,chatMsgs:0,collectorBest:0,maxPartnerGoals:0,ownGoals:0,scoredAgainstTeams:new Set(),winsWithDifferentTeams:new Set(),tournamentWithoutLoss:0,goalsInEachMatchTournament:0,cleanSheetTournament:0,formats:new Set(),seasons:new Set(),seasonPlayer:0,nightMatches:0,earlyMatches:0,holidayMatches:0,matchesInOneTournament:0,gkGoals:0,gkAssists:0,mediaMessages:0};
+const s={goals:0,assists:0,matches:0,tournaments:0,wins:0,cleanSheets:0,gkMatches:0,hattricks:0,doubles:0,pokers:0,pentas:0,assistHattricks:0,assistFives:0,assistPoker:0,doubleAssistMatches:0,goalAssistCombo:0,doubleCombo:0,tripleCombo:0,maxGoalStreak:0,maxAssistStreak:0,maxWinStreak:0,maxNoLossStreak:0,maxCleanStreak:0,maxStableStreak:0,coldStart:0,teams:new Set(),teamMatchCount:{},bestTeamPlusBestPlayer:0,bestPlayerFirstTournament:false,firstGoalTournament:0,lastGoalTournament:0,champion:0,silver:0,bronze:0,voted50:0,voted100:0,partnerGoals:{},maxConcededByOneTeam:0,maxConcededInMatch:0,maxTeamMatches:0,maxTournamentStreak:0,tournamentsOrganized:0,pollsCreated:0,dmSent:0,reactionsGiven:0,reactionsReceived:0,mentionsReceived:0,hasPhoto:false,chatMsgs:0,collectorBest:0,maxPartnerGoals:0,ownGoals:0,scoredAgainstTeams:new Set(),winsWithDifferentTeams:new Set(),tournamentWithoutLoss:0,goalsInEachMatchTournament:0,cleanSheetTournament:0,formats:new Set(),seasons:new Set(),seasonPlayer:0,nightMatches:0,earlyMatches:0,holidayMatches:0,matchesInOneTournament:0,gkGoals:0,gkAssists:0,mediaMessages:0,tottCount:0};
 const streakGoals=[],streakAssists=[],streakWins=[],streakNoLoss=[],streakClean=[],streakStable=[],streakNoGoal=[];
 const teamPlayedTids=[];
 const concededMap={};
@@ -2019,6 +2036,10 @@ const d=getTournamentData(t.id);
 const p=(d.players||[]).find(x=>x.name===name);
 if(!p)return;
 s.tournaments++; teamPlayedTids.push(tIdx);
+const tott = getTeamOfTheTournament(d);
+if ([tott.gk, tott.rating, tott.bomb, tott.assist, tott.mvp].some(pl => pl && pl.name === name)) {
+    s.tottCount++;
+}
 if(t.format) s.formats.add(t.format);
 if(t.seasonId) s.seasons.add(t.seasonId);
 const st=getComputedPlayerStats(name,d);
@@ -2133,6 +2154,7 @@ return [
 {cat:'🏆 Турнирные награды',icon:'🧤',name:'Вратарь турнира',desc:'Лучший вратарь',val:awards.bestGoalkeeper,stages:[1,3,5],unit:'раз'},
 {cat:'🏆 Турнирные награды',icon:'⭐',name:'Лучший игрок (голос.)',desc:'Победа в голосовании',val:awards.bestVoted,stages:[1,3,5,10],unit:'раз'},
 {cat:'🏆 Турнирные награды',icon:'🏆',name:'Лучшая команда',desc:'В лучшей команде турнира',val:awards.bestTeam,stages:[1,3,5],unit:'раз'},
+{cat:'🏆 Турнирные награды',icon:'⭐',name:'Сборная LAGUNA',desc:'Попадание в сборную тура',val:s.tottCount,stages:[1,3,5,10],unit:'раз'},
 {cat:'🏆 Турнирные награды',icon:'👑',name:'Идеальный турнир',desc:'Лучшая команда + лучший игрок',val:s.bestTeamPlusBestPlayer,stages:[1,2],unit:'раз'},
 {cat:'🏆 Турнирные награды',icon:'🌟',name:'Дебют мечты',desc:'Лучший игрок в первом турнире',val:s.bestPlayerFirstTournament?1:0,stages:[1],unit:'раз'},
 {cat:'🏆 Турнирные награды',icon:'🥇',name:'Первый гол турнира',desc:'Открыл счёт турнира',val:s.firstGoalTournament,stages:[1,3],unit:'раз'},
@@ -2553,7 +2575,7 @@ return h;
 function getTeamOfTheTournament(d) {
     const players = (d.players || []).map(p => {
         const st = getComputedPlayerStats(p.name, d);
-        const rating = calcRatingForPlayerInTournament(p.name, d);
+        const rating = calcRatingForPlayerInTournament(p.name, d, false, false, true);
         const gkRating = calcGoalkeeperRating(st);
         return { ...p, st, rating, gkRating };
     }).filter(p => p.st.matchesPlayed > 0);
@@ -2573,34 +2595,11 @@ function getTeamOfTheTournament(d) {
         return null;
     };
 
-    // 1. Вратарь (при равенстве рейтинга вратаря — смотрим на общий рейтинг)
-    team.gk = pickNext(
-        (a, b) => (b.gkRating - a.gkRating) || (b.rating - a.rating),
-        p => p.st.goalkeeperMatches > 0
-    );
-
-    // 2. Лучший по рейтингу (при равенстве рейтинга — смотрим на гол+пас)
-    team.rating = pickNext(
-        (a, b) => (b.rating - a.rating) || ((b.st.goals + b.st.assists) - (a.st.goals + a.st.assists))
-    );
-
-    // 3. Бомбардир (сначала голы, при равенстве — рейтинг)
-    team.bomb = pickNext((a, b) => 
-        (b.st.goals - a.st.goals) || 
-        (b.rating - a.rating)
-    );
-
-    // 4. Ассистент (сначала пасы, при равенстве — рейтинг)
-    team.assist = pickNext((a, b) => 
-        (b.st.assists - a.st.assists) || 
-        (b.rating - a.rating)
-    );
-
-    // 5. MVP (сначала гол+пас, при равенстве — рейтинг)
-    team.mvp = pickNext((a, b) => 
-        ((b.st.goals + b.st.assists) - (a.st.goals + a.st.assists)) || 
-        (b.rating - a.rating)
-    );
+    team.gk = pickNext((a, b) => (b.gkRating - a.gkRating) || (b.rating - a.rating), p => p.st.goalkeeperMatches > 0);
+    team.rating = pickNext((a, b) => (b.rating - a.rating) || ((b.st.goals + b.st.assists) - (a.st.goals + a.st.assists)));
+    team.bomb = pickNext((a, b) => (b.st.goals - a.st.goals) || (b.rating - a.rating));
+    team.assist = pickNext((a, b) => (b.st.assists - a.st.assists) || (b.rating - a.rating));
+    team.mvp = pickNext((a, b) => ((b.st.goals + b.st.assists) - (a.st.goals + a.st.assists)) || (b.rating - a.rating));
 
     return team;
 }
@@ -2609,6 +2608,10 @@ function renderTeamOfTheTournament() {
     const team = getTeamOfTheTournament(appData);
     if (!team.rating && !team.bomb && !team.assist && !team.mvp && !team.gk) return '';
 
+    const tCur = tournamentsList.find(x => x.id === currentTournamentId);
+    const tName = tCur ? tCur.name : '';
+    const title = `Сборная LAGUNA ${tName}`;
+
     const renderPlayer = (player, icon, top, left) => {
         if (!player) {
             return `<div class="tot-player tot-empty" style="top:${top}; left:${left};">
@@ -2616,16 +2619,17 @@ function renderTeamOfTheTournament() {
                 <div class="tot-name">---</div>
             </div>`;
         }
+        const trueRating = calcRatingForPlayerInTournament(player.name, currentTournamentId);
         return `<div class="tot-player" style="top:${top}; left:${left};">
             <div class="tot-icon">${icon}</div>
             <div class="tot-name" title="${escapeHtml(player.name)}">${escapeHtml(player.name)}</div>
-            <div class="tot-rating">${player.rating}</div>
+            <div class="tot-rating">${trueRating}</div>
         </div>`;
     };
 
     return `
     <div class="best-team-section" style="margin-top:20px; background: linear-gradient(160deg, #e8f5e9 0%, #c8e6c9 100%); border-color: #4caf50;">
-        <h3>⭐ Сборная LAGUNA этого тура</h3>
+        <h3>⭐ ${escapeHtml(title)}</h3>
         <div class="tot-container">
             <div class="tot-pitch-line" style="top:10px; left:10px; right:10px; bottom:10px; border-radius:12px;"></div>
             <div class="tot-pitch-line" style="bottom:10px; left:50%; transform:translateX(-50%); width:50%; height:25%; border-bottom:none; border-radius:0 0 50% 50%;"></div>
@@ -2649,6 +2653,32 @@ if(!tours.length){h+=`<p style="color:#9aab9a;text-align:center;padding:20px 0;"
 else{h+=`<div class="vote-modal-list">`;tours.forEach(t=>{const active=t.id===currentTournamentId;h+=`<button class="vote-modal-item" data-pick-tournament="${t.id}" style="${active?'border-color:#2e9e44;':''}"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;"><div style="text-align:left;"><div style="font-weight:700;">${active?'✅ ':''}${escapeHtml(t.name)}</div><div style="font-size:0.8rem;color:var(--text-light);">${getFormatLabel(t.format)}</div></div></div></button>`;});h+=`</div>`;}
 h+=`<button class="btn btn-secondary" id="cancelTournamentPickerBtn" style="width:100%;justify-content:center;margin-top:15px;">Отмена</button>`;
 document.getElementById('modalContent').innerHTML=h;document.getElementById('playerModal').style.display='flex';
+}
+function renderAchievementsTab(){
+    let h=`<div class="panel-title"><span class="icon">🏆</span> Достижения игроков</div>`;
+    h+=`<div style="display:flex;flex-direction:column;gap:8px;">`;
+    const players=[...playersDatabase].sort((a,b)=>a.localeCompare(b));
+    players.forEach(n=>{
+        const {total,earned}=_achievementsTotalCount(n);
+        const pct=total>0?Math.round((earned/total)*100):0;
+        const photoUrl=getPlayerPhoto(n);
+        const photo=photoUrl?`<span class="player-photo"><img src="${photoUrl}"></span>`:`<span class="player-photo">${escapeHtml(n.charAt(0))}</span>`;
+        h+=`<div class="record-card" style="cursor:pointer;" data-ach-open="${escapeHtml(n)}">
+            ${photo}
+            <div class="info">
+                <div style="font-weight:700;font-size:1.05rem;">👤 ${escapeHtml(n)}</div>
+                <div style="font-size:0.85rem;color:var(--text-light);margin-top:4px;">Выполнено: <strong>${earned}</strong> из ${total} (${pct}%)</div>
+                <div style="height:6px;background:#eef3ee;border-radius:4px;overflow:hidden;margin-top:6px;max-width:200px;">
+                    <div style="height:100%;background:linear-gradient(90deg,#2e9e44,#63c97e);width:${pct}%;"></div>
+                </div>
+            </div>
+            <div style="text-align:right;min-width:60px;">
+                <div style="font-weight:800;font-size:1.2rem;color:#2e9e44;">${pct}%</div>
+            </div>
+        </div>`;
+    });
+    h+=`</div>`;
+    return h;
 }
 function renderHomeTab(){
 if(!currentTournamentId)return'';
@@ -3630,10 +3660,10 @@ function render(){
 try{
 const panel=document.getElementById('contentPanel');
 renderBreadcrumbs();renderGuestBanner();renderNoTournamentBanner();renderNavTabs();renderMobileUI();
-if(!currentTournamentId&&currentTab!=='players'&&currentTab!=='combinedHistory'&&currentTab!=='overall'&&currentTab!=='records'&&currentTab!=='chat'&&currentTab!=='admin'&&currentTab!=='dm'){
+if(!currentTournamentId&&currentTab!=='players'&&currentTab!=='combinedHistory'&&currentTab!=='overall'&&currentTab!=='achievements'&&currentTab!=='records'&&currentTab!=='chat'&&currentTab!=='admin'&&currentTab!=='dm'){
 panel.innerHTML=`<div class="empty-state"><span class="emoji">🏆</span><p>Нет активных турниров.</p></div>`;updateChatBadge();return;
 }
-switch(currentTab){case'home':panel.innerHTML=renderHomeTab();break;case'settings':panel.innerHTML=renderSettingsTab();break;case'combinedHistory':panel.innerHTML=renderCombinedHistoryTab();break;case'players':panel.innerHTML=renderPlayersTab();break;case'stats':panel.innerHTML=renderStatsTab();break;case'overall':panel.innerHTML=renderOverallTab();break;case'records':panel.innerHTML=renderRecordsTab();break;case'chat':panel.innerHTML=renderChatTab();break;case'admin':panel.innerHTML=renderAdminTab();break;case'dm':panel.innerHTML=renderDMTab();break;default:panel.innerHTML=renderHomeTab();}
+switch(currentTab){case'home':panel.innerHTML=renderHomeTab();break;case'settings':panel.innerHTML=renderSettingsTab();break;case'combinedHistory':panel.innerHTML=renderCombinedHistoryTab();break;case'players':panel.innerHTML=renderPlayersTab();break;case'stats':panel.innerHTML=renderStatsTab();break;case'overall':panel.innerHTML=renderOverallTab();break;case'achievements':panel.innerHTML=renderAchievementsTab();break;case'records':panel.innerHTML=renderRecordsTab();break;case'chat':panel.innerHTML=renderChatTab();break;case'admin':panel.innerHTML=renderAdminTab();break;case'dm':panel.innerHTML=renderDMTab();break;default:panel.innerHTML=renderHomeTab();}
 if(currentTab==='chat'){setTimeout(()=>{const el=document.getElementById('chatMessages');if(el)el.scrollTop=el.scrollHeight;},60);}
 updateChatBadge();
 document.querySelectorAll('.mobile-nav-item').forEach(b=>{if(b.dataset.mnav!=='more')b.classList.toggle('active',b.dataset.mnav===currentTab);});
@@ -3681,7 +3711,20 @@ const me=getCurrentUser();
 if(!me){alert('🔒 Войдите, чтобы видеть историю рейтинга');return;}
 if(name!==me && !isCurrentUserAdmin()){alert('🔒 Историю рейтинга может видеть только сам игрок или админ');return;}
 const T=_getTournamentsByFormat(profileFormatFilter);const tourData=[];
-T.forEach(t=>{const d=getTournamentData(t.id);const p=(d.players||[]).find(x=>x.name===name);if(!p)return;const st=getComputedPlayerStats(name,d);if(st.matchesPlayed<=0)return;const res=getPlayerResults(name,d.matches||[],d.players||[]);let awardsCount=0;const awardsList=[];const bs=getBestScorer(d);if(bs&&bs.name===name){awardsCount++;awardsList.push('⚽ Бомбардир');}const ba=getBestAssister(d);if(ba&&ba.name===name){awardsCount++;awardsList.push('🎯 Ассистент');}const bg=getBestGoalkeeper(d);if(bg&&bg.name===name){awardsCount++;awardsList.push('🧤 Вратарь');}const mv=getMVPTournament(d);if(mv&&mv.name===name){awardsCount++;awardsList.push('🏅 MVP');}const bv=getBestVoted(d);if(bv&&bv.name===name){awardsCount++;awardsList.push('⭐ Лучший игрок');}const P=(st.matchesPlayed||0)*2+(res.wins||0)*4+(res.draws||0)*2-(res.losses||0)*1+(st.goals||0)*5+(st.assists||0)*3+(st.goalkeeperMatches||0)*1.5+(st.cleanSheets||0)*5-(st.goalsConceded||0)*1+(awardsCount||0)*6-(st.ownGoals||0)*3+(st.hatTricks||0)*3;let r=Math.round(P);if(r>99)r=99;if(r<0)r=0;const playerMatches=(d.matches||[]).filter(m=>m.teamA===p.teamId||m.teamB===p.teamId).map(m=>({match:m,date:getMatchTime(m)})).filter(x=>x.date).sort((x,y)=>x.date<y.date?-1:1);tourData.push({tournament:t,d,p,st,res,awardsList,awardsCount,P,r,firstDate:playerMatches[0]?.date,lastDate:playerMatches[playerMatches.length-1]?.date,playerMatches});});
+T.forEach(t=>{const d=getTournamentData(t.id);const p=(d.players||[]).find(x=>x.name===name);if(!p)return;const st=getComputedPlayerStats(name,d);if(st.matchesPlayed<=0)return;const res=getPlayerResults(name,d.matches||[],d.players||[]);let awardsCount=0;const awardsList=[];const bs=getBestScorer(d);if(bs&&bs.name===name){awardsCount++;awardsList.push('⚽ Бомбардир');}const ba=getBestAssister(d);if(ba&&ba.name===name){awardsCount++;awardsList.push('🎯 Ассистент');}const bg=getBestGoalkeeper(d);if(bg&&bg.name===name){awardsCount++;awardsList.push('🧤 Вратарь');}const mv=getMVPTournament(d);if(mv&&mv.name===name){awardsCount++;awardsList.push('🏅 MVP');}const bv=getBestVoted(d);if(bv&&bv.name===name){awardsCount++;awardsList.push('⭐ Лучший игрок');}
+const tott = getTeamOfTheTournament(d);
+const isInTott = [tott.gk, tott.rating, tott.bomb, tott.assist, tott.mvp].some(p => p && p.name === name);
+let tottBonus = 0;
+if (isInTott) {
+    const bs = getBestScorer(d);
+    const ba = getBestAssister(d);
+    const bg = getBestGoalkeeper(d);
+    const mv = getMVPTournament(d);
+    const topRatedP = (d.players||[]).map(x=>({name:x.name, r:calcRatingForPlayerInTournament(x.name,d,true,true,true)})).filter(x=>getComputedPlayerStats(x.name,d).matchesPlayed>0).sort((a,b)=>b.r-a.r)[0];
+    const hasMainAward = (bs && bs.name === name) || (ba && ba.name === name) || (bg && bg.name === name) || (mv && mv.name === name) || (topRatedP && topRatedP.name === name);
+    if (!hasMainAward) tottBonus = 2;
+}
+const P=(st.matchesPlayed||0)*2+(res.wins||0)*4+(res.draws||0)*2-(res.losses||0)*1+(st.goals||0)*5+(st.assists||0)*3+(st.goalkeeperMatches||0)*1.5+(st.cleanSheets||0)*5-(st.goalsConceded||0)*1+(awardsCount||0)*6-(st.ownGoals||0)*3+(st.hatTricks||0)*3+tottBonus;let r=Math.round(P);if(r>99)r=99;if(r<0)r=0;const playerMatches=(d.matches||[]).filter(m=>m.teamA===p.teamId||m.teamB===p.teamId).map(m=>({match:m,date:getMatchTime(m)})).filter(x=>x.date).sort((x,y)=>x.date<y.date?-1:1);tourData.push({tournament:t,d,p,st,res,awardsList,awardsCount,P,r,firstDate:playerMatches[0]?.date,lastDate:playerMatches[playerMatches.length-1]?.date,playerMatches});});
 tourData.sort((x,y)=>{const xd=x.tournament.createdAt||'';const yd=y.tournament.createdAt||'';return xd.localeCompare(yd);});
 tourData.forEach((td, i) => {td.prevR = i > 0 ? tourData[i-1].r : null;});
 let h=`<button class="btn btn-secondary btn-sm" data-rating-back="${escapeHtml(name)}" style="margin-bottom:12px;">‹ К профилю</button><h2>📊 История рейтинга --- ${escapeHtml(name)}</h2><div class="sub-tabs" style="margin-bottom:15px;"><button class="sub-tab ${ratingHistoryMode==='graph'?'active':''}" data-rating-mode="graph">📈 График</button><button class="sub-tab ${ratingHistoryMode==='list'?'active':''}" data-rating-mode="list">📝 Разбор</button></div>`;
