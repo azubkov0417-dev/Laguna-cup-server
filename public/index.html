@@ -635,7 +635,12 @@ function getPlayerById(id){return appData.players.find(p=>p.id===id);}
 function getPlayersByTeam(id){return appData.players.filter(p=>p.teamId===id);}
 function emptyTournament(){return{teams:[],matches:[],players:[],votes:{},changeLog:[]};}
 function pluralVotes(n){const n10=n%10,n100=n%100;if(n10===1&&n100!==11)return'голос';if(n10>=2&&n10<=4&&(n100<10||n100>=20))return'голоса';return'голосов';}
-function getTournamentData(id){if(!id)return emptyTournament();if(!serverState.data[id])serverState.data[id]=emptyTournament();return serverState.data[id];}
+function getTournamentData(id){
+  if(!id)return emptyTournament();
+  if(typeof id === 'object') return id;
+  if(!serverState.data[id])serverState.data[id]=emptyTournament();
+  return serverState.data[id];
+}
 function fmtDate(iso){try{return new Date(iso).toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});}catch(e){return iso;}}
 function fmtShort(iso){try{return new Date(iso).toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});}catch(e){return iso;}}
 function getMatchTime(m){if(m.createdAt)return m.createdAt;try{const p=m.id.substring(0,8);const ts=parseInt(p,36);if(ts>1000000000000&&ts<9999999999999)return new Date(ts).toISOString();}catch(e){}return null;}
@@ -1113,12 +1118,13 @@ T = T || tournamentsList;
 let matches = 0, goals = 0, assists = 0;
 let teamGA = 0, cleanSheets = 0;
 T.forEach(t => {
-const d = getTournamentData(t.id);
+const d = getTournamentData(t.id || t);
 const p = (d.players || []).find(x => x.name === name);
 if (!p || !p.teamId) return;
 (d.matches || []).forEach(m => {
 const isA = m.teamA === p.teamId, isB = m.teamB === p.teamId;
 if (!isA && !isB) return;
+if (!isPlayerInMatch(p.id, m, isA ? 'A' : 'B')) return;
 matches++;
 const opp = isA ? (+m.scoreB || 0) : (+m.scoreA || 0);
 teamGA += opp;
@@ -3799,7 +3805,26 @@ function openEditMatchModal(mid){
 if(!requireMatchRights())return;
 const m=appData.matches.find(x=>x.id===mid);if(!m)return;
 const ta=getTeamById(m.teamA),tb=getTeamById(m.teamB);if(!ta||!tb)return;
-const pA=getPlayersByTeam(m.teamA),pB=getPlayersByTeam(m.teamB);
+
+const pA=[...getPlayersByTeam(m.teamA)];
+const pB=[...getPlayersByTeam(m.teamB)];
+(m.substitutionsA||[]).forEach(s=>{const p=getPlayerById(s.inId);if(p&&!pA.some(x=>x.id===p.id))pA.push(p);});
+(m.substitutionsB||[]).forEach(s=>{const p=getPlayerById(s.inId);if(p&&!pB.some(x=>x.id===p.id))pB.push(p);});
+
+const syncDropdowns = (players, team) => {
+    const containerId = team === 'A' ? 'editGoalsA' : 'editGoalsB';
+    document.querySelectorAll(`#${containerId} .scorer-select`).forEach(sel => {
+        const val = sel.value;
+        sel.innerHTML = `<option value="">⚽ Бомбардир</option>` + players.map(p=>`<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('');
+        if (players.some(p=>p.id===val)) sel.value = val;
+    });
+    document.querySelectorAll(`#${containerId} .assist-select`).forEach(sel => {
+        const val = sel.value;
+        sel.innerHTML = `<option value="">🎯 Ассистент</option>` + players.map(p=>`<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('');
+        if (players.some(p=>p.id===val)) sel.value = val;
+    });
+};
+
 let h=`<h2>✏️ Редактировать матч</h2><div style="font-weight:700;margin-bottom:15px;font-size:1.1rem;"><span style="color:${escapeHtml(getTeamColor(ta))};">${escapeHtml(ta.name)}</span> --- <span style="color:${escapeHtml(getTeamColor(tb))};">${escapeHtml(tb.name)}</span></div><div style="display:grid;grid-template-columns:1fr auto auto 1fr;gap:10px;align-items:center;margin-bottom:20px;"><div style="font-weight:700;text-align:right;">Счёт:</div><input type="number" id="editScoreA" min="0" value="${m.scoreA}" style="width:70px;padding:10px;border-radius:10px;border:2px solid var(--border-soft);text-align:center;font-weight:700;background:var(--input-bg);color:var(--text-main);"><input type="number" id="editScoreB" min="0" value="${m.scoreB}" style="width:70px;padding:10px;border-radius:10px;border:2px solid var(--border-soft);text-align:center;font-weight:700;background:var(--input-bg);color:var(--text-main);"><div></div></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;margin-bottom:20px;"><div><label style="font-weight:700;display:block;margin-bottom:6px;font-size:0.9rem;">🧤 Вратарь ${escapeHtml(ta.name)}</label><select id="editGkA" style="width:100%;padding:10px;border-radius:10px;border:2px solid var(--border-soft);background:var(--input-bg);color:var(--text-main);"><option value="">-- нет --</option>`;pA.forEach(p=>{h+=`<option value="${p.id}" ${m.goalkeeperA===p.id?'selected':''}>${escapeHtml(p.name)}</option>`;});h+=`</select></div><div><label style="font-weight:700;display:block;margin-bottom:6px;font-size:0.9rem;">🧤 Вратарь ${escapeHtml(tb.name)}</label><select id="editGkB" style="width:100%;padding:10px;border-radius:10px;border:2px solid var(--border-soft);background:var(--input-bg);color:var(--text-main);"><option value="">-- нет --</option>`;pB.forEach(p=>{h+=`<option value="${p.id}" ${m.goalkeeperB===p.id?'selected':''}>${escapeHtml(p.name)}</option>`;});h+=`</select></div></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;margin-bottom:20px;"><div><label style="font-weight:700;display:block;margin-bottom:6px;font-size:0.9rem;">🔄 Замены ${escapeHtml(ta.name)}</label><div id="editSubsA" class="substitution-list"></div><button class="btn btn-secondary btn-sm" id="editAddSubA" type="button" style="width:100%;justify-content:center;margin-top:6px;">➕ Замена</button></div><div><label style="font-weight:700;display:block;margin-bottom:6px;font-size:0.9rem;">🔄 Замены ${escapeHtml(tb.name)}</label><div id="editSubsB" class="substitution-list"></div><button class="btn btn-secondary btn-sm" id="editAddSubB" type="button" style="width:100%;justify-content:center;margin-top:6px;">➕ Замена</button></div></div><div style="background:#f0f7f0;border-radius:12px;padding:14px;margin-bottom:12px;"><label style="font-weight:700;display:block;margin-bottom:8px;">⚽ Голы ${escapeHtml(ta.name)}</label><div id="editGoalsA" class="scorer-list">`;(m.goalsA||[]).forEach(g=>{h+=buildGoalRowHtml(g.scorerId,g.assistId,pA);});h+=`</div><button class="btn btn-secondary btn-sm" id="editAddGoalA" type="button">➕ Гол</button></div><div style="background:#fee2e2;border-radius:12px;padding:14px;margin-bottom:12px;"><label style="font-weight:700;display:block;margin-bottom:8px;color:#b91c1c;">🥅 Автоголы ${escapeHtml(ta.name)}</label><div id="editOwnGoalsA" class="scorer-list">`;(m.ownGoalsA||[]).forEach(g=>{h+=buildOwnGoalRowHtml(g.scorerId,pA);});h+=`</div><button class="btn btn-secondary btn-sm" id="editAddOwnGoalA" type="button" style="border:2px solid #e74c3c;color:#b91c1c;">➕ Автогол</button></div><div style="background:#f0f7f0;border-radius:12px;padding:14px;margin-bottom:12px;"><label style="font-weight:700;display:block;margin-bottom:8px;">⚽ Голы ${escapeHtml(tb.name)}</label><div id="editGoalsB" class="scorer-list">`;(m.goalsB||[]).forEach(g=>{h+=buildGoalRowHtml(g.scorerId,g.assistId,pB);});h+=`</div><button class="btn btn-secondary btn-sm" id="editAddGoalB" type="button">➕ Гол</button></div><div style="background:#fee2e2;border-radius:12px;padding:14px;margin-bottom:12px;"><label style="font-weight:700;display:block;margin-bottom:8px;color:#b91c1c;">🥅 Автоголы ${escapeHtml(tb.name)}</label><div id="editOwnGoalsB" class="scorer-list">`;(m.ownGoalsB||[]).forEach(g=>{h+=buildOwnGoalRowHtml(g.scorerId,pB);});h+=`</div><button class="btn btn-secondary btn-sm" id="editAddOwnGoalB" type="button" style="border:2px solid #e74c3c;color:#b91c1c;">➕ Автогол</button></div><div style="display:flex;gap:10px;margin-top:15px;"><button class="btn btn-primary" id="saveEditMatchBtn" data-match="${m.id}" style="flex:1;justify-content:center;">💾 Сохранить</button><button class="btn btn-secondary" id="cancelEditMatchBtn" style="flex:1;justify-content:center;">Отмена</button></div>`;
 document.getElementById('editMatchContent').innerHTML=h;
 document.getElementById('editMatchModal').style.display='flex';
@@ -3809,8 +3834,8 @@ setTimeout(syncEditScore, 0);
 document.querySelectorAll('#editMatchModal .remove-goal').forEach(b=>{b.onclick=function(){this.closest('.goal-row').remove(); setTimeout(syncEditScore,0); };});
 const ps=(cid,list,tid)=>{const c=document.getElementById(cid);c.innerHTML='';(list||[]).forEach(s=>{const r=document.createElement('div');r.className='sub-row';r.innerHTML=buildSubRowInner(tid,s.outId,s.inId);c.appendChild(r);});};
 ps('editSubsA',m.substitutionsA,m.teamA);ps('editSubsB',m.substitutionsB,m.teamB);
-document.getElementById('editAddSubA').onclick=()=>{const r=document.createElement('div');r.className='sub-row';r.innerHTML=buildSubRowInner(m.teamA,null,null);document.getElementById('editSubsA').appendChild(r);};
-document.getElementById('editAddSubB').onclick=()=>{const r=document.createElement('div');r.className='sub-row';r.innerHTML=buildSubRowInner(m.teamB,null,null);document.getElementById('editSubsB').appendChild(r);};
+document.getElementById('editAddSubA').onclick=()=>{const r=document.createElement('div');r.className='sub-row';r.innerHTML=buildSubRowInner(m.teamA,null,null);document.getElementById('editSubsA').appendChild(r);r.querySelector('.sub-in-select').addEventListener('change',function(){if(this.value){const p=getPlayerById(this.value);if(p&&!pA.some(x=>x.id===p.id)){pA.push(p);syncDropdowns(pA,'A');}}});};
+document.getElementById('editAddSubB').onclick=()=>{const r=document.createElement('div');r.className='sub-row';r.innerHTML=buildSubRowInner(m.teamB,null,null);document.getElementById('editSubsB').appendChild(r);r.querySelector('.sub-in-select').addEventListener('change',function(){if(this.value){const p=getPlayerById(this.value);if(p&&!pB.some(x=>x.id===p.id)){pB.push(p);syncDropdowns(pB,'B');}}});};
 document.getElementById('editAddGoalA').onclick=()=>{const wrap=document.createElement('div');wrap.innerHTML=buildGoalRowHtml(null,null,pA);const r=wrap.firstElementChild;document.getElementById('editGoalsA').appendChild(r);r.querySelector('.remove-goal').onclick=function(){r.remove();setTimeout(syncEditScore,0);};};
 document.getElementById('editAddGoalB').onclick=()=>{const wrap=document.createElement('div');wrap.innerHTML=buildGoalRowHtml(null,null,pB);const r=wrap.firstElementChild;document.getElementById('editGoalsB').appendChild(r);r.querySelector('.remove-goal').onclick=function(){r.remove();setTimeout(syncEditScore,0);};};
 document.getElementById('editAddOwnGoalA').onclick=()=>{const wrap=document.createElement('div');wrap.innerHTML=buildOwnGoalRowHtml(null,pA);const r=wrap.firstElementChild;document.getElementById('editOwnGoalsA').appendChild(r);r.querySelector('.remove-goal').onclick=function(){r.remove();setTimeout(syncEditScore,0);};setTimeout(syncEditScore,0);};
@@ -3894,7 +3919,23 @@ syncScoreFromGoals();_lastDraftHash=_draftBodyToHash(draft);
 }
 function renderDraftBadge(){let d=null;if(serverState.data && (MATCH_DRAFT_SERVER_KEY in serverState.data)){d=serverState.data[MATCH_DRAFT_SERVER_KEY];}if(!d){try{const s=localStorage.getItem(MATCH_DRAFT_KEY);if(s)d=JSON.parse(s);}catch(e){}}if(!d||!d.savedBy)return'';if(!_draftHasContent(d))return'';const me=getCurrentUser();const isMine=me&&d.savedBy===me;const name=isMine?'вы':d.savedBy;let timeStr='';if(d.savedAt){try{const dt=new Date(d.savedAt);const now=new Date();const diff=Math.floor((now-dt)/1000);if(diff<60)timeStr='только что';else if(diff<3600)timeStr=Math.floor(diff/60)+' мин назад';else if(diff<86400)timeStr=Math.floor(diff/3600)+' ч назад';else timeStr=dt.toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});}catch(e){}}const teamA=d.teamA?(getTeamById(d.teamA)?.name||'?'):'?';const teamB=d.teamB?(getTeamById(d.teamB)?.name||'?'):'?';const gA=(d.goalsA||[]).filter(g=>g.scorerId).length+(d.ownB||[]).filter(g=>g.scorerId).length;const gB=(d.goalsB||[]).filter(g=>g.scorerId).length+(d.ownA||[]).filter(g=>g.scorerId).length;return `<div id="draftBadge" style="display:flex;align-items:center;gap:8px;background:linear-gradient(135deg,#fff8e1,#fff3cd);border:1px solid #f5a623;border-radius:12px;padding:10px 14px;margin-bottom:14px;color:#7a5a1a;font-size:0.85rem;flex-wrap:wrap;"><span style="font-size:1.2rem;">📝</span><span style="flex:1;min-width:180px;">Черновик матча <strong>${escapeHtml(teamA)} ${gA}:${gB} ${escapeHtml(teamB)}</strong> заполнил <strong>${escapeHtml(name)}</strong>${timeStr?' · '+timeStr:''}</span><button class="btn btn-primary btn-sm" id="applyDraftBtn" style="margin:0;padding:6px 14px;font-size:0.8rem;">Продолжить</button><button class="btn btn-secondary btn-sm" id="clearDraftBtn" style="margin:0;padding:6px 14px;font-size:0.8rem;">Очистить</button></div>`;}
 function updateDraftBadge(){const el=document.getElementById('draftBadge');if(!el){const panel=document.getElementById('contentPanel');if(!panel||currentTab!=='settings')return;const firstAcc=panel.querySelector('.acc-section');if(firstAcc){const wrap=document.createElement('div');wrap.innerHTML=renderDraftBadge();const newEl=wrap.firstElementChild;if(newEl)panel.insertBefore(newEl,firstAcc);}return;}const wrap=document.createElement('div');wrap.innerHTML=renderDraftBadge();const newEl=wrap.firstElementChild;if(newEl)el.replaceWith(newEl);else el.remove();}
-function addGoalRow(c,t){if(!requireMatchRights())return;if(!t)return alert('Выберите команду');const p=getPlayersByTeam(t);if(!p.length)return alert('Нет игроков');const wrap = document.createElement('div');wrap.innerHTML = buildGoalRowHtml(null, null, p);const r = wrap.firstElementChild;c.appendChild(r);r.querySelector('.remove-goal').addEventListener('click',()=>{r.remove();syncScoreFromGoals();saveMatchDraft();});}
+function addGoalRow(c,t){
+  if(!requireMatchRights())return;
+  if(!t)return alert('Выберите команду');
+  const p=[...getPlayersByTeam(t)];
+  const subContainerId = c.id === 'goalsA' ? 'substitutionsA' : (c.id === 'goalsB' ? 'substitutionsB' : null);
+  if(subContainerId){
+    document.querySelectorAll(`#${subContainerId} .sub-in-select`).forEach(sel=>{
+      if(sel.value){const pl=getPlayerById(sel.value);if(pl&&!p.some(x=>x.id===pl.id))p.push(pl);}
+    });
+  }
+  if(!p.length)return alert('Нет игроков');
+  const wrap = document.createElement('div');
+  wrap.innerHTML = buildGoalRowHtml(null, null, p);
+  const r = wrap.firstElementChild;
+  c.appendChild(r);
+  r.querySelector('.remove-goal').addEventListener('click',()=>{r.remove();syncScoreFromGoals();saveMatchDraft();});
+}
 function handleAddMatch(){
 if(_addingMatch) return;
 if(!requireMatchRights()) return;
@@ -4169,6 +4210,26 @@ if(e.target.classList && e.target.classList.contains('trend-player-cb')){const n
 if(e.target.closest&&e.target.closest('[data-acc="add-match"]'))saveMatchDraft();
 if(e.target.classList&&e.target.classList.contains('scorer-select')&&(e.target.closest('#goalsA')||e.target.closest('#goalsB'))){syncScoreFromGoals();saveMatchDraft();}
 if(e.target.classList&&e.target.classList.contains('own-scorer-select')){syncScoreFromGoals();saveMatchDraft();}
+if(e.target.classList.contains('sub-in-select') && (e.target.closest('#substitutionsA')||e.target.closest('#substitutionsB'))){
+      const isA = !!e.target.closest('#substitutionsA');
+      const p = isA ? [...getPlayersByTeam(document.getElementById('matchTeamA').value)] : [...getPlayersByTeam(document.getElementById('matchTeamB').value)];
+      
+      document.querySelectorAll(`#${isA?'substitutionsA':'substitutionsB'} .sub-in-select`).forEach(sel=>{
+          if(sel.value){const pl=getPlayerById(sel.value);if(pl&&!p.some(x=>x.id===pl.id))p.push(pl);}
+      });
+      
+      const containerId = isA ? 'goalsA' : 'goalsB';
+      document.querySelectorAll(`#${containerId} .scorer-select`).forEach(sel => {
+          const val = sel.value;
+          sel.innerHTML = `<option value="">⚽ Бомбардир</option>` + p.map(x=>`<option value="${x.id}">${escapeHtml(x.name)}</option>`).join('');
+          if(p.some(x=>x.id===val)) sel.value = val;
+      });
+      document.querySelectorAll(`#${containerId} .assist-select`).forEach(sel => {
+          const val = sel.value;
+          sel.innerHTML = `<option value="">🎯 Ассистент</option>` + p.map(x=>`<option value="${x.id}">${escapeHtml(x.name)}</option>`).join('');
+          if(p.some(x=>x.id===val)) sel.value = val;
+      });
+}
 });
 document.addEventListener('input',function(e){if(e.target.closest&&e.target.closest('[data-acc="add-match"]'))saveMatchDraft();});
 document.addEventListener('keydown',function(e){
